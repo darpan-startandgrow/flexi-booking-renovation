@@ -50,8 +50,9 @@ abstract class FlexiVoucher {
      * @author Darpan
     */
     protected function getBookingDetails(): array {
-        $safe_code = esc_sql( $this->voucherCode );
-        $booking   = $this->dbHandler->get_all_result(
+        // Use prepare_sql() to safely parameterize the voucher code value in the WHERE clause.
+        $additional = $this->dbHandler->prepare_sql( 'vouchers IN(%s)', $this->voucherCode );
+        $booking    = $this->dbHandler->get_all_result(
             'BOOKING',
             '*',
             1,
@@ -60,7 +61,7 @@ abstract class FlexiVoucher {
             false,
             null,
             false,
-            'vouchers IN("' . $safe_code . '")',
+            $additional,
             'ARRAY_A'
         );
 

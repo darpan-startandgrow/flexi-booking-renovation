@@ -1981,7 +1981,7 @@ class Booking_API
         $message = '';
 
         if (isset($validateVoucher['error']) || !$validateVoucher) {
-            $error_msg = isset($validateVoucher['error']) ? sanitize_text_field( $validateVoucher['error'] ) : 'Voucher is not yet redeemed';
+            $error_msg = isset($validateVoucher['error']) ? sanitize_text_field( $validateVoucher['error'] ) : __( 'Voucher is not yet redeemed', 'service-booking' );
             $message = esc_html($error_msg);
             return rest_ensure_response([
                 'status' => 200,

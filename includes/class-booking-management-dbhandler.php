@@ -1124,8 +1124,13 @@ class BM_DBhandler {
 	 * @return void
 	 */
 	public function delete_transients_by_prefix( string $prefix ): void {
+		// Restrict prefix to safe characters only to prevent injection.
+		$prefix = preg_replace( '/[^a-zA-Z0-9_-]/', '', $prefix );
+		if ( empty( $prefix ) ) {
+			return;
+		}
 		global $wpdb;
-		$like_value  = $wpdb->esc_like( '_transient_' . $prefix ) . '%';
+		$like_value   = $wpdb->esc_like( '_transient_' . $prefix ) . '%';
 		$like_timeout = $wpdb->esc_like( '_transient_timeout_' . $prefix ) . '%';
 		$wpdb->query(
 			$wpdb->prepare(
