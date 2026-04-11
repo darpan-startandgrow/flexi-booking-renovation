@@ -173,7 +173,7 @@ if ( $voucher_code && !$BookDate ) {
             <div class="products">
                 <?php foreach ( $products['products'] as $product ) { ?>
                     <div class="product-card">
-                        <img src="<?php echo esc_html( $product['image'] ); ?>" alt="<?php echo esc_html( $product['name'] ); ?>">
+                        <img src="<?php echo esc_url( $product['image'] ); ?>" alt="<?php echo esc_html( $product['name'] ); ?>">
                         <div class="product-details">
                             <h3><?php echo esc_html( $product['name'] ); ?></h3>
                             <p><?php echo esc_html__( 'Quantity: ', 'service-booking' ) . esc_html( $product['quantity'] ); ?></p>

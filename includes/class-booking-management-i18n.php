@@ -168,8 +168,8 @@ class Booking_Management_i18n {
 	 * @since 1.0.0
 	 */
 	public function bm_remove_option_language_plugin( $plugin ) {
-		if ( $plugin != 'none' ) {
-			delete_option( 'lang_plugin', $plugin );
+		if ( $plugin !== 'none' ) {
+			delete_option( 'lang_plugin' );
 		}
 	}//end bm_remove_option_language_plugin()
 

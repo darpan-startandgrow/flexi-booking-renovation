@@ -20,44 +20,47 @@ use Dompdf\Dompdf;
 class BM_Request {
 
 	public function sanitize_request( $post, $identifier, $exclude = array() ) {
-		$bmsanitizer = new BM_Sanitizer();
+		if ( empty( $post ) || ! is_array( $post ) ) {
+			return null;
+		}
 
-		$post = $bmsanitizer->remove_magic_quotes( $post );
+		$bmsanitizer = new BM_Sanitizer();
+		$post        = $bmsanitizer->remove_magic_quotes( $post );
+		$data        = array();
 
 		foreach ( $post as $key => $value ) {
-			if ( ! in_array( $key, $exclude ) ) {
-				if ( ! is_array( $value ) ) {
-					$data[ $key ] = $bmsanitizer->get_sanitized_fields( $identifier, $key, $value );
-				} else {
-					$data[ $key ] = maybe_serialize( $this->sanitize_request_array( $value, $identifier ) );
-				}
+			if ( in_array( $key, $exclude, true ) ) {
+				continue;
+			}
+
+			if ( ! is_array( $value ) ) {
+				$data[ $key ] = $bmsanitizer->get_sanitized_fields( $identifier, $key, $value );
+			} else {
+				$data[ $key ] = maybe_serialize( $this->sanitize_request_array( $value, $identifier ) );
 			}
 		}
 
-		if ( isset( $data ) ) {
-			return $data;
-		} else {
-			return null;
-		}
+		return ! empty( $data ) ? $data : null;
 	}//end sanitize_request()
 
 
-	public function sanitize_request_array( $post, $identifier ) {
+	public function sanitize_request_array( $post, $identifier, $depth = 0 ) {
+		if ( empty( $post ) || ! is_array( $post ) || $depth > 10 ) {
+			return null;
+		}
+
 		$bmsanitizer = new BM_Sanitizer();
+		$data        = array();
 
 		foreach ( $post as $key => $value ) {
 			if ( is_array( $value ) ) {
-				$data[ $key ] = $this->sanitize_request_array( $value, $identifier );
+				$data[ $key ] = $this->sanitize_request_array( $value, $identifier, $depth + 1 );
 			} else {
 				$data[ $key ] = $bmsanitizer->get_sanitized_fields( $identifier, $key, $value );
 			}
 		}
 
-		if ( isset( $data ) ) {
-			return $data;
-		} else {
-			return null;
-		}
+		return ! empty( $data ) ? $data : null;
 	}//end sanitize_request_array()
 
 
@@ -15959,7 +15962,10 @@ class BM_Request {
 			),
 		);
 
-		global $wpdb;
+		$bm_activator   = new Booking_Management_Activator();
+		$booking_table  = esc_sql( $bm_activator->get_db_table_name( 'BOOKING' ) );
+		$extra_sc_table = esc_sql( $bm_activator->get_db_table_name( 'EXTRASVCBOOKINGCOUNT' ) );
+		$extra_table    = esc_sql( $bm_activator->get_db_table_name( 'EXTRA' ) );
 
 		$columns = '
             c.id as customer_id, c.customer_name, c.customer_email, c.billing_details, c.is_active, c.customer_created_at,
@@ -15990,7 +15996,7 @@ class BM_Request {
                         SUM(b2.total_svc_slots) AS total_ordered,
                         SUM(b2.service_cost) AS total_revenue,
                         COUNT(DISTINCT b2.service_id) AS unique_product
-                    FROM ' . $wpdb->prefix . 'sgbm_booking b2
+                    FROM ' . $booking_table . ' b2
                     WHERE b2.customer_id = customer_id AND b2.order_status NOT IN ("processing", "cancelled", "on_hold", "pending") AND b2.is_active=1
                     GROUP BY b2.service_id
                 ) AS service_summary
@@ -16007,11 +16013,11 @@ class BM_Request {
                         SUM(exsc.slots_booked) AS total_ordered,
                         SUM(exsc.slots_booked * ex.extra_price) AS total_revenue,
                         COUNT(DISTINCT exsc.extra_svc_id) AS unique_product
-                    FROM  ' . $wpdb->prefix . 'sgbm_extra_svc_booking_count exsc
-                    INNER JOIN  ' . $wpdb->prefix . 'sgbm_service_extras ex ON ex.id = exsc.extra_svc_id
+                    FROM  ' . $extra_sc_table . ' exsc
+                    INNER JOIN  ' . $extra_table . ' ex ON ex.id = exsc.extra_svc_id
                     WHERE exsc.booking_id IN (
                         SELECT b.id
-                        FROM  ' . $wpdb->prefix . 'sgbm_booking b
+                        FROM  ' . $booking_table . ' b
                         WHERE b.customer_id = customer_id AND b.order_status NOT IN ("processing", "cancelled", "on_hold", "pending") AND b.is_active=1
                     )
                     GROUP BY exsc.service_id

@@ -16,7 +16,7 @@ abstract class FlexiVoucher {
     protected $dbHandler;
 
     protected function __construct( $voucherCode ) {
-        $this->voucherCode = $voucherCode;
+        $this->voucherCode = sanitize_text_field( $voucherCode );
         $this->dbHandler   = new BM_DBhandler();
     }
 
@@ -50,7 +50,8 @@ abstract class FlexiVoucher {
      * @author Darpan
     */
     protected function getBookingDetails(): array {
-        $booking = $this->dbHandler->get_all_result(
+        $safe_code = esc_sql( $this->voucherCode );
+        $booking   = $this->dbHandler->get_all_result(
             'BOOKING',
             '*',
             1,
@@ -59,7 +60,7 @@ abstract class FlexiVoucher {
             false,
             null,
             false,
-            'vouchers IN("' . $this->voucherCode . '")',
+            'vouchers IN("' . $safe_code . '")',
             'ARRAY_A'
         );
 

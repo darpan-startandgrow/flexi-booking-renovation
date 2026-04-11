@@ -338,25 +338,22 @@ class WooCommerceService {
      */
     private static function get_wc_product_id_by_title( $title = '' ) {
         if ( !empty( $title ) ) {
-            global $wpdb;
-            $post_title = strval( $title );
-            $post_table = $wpdb->prefix . 'posts';
-
-            $result = $wpdb->get_col(
-                $wpdb->prepare(
-                    'SELECT ID FROM %s WHERE post_title LIKE %s AND post_type LIKE %s',
-                    $post_table,
-                    $post_title,
-                    'product'
+            $posts = get_posts(
+                array(
+                    'post_type'      => 'product',
+                    'title'          => sanitize_text_field( $title ),
+                    'posts_per_page' => 1,
+                    'post_status'    => 'any',
+                    'fields'         => 'ids',
                 )
             );
 
-            if ( empty( $result[0] ) ) {
+            if ( empty( $posts ) ) {
                 return 0;
-            } else {
-                $product = wc_get_product( intval( $result[0] ) );
-                return !empty( $product ) ? $product->get_id() : 0;
             }
+
+            $product = wc_get_product( intval( $posts[0] ) );
+            return !empty( $product ) ? $product->get_id() : 0;
         }//end if
 
         return 0;

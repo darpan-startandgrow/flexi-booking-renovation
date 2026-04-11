@@ -1742,19 +1742,21 @@ class Booking_Management_Activator {
 
 	private function add_error_column_to_emails() {
 		global $wpdb;
-		$table_name = $this->get_db_table_name( 'EMAILS' );
-		$row        = $wpdb->get_results( "SHOW COLUMNS FROM $table_name LIKE 'error_message'" );
+		$table_name = esc_sql( $this->get_db_table_name( 'EMAILS' ) );
+		$row        = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `%1s` LIKE %s", $table_name, 'error_message' ) );
 		if ( empty( $row ) ) {
-			$wpdb->query( "ALTER TABLE $table_name ADD `error_message` text NULL AFTER `mail_lang`" );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `error_message` text NULL AFTER `mail_lang`" );
 		}
 	}
 
 	private function add_error_column_to_failed_transactions() {
 		global $wpdb;
-		$table_name = $this->get_db_table_name( 'FAILED_TRANSACTIONS' );
-		$row        = $wpdb->get_results( "SHOW COLUMNS FROM $table_name LIKE 'error_message'" );
+		$table_name = esc_sql( $this->get_db_table_name( 'FAILED_TRANSACTIONS' ) );
+		$row        = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `%1s` LIKE %s", $table_name, 'error_message' ) );
 		if ( empty( $row ) ) {
-			$wpdb->query( "ALTER TABLE $table_name ADD `error_message` text NULL AFTER `refund_status`" );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `error_message` text NULL AFTER `refund_status`" );
 		}
 	}
 

@@ -54,26 +54,43 @@ class Booking_Management_SMTP {
     public function bm_mail_connection( $phpmailer ) {
         $dbhandler = new BM_DBhandler();
 
-        $enable_smtp = $dbhandler->get_global_option_value( 'bm_enable_smtp', 0 );
+        $smtp_options = $dbhandler->get_global_options(
+            array(
+                'bm_enable_smtp',
+                'bm_smtp_host',
+                'bm_smtp_port',
+                'bm_smtp_encription',
+                'bm_smtp_authentication',
+                'bm_smtp_username',
+                'bm_smtp_password',
+                'bm_smtp_from_email_address',
+                'bm_smtp_from_email_name',
+            ),
+            array(
+                'bm_enable_smtp'              => 0,
+                'bm_smtp_from_email_address'  => get_option( 'admin_email' ),
+                'bm_smtp_from_email_name'     => get_bloginfo( 'name' ),
+            )
+        );
 
-        if ( $enable_smtp == 1 ) {
+        if ( $smtp_options['bm_enable_smtp'] == 1 ) {
             $phpmailer->Mailer     = 'smtp';
-            $phpmailer->Host       = $dbhandler->get_global_option_value( 'bm_smtp_host' );
-            $phpmailer->Port       = $dbhandler->get_global_option_value( 'bm_smtp_port' );
-            $phpmailer->SMTPSecure = $dbhandler->get_global_option_value( 'bm_smtp_encription' );
-            $phpmailer->SMTPAuth   = $dbhandler->get_global_option_value( 'bm_smtp_authentication' ) == 'true' ? true : false;
+            $phpmailer->Host       = sanitize_text_field( $smtp_options['bm_smtp_host'] );
+            $phpmailer->Port       = absint( $smtp_options['bm_smtp_port'] );
+            $phpmailer->SMTPSecure = sanitize_text_field( $smtp_options['bm_smtp_encription'] );
+            $phpmailer->SMTPAuth   = ( $smtp_options['bm_smtp_authentication'] === 'true' );
 
             if ( $phpmailer->SMTPAuth ) {
-                $phpmailer->Username = $dbhandler->get_global_option_value( 'bm_smtp_username' );
-                $phpmailer->Password = $dbhandler->get_global_option_value( 'bm_smtp_password' );
+                $phpmailer->Username = $smtp_options['bm_smtp_username'];
+                $phpmailer->Password = $smtp_options['bm_smtp_password'];
             }
         } else {
             $phpmailer->isMail();
         }
 
         // Set "From" details (should always be applied)
-        $phpmailer->From     = $dbhandler->get_global_option_value( 'bm_smtp_from_email_address', get_option( 'admin_email' ) );
-        $phpmailer->FromName = $dbhandler->get_global_option_value( 'bm_smtp_from_email_name', get_bloginfo( 'name' ) );
+        $phpmailer->From     = sanitize_email( $smtp_options['bm_smtp_from_email_address'] );
+        $phpmailer->FromName = sanitize_text_field( $smtp_options['bm_smtp_from_email_name'] );
         $phpmailer->Sender   = $phpmailer->From;
         $phpmailer->AddReplyTo( $phpmailer->From, $phpmailer->FromName );
     } // end bm_smtp_connection()

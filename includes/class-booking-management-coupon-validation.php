@@ -61,7 +61,7 @@ class BM_Coupon_validation {
         $resp       = '';
         $values     = array();
 
-        switch ( $module ) {
+        switch ( true ) {
             case ( $module == 'SERVICE' ):
                 $tag      = 'excluded_services';
                 $services = $dbhandler->get_all_result( $module, '*', 1, 'results' );
@@ -107,7 +107,7 @@ class BM_Coupon_validation {
         if ( !empty( $values ) && is_array( $values ) && array_filter( $values ) ) {
             if ( empty( $coupon_id ) ) {
                 foreach ( $values as $key => $value ) {
-                    $resp .= '<option value="' . $key . '">' . $value . '</option>';
+                    $resp .= '<option value="' . esc_attr( $key ) . '">' . esc_html( $value ) . '</option>';
                 }
             } 
             elseif ( $coupon_id > 0 && $array_key >= 0 && $additional_tag == 'included_services' ) {
@@ -115,7 +115,7 @@ class BM_Coupon_validation {
                 $con_values = isset( $coupon->included_services ) ? maybe_unserialize( $coupon->included_services ) : array();
 
                 foreach ( $values as $key => $value ) {
-                    $resp .= '<option value="' . $key . '" ' . ( in_array( $key, $con_values ) ? 'selected' : '' ) . '>' . $value . '</option>';
+                    $resp .= '<option value="' . esc_attr( $key ) . '" ' . ( in_array( $key, $con_values ) ? 'selected' : '' ) . '>' . esc_html( $value ) . '</option>';
                 }
             }
             elseif( $coupon_id > 0 && $array_key >= 0 && $additional_tag == '' ){
@@ -124,7 +124,7 @@ class BM_Coupon_validation {
                 $con_values = isset( $conditions[ $tag ] ) ? $conditions[ $tag ] : array();
 
                 foreach ( $values as $key => $value ) {
-                    $resp .= '<option value="' . $key . '" ' . ( in_array( $key, $con_values ) ? 'selected' : '' ) . '>' . $value . '</option>';
+                    $resp .= '<option value="' . esc_attr( $key ) . '" ' . ( in_array( $key, $con_values ) ? 'selected' : '' ) . '>' . esc_html( $value ) . '</option>';
                 }
             }
         }
