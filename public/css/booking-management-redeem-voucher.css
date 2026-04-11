@@ -1,0 +1,470 @@
+/* Voucher redeem page css */
+
+/* Bredcrumb */
+.bred {
+    display: ruby-text;
+    margin-top: 40px;
+    position: relative;
+    left: 27%;
+}
+
+i.fa.fa-circle {
+    font-size: 7px;
+    margin: 0px 8px;
+    vertical-align: middle;
+}
+
+.breadcrumbs-item {
+    text-transform: uppercase;
+    font-weight: 400;
+    font-size: 16px;
+}
+
+.breadcrumbs-item-link {
+    text-decoration: none;
+}
+
+.breadcrumbs-item.active-line {
+    font-weight: 600;
+}
+
+.not-allowed a {
+    color: #B8B8B8;
+    cursor: not-allowed;
+}
+
+
+
+/* Voucher Box */
+.voucher_label {
+    display: block;
+    width: 100%;
+    margin-bottom: 0px;
+    font-size: 14px;
+    transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.basic-addon1 {
+    margin-top: -8px;
+    height: 43px;
+}
+
+.tickicon {
+    position: absolute;
+    right: 163px;
+    top: 19px;
+    padding: 2px;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    border: 1px solid #88C110;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.tickicon i {
+    text-align: center;
+    font-size: 14px;
+    color: #88C110;
+    position: relative;
+    bottom: 2px;
+}
+
+.voucherbox {
+    margin-top: 14px;
+    margin-bottom: 15px;
+}
+
+.voucherbox .input-group>.form-control {
+    border-top-right-radius: 0px;
+    border-bottom-right-radius: 0px;
+}
+
+.voucherbox .input-group>.input-group-prepend>.input-group-text {
+    border-top-left-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+
+.voucherbox .input-group>.input-group-prepend>button {
+    cursor: pointer;
+    width: 84px;
+    height: 42px;
+}
+
+.redeem-page-voucher {
+    margin-top: 0px !important;
+}
+
+.redeem-page-voucher input {
+    margin: 0 !important;
+    height: 43px !important;
+    min-width: 300px !important;
+    width: 500px !important;
+}
+
+.button-class {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    position: relative;
+}
+
+.spinner-button {
+    cursor: pointer;
+    height: 42px;
+    width: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.spinner {
+    color: #ffffff;
+    font-size: 22px;
+    text-indent: -99999px;
+    margin: 0px auto;
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    box-shadow: inset 0 0 0 2px;
+    -webkit-transform: translateZ(0);
+    -ms-transform: translateZ(0);
+    transform: translateZ(0);
+}
+
+.spinner,
+.spinner:before,
+.spinner:after {
+    border-radius: 50%;
+}
+
+.spinner-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.bm-notice {
+    float: none !important;
+    font-size: 16px !important;
+}
+
+.bm-notice .bm-error {
+    border-left: 4px solid #ff1500;
+    background: #fff;
+}
+
+.recipient_errortext {
+    color: #fb0000 !important;
+    font-size: 12px;
+}
+
+.entry-content .booking_details {
+    display: grid !important;
+}
+
+.booking_details span.positioned {
+    position: absolute;
+    margin: 14px;
+}
+
+.booking_details .billing-shipping .th-positioned {
+    padding-bottom: 10px !important;
+    position: relative;
+    left: 340px;
+}
+
+/* Redeemed voucher box */
+.voucher-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px;
+    margin: 20px 0;
+    border: 2px dashed #ff6f61;
+    border-radius: 8px;
+    background-color: #fff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.voucher-details {
+    flex-grow: 1;
+    padding-right: 20px;
+}
+
+.voucher-details h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+}
+
+.voucher-details p {
+    margin: 5px 0 0;
+    font-size: 14px;
+    color: #666;
+}
+
+.voucher-time {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.voucher-time span {
+    font-size: 20px;
+    font-weight: bold;
+    color: #ff6f61;
+    margin-right: 10px;
+}
+
+.voucher-time button {
+    padding: 5px 10px;
+    border: 1px solid #ff6f61;
+    background-color: transparent;
+    color: #ff6f61;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.voucher-time button:hover {
+    background-color: #ff6f61;
+    color: #fff;
+}
+
+
+/* Book date, slot and next button */
+.book-slot-section {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.book-slot-section span {
+    flex-grow: 1;
+}
+
+.book-slot-section label {
+    display: flex !important;
+    margin-bottom: 5px !important;
+    font-size: 14px !important;
+    font-weight: bold !important;
+    color: #333 !important;
+}
+
+.book-slot-section input[type="date"],
+.book-slot-section select {
+    width: 100% !important;
+    padding: 8px 10px !important;
+    border: 1px solid #ccc !important;
+    border-radius: 4px !important;
+    font-size: 14px !important;
+    margin: 0px !important;
+}
+
+.book-slot-section button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    flex-grow: 0;
+    height: 34px;
+    margin-top: 21px !important;
+}
+
+.book-slot-section button:hover {
+    background-color: #707171;
+}
+
+/* Product information in book slot */
+.product-container {
+    margin: 20px auto;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.product-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.product-header h1 {
+    font-size: 1.5rem;
+    margin: 0;
+    color: #333;
+    font-weight: 500;
+}
+
+.products {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.product-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+}
+
+.product-card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.product-details {
+    padding: 15px;
+}
+
+.product-details h3 {
+    font-size: 1.5rem;
+    margin: 0 0 10px;
+    color: #333;
+}
+
+.product-details p {
+    margin: 5px 0;
+    color: #555;
+    font-size: 14px;
+}
+
+.product-details .price {
+    font-weight: bold;
+    color: #1abc9c;
+}
+
+.product-summary {
+    margin-top: 30px;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.product-summary p {
+    margin: 5px 0;
+    color: #333;
+}
+
+.product-summary .total {
+    font-weight: bold;
+    color: #e74c3c;
+}
+
+/* Confirm form */
+#recipient_details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+#recipient_details .formbox {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+    width: calc(50% - 10px);
+}
+
+#recipient_details .formbox label {
+    font-size: 0.9em;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+#recipient_details .formbox input,
+#recipient_details .formbox textarea,
+#recipient_details .formbox select {
+    width: 100% !important;
+    font-size: 0.9em !important;
+    border: 1px solid #ddd !important;
+    border-radius: 5px !important;
+    background: #fff !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s;
+}
+
+#recipient_details .formbox input:focus,
+#recipient_details .formbox textarea:focus,
+#recipient_details .formbox select:focus {
+    border-color: #4a4b4c !important;
+    box-shadow: 0 0 5px rgba(87, 89, 91, 0.5);
+    outline: none;
+}
+
+#recipient_details .formbox.textarea-formbox {
+    width: 100% !important;
+}
+
+#recipient_details .formbox textarea {
+    resize: none;
+}
+
+#recipient_details .field-group {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 30px;
+}
+
+.relative-positioned {
+    position: relative;
+    left: 38%;
+}
+
+#recipient_details #redeemConfirm,
+.redeem_home {
+    width: 150px;
+}
+
+#voucher_code {
+    width: 319px !important;
+    min-width: initial !important;
+    border-top-right-radius: 0px !important;
+    border-bottom-right-radius: 0px !important;
+    height: 50px !important;
+}
+
+.redeem-page-voucher button#get_voucher{
+    width: 129px;
+    height: 50px;
+}
+
+.voucher-redeem-main-box{
+    text-align: center;
+}
+
+.voucher-redeem-main-box .bred{
+    left: auto;
+}
+
+.voucher-redeem-main-box .redeem-page-voucher{
+        width: 450px;
+    margin: auto;
+}
+
+.voucher-redeem-main-box .input-group-text {
+        border-radius: 0px 4px 4px 0px !important;
+}

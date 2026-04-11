@@ -1,0 +1,2043 @@
+.fc-scroller table{
+    margin:0px !important;
+}
+.fc-daygrid-block-event{
+    text-decoration: none !important;
+}
+.timeslot-calendar-container .fc-unthemed th,
+.timeslot-calendar-container .fc-unthemed td,
+.timeslot-calendar-container .fc-unthemed thead,
+.timeslot-calendar-container .fc-unthemed tbody,
+.timeslot-calendar-container .fc-unthemed .fc-divider,
+.timeslot-calendar-container .fc-unthemed .fc-row,
+.timeslot-calendar-container .fc-unthemed .fc-content,
+/* for gutter border */
+.timeslot-calendar-container .fc-unthemed .fc-popover,
+.timeslot-calendar-container .fc-unthemed .fc-list-view,
+.timeslot-calendar-container .fc-unthemed .fc-list-heading td {
+    border-color: #ddd;
+}
+
+.timeslot-calendar-container .fc-unthemed .fc-popover {
+    background-color: #fff;
+}
+
+.timeslot-calendar-container .fc-unthemed .fc-divider,
+.timeslot-calendar-container .fc-unthemed .fc-popover .fc-header,
+.timeslot-calendar-container .fc-unthemed .fc-list-heading td {
+    background: #eee;
+    display: none;
+}
+
+.timeslot-calendar-container .fc-unthemed .fc-popover .fc-header .fc-close {
+    color: #666;
+}
+
+.timeslot-calendar-container .fc-unthemed td.fc-today,
+.timeslot-calendar-container .fc .fc-daygrid-day.fc-day-today {
+    background: #e8ffe4 !important;
+}
+
+.timeslot-calendar-container .fc-highlight {
+    /* when user is selecting cells */
+    /* background: #bce8f1; */
+    opacity: .3;
+}
+
+.timeslot-calendar-container .fc-bgevent {
+    /* default look for background events */
+    background: rgb(143, 223, 130);
+    opacity: .3;
+}
+
+.timeslot-calendar-container .fc-nonbusiness {
+    /* default look for non-business-hours areas */
+    /* will inherit .fc-bgevent's styles */
+    /* background: #d7d7d7; */
+}
+
+
+/* Icons (inline elements with styled text that mock arrow icons)
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-icon {
+    display: inline-block;
+    height: 1em;
+    line-height: 1em;
+    font-size: 1em;
+    text-align: center;
+    overflow: hidden;
+    font-family: "Courier New", Courier, monospace;
+
+    /* don't allow browser text-selection */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/*
+Acceptable font-family overrides for individual icons:
+	"Arial", sans-serif
+	"Times New Roman", serif
+
+NOTE: use percentage font sizes or else old IE chokes
+*/
+
+.timeslot-calendar-container .fc-icon:after {
+    position: relative;
+}
+
+
+.timeslot-calendar-container .fc-icon-left-single-arrow:after {
+    content: "\02039";
+    font-weight: bold;
+    font-size: 200%;
+    top: -7%;
+}
+
+.timeslot-calendar-container .fc-icon-right-single-arrow:after {
+    content: "\0203A";
+    font-weight: bold;
+    font-size: 200%;
+    top: -7%;
+}
+
+.timeslot-calendar-container .fc-icon-left-double-arrow:after {
+    content: "\000AB";
+    font-size: 160%;
+    top: -7%;
+}
+
+.timeslot-calendar-container .fc-icon-right-double-arrow:after {
+    content: "\000BB";
+    font-size: 160%;
+    top: -7%;
+}
+
+.timeslot-calendar-container .fc-icon-left-triangle:after {
+    content: "\25C4";
+    font-size: 125%;
+    top: 3%;
+}
+
+.timeslot-calendar-container .fc-icon-right-triangle:after {
+    content: "\25BA";
+    font-size: 125%;
+    top: 3%;
+}
+
+.timeslot-calendar-container .fc-icon-down-triangle:after {
+    content: "\25BC";
+    font-size: 125%;
+    top: 2%;
+}
+
+.timeslot-calendar-container .fc-icon-x:after {
+    content: "\000D7";
+    font-size: 200%;
+    top: 6%;
+}
+
+
+/* Buttons (styled <button> tags, normalized to work cross-browser)
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc button {
+    /* force height to include the border and padding */
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+
+    /* dimensions */
+    margin: 0;
+    height: 2.1em;
+    padding: 0 .6em;
+
+    /* text & cursor */
+    font-size: 1em;
+    /* normalize */
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* Firefox has an annoying inner border */
+.timeslot-calendar-container .fc button::-moz-focus-inner {
+    margin: 0;
+    padding: 0;
+}
+
+.timeslot-calendar-container .fc-state-default {
+    /* non-theme */
+    border: 1px solid;
+}
+
+.timeslot-calendar-container .fc-state-default.fc-corner-left {
+    /* non-theme */
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+}
+
+.timeslot-calendar-container .fc-state-default.fc-corner-right {
+    /* non-theme */
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+/* icons in buttons */
+
+.timeslot-calendar-container .fc button .fc-icon {
+    /* non-theme */
+    position: relative;
+    top: -0.05em;
+    /* seems to be a good adjustment across browsers */
+    margin: 0 .2em;
+    vertical-align: middle;
+}
+
+/*
+  button states
+  borrowed from twitter bootstrap (http://twitter.github.com/bootstrap/)
+*/
+
+.timeslot-calendar-container .fc-state-default {
+    background-color: #f5f5f5;
+    background-image: -moz-linear-gradient(top, #ffffff, #e6e6e6);
+    background-image: -webkit-gradient(linear, 0 0, 0 100%, from(#ffffff), to(#e6e6e6));
+    background-image: -webkit-linear-gradient(top, #ffffff, #e6e6e6);
+    background-image: -o-linear-gradient(top, #ffffff, #e6e6e6);
+    background-image: linear-gradient(to bottom, #ffffff, #e6e6e6);
+    background-repeat: repeat-x;
+    border-color: #e6e6e6 #e6e6e6 #bfbfbf;
+    border-color: rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.25);
+    color: #333;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.75);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.timeslot-calendar-container .fc-state-hover,
+.timeslot-calendar-container .fc-state-down,
+.timeslot-calendar-container .fc-state-active,
+.timeslot-calendar-container .fc-state-disabled {
+    color: #333333;
+    background-color: #e6e6e6;
+}
+
+.timeslot-calendar-container .fc-state-hover {
+    color: #333333;
+    text-decoration: none;
+    background-position: 0 -15px;
+    -webkit-transition: background-position 0.1s linear;
+    -moz-transition: background-position 0.1s linear;
+    -o-transition: background-position 0.1s linear;
+    transition: background-position 0.1s linear;
+}
+
+.timeslot-calendar-container .fc-state-down,
+.timeslot-calendar-container .fc-state-active {
+    background-color: #cccccc;
+    background-image: none;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.timeslot-calendar-container .fc-state-disabled {
+    cursor: default;
+    background-image: none;
+    opacity: 0.65;
+    box-shadow: none;
+}
+
+
+/* Buttons Groups
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-button-group {
+    display: inline-block;
+}
+
+/*
+every button that is not first in a button group should scootch over one pixel and cover the
+previous button's border...
+*/
+
+.timeslot-calendar-container .fc .fc-button-group>* {
+    /* extra precedence b/c buttons have margin set to zero */
+    float: left;
+    margin: 0 0 0 -1px;
+}
+
+.timeslot-calendar-container .fc .fc-button-group> :first-child {
+    /* same */
+    margin-left: 0;
+}
+
+
+/* Popover
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-popover {
+    position: absolute;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+}
+
+.timeslot-calendar-container .fc-popover .fc-header {
+    /* TODO: be more consistent with fc-head/fc-body */
+    padding: 2px 4px;
+}
+
+.timeslot-calendar-container .fc-popover .fc-header .fc-title {
+    margin: 0 2px;
+}
+
+.timeslot-calendar-container .fc-popover .fc-header .fc-close {
+    cursor: pointer;
+}
+
+.timeslot-calendar-container .fc-ltr .fc-popover .fc-header .fc-title,
+.timeslot-calendar-container .fc-rtl .fc-popover .fc-header .fc-close {
+    float: left;
+}
+
+.timeslot-calendar-container .fc-rtl .fc-popover .fc-header .fc-title,
+.timeslot-calendar-container .fc-ltr .fc-popover .fc-header .fc-close {
+    float: right;
+}
+
+/* unthemed */
+
+.timeslot-calendar-container .fc-unthemed .fc-popover {
+    border-width: 1px;
+    border-style: solid;
+}
+
+.timeslot-calendar-container .fc-unthemed .fc-popover .fc-header .fc-close {
+    font-size: .9em;
+    margin-top: 2px;
+}
+
+/* jqui themed */
+
+.timeslot-calendar-container .fc-popover>.ui-widget-header+.ui-widget-content {
+    border-top: 0;
+    /* where they meet, let the header have the border */
+}
+
+
+/* Misc Reusable Components
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-divider {
+    border-style: solid;
+    border-width: 1px;
+}
+
+.timeslot-calendar-container .fc-divider {
+    height: 0;
+    margin: 0;
+    padding: 0 0 2px;
+    /* height is unreliable across browsers, so use padding */
+    border-width: 1px 0;
+}
+
+.timeslot-calendar-container .fc-clear {
+    clear: both;
+}
+
+.timeslot-calendar-container .fc-bg,
+.timeslot-calendar-container .fc-bgevent-skeleton,
+.timeslot-calendar-container .fc-highlight-skeleton,
+.timeslot-calendar-container .fc-helper-skeleton {
+    /* these element should always cling to top-left/right corners */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+.timeslot-calendar-container .fc-bg {
+    bottom: 0;
+    /* strech bg to bottom edge */
+}
+
+.timeslot-calendar-container .fc-bg table {
+    height: 100%;
+    /* strech bg to bottom edge */
+}
+
+
+/* Tables
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc table {
+    width: 100%;
+    box-sizing: border-box;
+    /* fix scrollbar issue in firefox */
+    table-layout: fixed;
+    border-collapse: collapse;
+    border-spacing: 0;
+    font-size: 1em;
+    /* normalize cross-browser */
+}
+
+.timeslot-calendar-container .fc th {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.timeslot-calendar-container .fc th,
+.timeslot-calendar-container .fc td {
+    border-style: solid;
+    border-width: 1px;
+    padding: 0;
+    height: 37px;
+    vertical-align: middle;
+}
+
+.timeslot-calendar-container .fc td.fc-today {
+    border-style: double;
+    /* overcome neighboring borders */
+}
+
+
+/* Internal Nav Links
+--------------------------------------------------------------------------------------------------*/
+
+a[data-goto] {
+    cursor: pointer;
+}
+
+a[data-goto]:hover {
+    text-decoration: underline;
+}
+
+
+/* Fake Table Rows
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc .fc-row {
+    /* extra precedence to overcome themes w/ .ui-widget-content forcing a 1px border */
+    /* no visible border by default. but make available if need be (scrollbar width compensation) */
+    border-style: solid;
+    border-width: 0;
+}
+
+.timeslot-calendar-container .fc-row table {
+    /* don't put left/right border on anything within a fake row.
+	   the outer tbody will worry about this */
+    border-left: 0 hidden transparent;
+    border-right: 0 hidden transparent;
+
+    /* no bottom borders on rows */
+    border-bottom: 0 hidden transparent;
+}
+
+.timeslot-calendar-container .fc-row:first-child table {
+    border-top: 0 hidden transparent;
+    /* no top border on first row */
+}
+
+
+/* Day Row (used within the header and the DayGrid)
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-row {
+    position: relative;
+}
+
+.timeslot-calendar-container .fc-row .fc-bg {
+    z-index: 1;
+}
+
+/* highlighting cells & background event skeleton */
+
+.timeslot-calendar-container .fc-row .fc-bgevent-skeleton,
+.timeslot-calendar-container .fc-row .fc-highlight-skeleton {
+    bottom: 0;
+    /* stretch skeleton to bottom of row */
+}
+
+.timeslot-calendar-container .fc-row .fc-bgevent-skeleton table,
+.timeslot-calendar-container .fc-row .fc-highlight-skeleton table {
+    height: 100%;
+    /* stretch skeleton to bottom of row */
+}
+
+.timeslot-calendar-container .fc-row .fc-highlight-skeleton td,
+.timeslot-calendar-container .fc-row .fc-bgevent-skeleton td {
+    border-color: transparent;
+}
+
+.timeslot-calendar-container .fc-row .fc-bgevent-skeleton {
+    z-index: 2;
+
+}
+
+.timeslot-calendar-container .fc-row .fc-highlight-skeleton {
+    z-index: 3;
+}
+
+/*
+row content (which contains day/week numbers and events) as well as "helper" (which contains
+temporary rendered events).
+*/
+
+.timeslot-calendar-container .fc-row .fc-content-skeleton {
+    position: relative;
+    z-index: 4;
+    padding-bottom: 2px;
+    /* matches the space above the events */
+}
+
+.timeslot-calendar-container .fc-row .fc-helper-skeleton {
+    z-index: 5;
+}
+
+.timeslot-calendar-container .fc-row .fc-content-skeleton td,
+.timeslot-calendar-container .fc-row .fc-helper-skeleton td {
+    /* see-through to the background below */
+    background: none;
+    /* in case <td>s are globally styled */
+    border-color: transparent;
+
+    /* don't put a border between events and/or the day number */
+    border-bottom: 0;
+}
+
+.timeslot-calendar-container .fc-row .fc-content-skeleton tbody td,
+/* cells with events inside (so NOT the day number cell) */
+.timeslot-calendar-container .fc-row .fc-helper-skeleton tbody td {
+    /* don't put a border between event cells */
+    border-top: 0;
+}
+
+
+/* Scrolling Container
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-scroller {
+    -webkit-overflow-scrolling: touch;
+    overflow: hidden !important;
+}
+
+/* TODO: move to agenda/basic */
+.timeslot-calendar-container .fc-scroller>.fc-day-grid,
+.timeslot-calendar-container .fc-scroller>.fc-time-grid {
+    position: relative;
+    /* re-scope all positions */
+    width: 100%;
+    /* hack to force re-sizing this inner element when scrollbars appear/disappear */
+}
+
+
+/* Global Event Styles
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-event {
+    position: relative;
+    /* for resize handle and other inner positioning */
+    display: block;
+    /* make the <a> tag block */
+    font-size: 12px;
+    font-weight: 300;
+    border-radius: 6px;
+    padding: 6px 10px !important;
+    border: 1px solid #7EAFCF;
+    /* default BORDER color */
+    font-weight: normal;
+    /* undo jqui's ui-widget-header bold */
+}
+
+.timeslot-calendar-container .fc-event,
+.timeslot-calendar-container .fc-event-dot {
+    /* background-color: #F0F9FF; */
+    /* default BACKGROUND color */
+}
+
+/* overpower some of bootstrap's and jqui's styles on <a> tags */
+.timeslot-calendar-container .fc-event,
+.timeslot-calendar-container .fc-event:hover,
+.timeslot-calendar-container .ui-widget .fc-event {
+    color: #382F2F;
+    /* default TEXT color */
+    text-decoration: none;
+    /* if <a> has an href */
+}
+
+.timeslot-calendar-container .fc-event[href],
+.timeslot-calendar-container .fc-event.fc-draggable {
+    cursor: pointer;
+    /* give events with links and draggable events a hand mouse pointer */
+}
+
+.timeslot-calendar-container .fc-not-allowed,
+/* causes a "warning" cursor. applied on body */
+.timeslot-calendar-container .fc-not-allowed .fc-event {
+    /* to override an event's custom cursor */
+    cursor: not-allowed;
+}
+
+.timeslot-calendar-container .fc-event .fc-bg {
+    /* the generic .fc-bg already does position */
+    z-index: 1;
+    background: #fff;
+    opacity: .25;
+}
+
+.timeslot-calendar-container .fc-event .fc-content {
+    position: relative;
+    z-index: 2;
+}
+
+/* resizer (cursor AND touch devices) */
+
+.timeslot-calendar-container .fc-event .fc-resizer {
+    position: absolute;
+    z-index: 4;
+}
+
+/* resizer (touch devices) */
+
+.timeslot-calendar-container .fc-event .fc-resizer {
+    display: none;
+}
+
+.timeslot-calendar-container .fc-event.fc-allow-mouse-resize .fc-resizer,
+.timeslot-calendar-container .fc-event.fc-selected .fc-resizer {
+    /* only show when hovering or selected (with touch) */
+    display: block;
+}
+
+/* hit area */
+
+.timeslot-calendar-container .fc-event.fc-selected .fc-resizer:before {
+    /* 40x40 touch area */
+    content: "";
+    position: absolute;
+    z-index: 9999;
+    /* user of this util can scope within a lower z-index */
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    margin-left: -20px;
+    margin-top: -20px;
+}
+
+
+/* Event Selection (only for touch devices)
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-event.fc-selected {
+    z-index: 9999 !important;
+    /* overcomes inline z-index */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.timeslot-calendar-container .fc-event.fc-selected.fc-dragging {
+    box-shadow: 0 2px 7px rgba(0, 0, 0, 0.3);
+}
+
+
+/* Horizontal Events
+--------------------------------------------------------------------------------------------------*/
+
+/* bigger touch area when selected */
+.timeslot-calendar-container .fc-h-event.fc-selected:before {
+    content: "";
+    position: absolute;
+    z-index: 3;
+    /* below resizers */
+    top: -10px;
+    bottom: -10px;
+    left: 0;
+    right: 0;
+}
+
+/* events that are continuing to/from another week. kill rounded corners and butt up against edge */
+
+.timeslot-calendar-container .fc-ltr .fc-h-event.fc-not-start,
+.timeslot-calendar-container .fc-rtl .fc-h-event.fc-not-end {
+    margin-left: 0;
+    border-left-width: 0;
+    padding-left: 1px;
+    /* replace the border with padding */
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.timeslot-calendar-container .fc-ltr .fc-h-event.fc-not-end,
+.timeslot-calendar-container .fc-rtl .fc-h-event.fc-not-start {
+    margin-right: 0;
+    border-right-width: 0;
+    padding-right: 1px;
+    /* replace the border with padding */
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* resizer (cursor AND touch devices) */
+
+/* left resizer  */
+.timeslot-calendar-container .fc-ltr .fc-h-event .fc-start-resizer,
+.timeslot-calendar-container .fc-rtl .fc-h-event .fc-end-resizer {
+    cursor: w-resize;
+    left: -1px;
+    /* overcome border */
+}
+
+/* right resizer */
+.timeslot-calendar-container .fc-ltr .fc-h-event .fc-end-resizer,
+.timeslot-calendar-container .fc-rtl .fc-h-event .fc-start-resizer {
+    cursor: e-resize;
+    right: -1px;
+    /* overcome border */
+}
+
+/* resizer (mouse devices) */
+
+.timeslot-calendar-container .fc-h-event.fc-allow-mouse-resize .fc-resizer {
+    width: 7px;
+    top: -1px;
+    /* overcome top border */
+    bottom: -1px;
+    /* overcome bottom border */
+}
+
+/* resizer (touch devices) */
+
+.timeslot-calendar-container .fc-h-event.fc-selected .fc-resizer {
+    /* 8x8 little dot */
+    border-radius: 4px;
+    border-width: 1px;
+    width: 6px;
+    height: 6px;
+    border-style: solid;
+    border-color: inherit;
+    background: #fff;
+    /* vertically center */
+    top: 50%;
+    margin-top: -4px;
+}
+
+/* left resizer  */
+.timeslot-calendar-container .fc-ltr .fc-h-event.fc-selected .fc-start-resizer,
+.timeslot-calendar-container .fc-rtl .fc-h-event.fc-selected .fc-end-resizer {
+    margin-left: -4px;
+    /* centers the 8x8 dot on the left edge */
+}
+
+/* right resizer */
+.timeslot-calendar-container .fc-ltr .fc-h-event.fc-selected .fc-end-resizer,
+.timeslot-calendar-container .fc-rtl .fc-h-event.fc-selected .fc-start-resizer {
+    margin-right: -4px;
+    /* centers the 8x8 dot on the right edge */
+}
+
+
+/* DayGrid events
+----------------------------------------------------------------------------------------------------
+We use the full "fc-day-grid-event" class instead of using descendants because the event won't
+be a descendant of the grid when it is being dragged.
+*/
+
+.timeslot-calendar-container .fc-day-grid-event {
+    margin: 1px 2px 0;
+    /* spacing between events and edges */
+    padding: 0 1px;
+
+}
+
+tr:first-child>td>.fc-day-grid-event {
+    margin-top: 2px;
+    /* a little bit more space before the first event */
+
+}
+
+.timeslot-calendar-container .fc-day-grid-event.fc-selected:after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    /* same z-index as fc-bg, behind text */
+    /* overcome the borders */
+    top: -1px;
+    right: -1px;
+    bottom: -1px;
+    left: -1px;
+    /* darkening effect */
+    background: #000;
+    opacity: .25;
+}
+
+.timeslot-calendar-container .fc-day-grid-event .fc-content {
+    /* force events to be one-line tall */
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.timeslot-calendar-container .fc-day-grid-event .fc-time {
+    font-weight: bold;
+    float: left;
+}
+
+.timeslot-calendar-container .fc-day-grid-event .fc-title {
+    float: right;
+}
+
+/* resizer (cursor devices) */
+
+/* left resizer  */
+.timeslot-calendar-container .fc-ltr .fc-day-grid-event.fc-allow-mouse-resize .fc-start-resizer,
+.timeslot-calendar-container .fc-rtl .fc-day-grid-event.fc-allow-mouse-resize .fc-end-resizer {
+    margin-left: -2px;
+    /* to the day cell's edge */
+}
+
+/* right resizer */
+.timeslot-calendar-container .fc-ltr .fc-day-grid-event.fc-allow-mouse-resize .fc-end-resizer,
+.timeslot-calendar-container .fc-rtl .fc-day-grid-event.fc-allow-mouse-resize .fc-start-resizer {
+    margin-right: -2px;
+    /* to the day cell's edge */
+}
+
+
+/* Event Limiting
+--------------------------------------------------------------------------------------------------*/
+
+/* "more" link that represents hidden events */
+
+.timeslot-calendar-container a.fc-more {
+    margin: 1px 3px;
+    font-size: .85em;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.timeslot-calendar-container a.fc-more:hover {
+    text-decoration: underline;
+}
+
+.timeslot-calendar-container .fc-limited {
+    /* rows and cells that are hidden because of a "more" link */
+    display: none;
+}
+
+/* popover that appears when "more" link is clicked */
+
+.timeslot-calendar-container .fc-day-grid .fc-row {
+    z-index: 1;
+    /* make the "more" popover one higher than this */
+}
+
+.timeslot-calendar-container .fc-more-popover {
+    z-index: 2;
+    width: 220px;
+}
+
+.timeslot-calendar-container .fc-more-popover .fc-event-container {
+    padding: 10px;
+}
+
+
+/* Now Indicator
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-now-indicator {
+    position: absolute;
+    border: 0 solid red;
+}
+
+
+/* Utilities
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-unselectable {
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+
+
+/* Toolbar
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-toolbar {
+    text-align: center;
+}
+
+.timeslot-calendar-container .fc-toolbar.fc-header-toolbar {
+    margin-bottom: 1em;
+    display: none;
+}
+
+.timeslot-calendar-container .fc-toolbar.fc-footer-toolbar {
+    margin-top: 1em;
+}
+
+.timeslot-calendar-container .fc-toolbar .fc-left {
+    float: left;
+}
+
+.timeslot-calendar-container .fc-toolbar .fc-right {
+    float: right;
+}
+
+.timeslot-calendar-container .fc-toolbar .fc-center {
+    display: inline-block;
+}
+
+/* the things within each left/right/center section */
+.timeslot-calendar-container .fc .fc-toolbar>*>* {
+    /* extra precedence to override button border margins */
+    float: left;
+    margin-left: .75em;
+}
+
+/* the first thing within each left/center/right section */
+.timeslot-calendar-container .fc .fc-toolbar>*> :first-child {
+    /* extra precedence to override button border margins */
+    margin-left: 0;
+}
+
+/* title text */
+
+.timeslot-calendar-container .fc-toolbar h2 {
+    margin: 0;
+}
+
+/* button layering (for border precedence) */
+
+.timeslot-calendar-container .fc-toolbar button {
+    position: relative;
+}
+
+.timeslot-calendar-container .fc-toolbar .fc-state-hover,
+.timeslot-calendar-container .fc-toolbar .ui-state-hover {
+    z-index: 2;
+}
+
+.timeslot-calendar-container .fc-toolbar .fc-state-down {
+    z-index: 3;
+}
+
+.timeslot-calendar-container .fc-toolbar .fc-state-active,
+.timeslot-calendar-container .fc-toolbar .ui-state-active {
+    z-index: 4;
+}
+
+.timeslot-calendar-container .fc-toolbar button:focus {
+    z-index: 5;
+}
+
+
+/* View Structure
+--------------------------------------------------------------------------------------------------*/
+
+/* undo twitter bootstrap's box-sizing rules. normalizes positioning techniques */
+/* don't do this for the toolbar because we'll want bootstrap to style those buttons as some pt */
+.timeslot-calendar-container .fc-view-container *,
+.timeslot-calendar-container .fc-view-container *:before,
+.timeslot-calendar-container .fc-view-container *:after {
+    -webkit-box-sizing: content-box;
+    -moz-box-sizing: content-box;
+    box-sizing: content-box;
+}
+
+.timeslot-calendar-container .fc-view,
+/* scope positioning and z-index's for everything within the view */
+.timeslot-calendar-container .fc-view>table {
+    /* so dragged elements can be above the view's main element */
+    position: relative;
+    z-index: 1;
+}
+
+
+
+/* BasicView
+--------------------------------------------------------------------------------------------------*/
+
+/* day row structure */
+
+.timeslot-calendar-container .fc-basicWeek-view .fc-content-skeleton,
+.timeslot-calendar-container .fc-basicDay-view .fc-content-skeleton {
+    /* there may be week numbers in these views, so no padding-top */
+    padding-bottom: 1em;
+    /* ensure a space at bottom of cell for user selecting/clicking */
+}
+
+.timeslot-calendar-container .fc-basic-view .fc-body .fc-row {
+    min-height: 4em;
+    /* ensure that all rows are at least this tall */
+}
+
+/* a "rigid" row will take up a constant amount of height because content-skeleton is absolute */
+
+.timeslot-calendar-container .fc-row.fc-rigid {
+    overflow: hidden;
+}
+
+.timeslot-calendar-container .fc-row.fc-rigid .fc-content-skeleton {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+/* week and day number styling */
+
+.timeslot-calendar-container .fc-day-top.fc-other-month {
+    opacity: 0.3;
+}
+
+.timeslot-calendar-container .fc-basic-view .fc-week-number,
+.timeslot-calendar-container .fc-basic-view .fc-day-number {
+    padding: 2px;
+}
+
+.timeslot-calendar-container .fc-basic-view th.fc-week-number,
+.timeslot-calendar-container .fc-basic-view th.fc-day-number {
+    padding: 0 2px;
+    /* column headers can't have as much v space */
+}
+
+.timeslot-calendar-container .timeslot-calendar-container .fc-ltr .fc-basic-view .fc-day-top .fc-day-number {
+    float: right;
+}
+
+.timeslot-calendar-container .fc-rtl .fc-basic-view .fc-day-top .fc-day-number {
+    float: left;
+}
+
+.timeslot-calendar-container .fc-ltr .fc-basic-view .fc-day-top .fc-week-number {
+    float: left;
+    border-radius: 0 0 3px 0;
+}
+
+.timeslot-calendar-container .fc-rtl .fc-basic-view .fc-day-top .fc-week-number {
+    float: right;
+    border-radius: 0 0 0 3px;
+}
+
+.timeslot-calendar-container .fc-basic-view .fc-day-top .fc-week-number {
+    min-width: 1.5em;
+    text-align: center;
+    background-color: #f2f2f2;
+    color: #808080;
+}
+
+/* when week/day number have own column */
+
+.timeslot-calendar-container .fc-basic-view td.fc-week-number {
+    text-align: center;
+}
+
+.timeslot-calendar-container .fc-basic-view td.fc-week-number>* {
+    /* work around the way we do column resizing and ensure a minimum width */
+    display: inline-block;
+    min-width: 1.25em;
+}
+
+
+/* AgendaView all-day area
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-agenda-view .fc-day-grid {
+    position: relative;
+    z-index: 2;
+    /* so the "more.." popover will be over the time grid */
+}
+
+.timeslot-calendar-container .fc-agenda-view .fc-day-grid .fc-row {
+    min-height: 3em;
+    /* all-day section will never get shorter than this */
+    display: none;
+}
+
+.timeslot-calendar-container .fc-agenda-view .fc-day-grid .fc-row .fc-content-skeleton {
+    padding-bottom: 1em;
+    /* give space underneath events for clicking/selecting days */
+}
+
+
+/* TimeGrid axis running down the side (for both the all-day area and the slot area)
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc .fc-axis {
+    /* .fc to overcome default cell styles */
+    vertical-align: middle;
+    padding: 0 4px;
+    white-space: nowrap;
+}
+
+.timeslot-calendar-container .fc-ltr .fc-axis {
+    text-align: right;
+    display: none;
+}
+
+.timeslot-calendar-container .fc-rtl .fc-axis {
+    text-align: left;
+}
+
+.timeslot-calendar-container .ui-widget td.fc-axis {
+    font-weight: normal;
+    /* overcome jqui theme making it bold */
+}
+
+
+/* TimeGrid Structure
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-time-grid-container,
+/* so scroll container's z-index is below all-day */
+.timeslot-calendar-container .fc-time-grid {
+    /* so slats/bg/content/etc positions get scoped within here */
+    position: relative;
+    z-index: 1;
+}
+
+.timeslot-calendar-container .fc-time-grid {
+    min-height: 100%;
+    /* so if height setting is 'auto', .fc-bg stretches to fill height */
+}
+
+.timeslot-calendar-container .fc-time-grid table {
+    /* don't put outer borders on slats/bg/content/etc */
+    border: 0 hidden transparent;
+}
+
+.timeslot-calendar-container .fc-time-grid>.fc-bg {
+    z-index: 1;
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-slats,
+.timeslot-calendar-container .fc-time-grid>hr {
+    /* the <hr> AgendaView injects when grid is shorter than scroller */
+    position: relative;
+    z-index: 2;
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-content-col {
+    position: relative;
+    /* because now-indicator lives directly inside */
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-content-skeleton {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+/* divs within a cell within the fc-content-skeleton */
+
+.timeslot-calendar-container .fc-time-grid .fc-business-container {
+    position: relative;
+    z-index: 1;
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-bgevent-container {
+    position: relative;
+    z-index: 2;
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-highlight-container {
+    position: relative;
+    z-index: 3;
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-event-container {
+    position: relative;
+    z-index: 4;
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-now-indicator-line {
+    z-index: 5;
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-helper-container {
+    /* also is fc-event-container */
+    position: relative;
+    z-index: 6;
+}
+
+
+/* TimeGrid Slats (lines that run horizontally)
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-time-grid .fc-slats td {
+    height: 121px;
+    border-bottom: 0;
+    /* each cell is responsible for its top border */
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-slats .fc-minor td {
+    border-top-style: dotted;
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-slats .ui-widget-content {
+    /* for jqui theme */
+    background: none;
+    /* see through to fc-bg */
+}
+
+
+/* TimeGrid Highlighting Slots
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-time-grid .fc-highlight-container {
+    /* a div within a cell within the fc-highlight-skeleton */
+    position: relative;
+    /* scopes the left/right of the fc-highlight to be in the column */
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-highlight {
+    position: absolute;
+    left: 0;
+    right: 0;
+    /* top and bottom will be in by JS */
+}
+
+
+/* TimeGrid Event Containment
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-ltr .fc-time-grid .fc-event-container {
+    /* space on the sides of events for LTR (default) */
+    margin: 0 2.5% 0 2px;
+}
+
+.timeslot-calendar-container .fc-rtl .fc-time-grid .fc-event-container {
+    /* space on the sides of events for RTL */
+    margin: 0 2px 0 2.5%;
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-event,
+.timeslot-calendar-container .fc-time-grid .fc-bgevent {
+    position: absolute;
+    z-index: 1;
+    /* scope inner z-index's */
+}
+
+.timeslot-calendar-container .fc-time-grid .fc-bgevent {
+    /* background events always span full width */
+    left: 0;
+    right: 0;
+}
+
+
+/* Generic Vertical Event
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-v-event.fc-not-start {
+    /* events that are continuing from another day */
+    /* replace space made by the top border with padding */
+    border-top-width: 0;
+    padding-top: 1px;
+
+    /* remove top rounded corners */
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.timeslot-calendar-container .fc-v-event.fc-not-end {
+    /* replace space made by the top border with padding */
+    border-bottom-width: 0;
+    padding-bottom: 1px;
+
+    /* remove bottom rounded corners */
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+
+/* TimeGrid Event Styling
+----------------------------------------------------------------------------------------------------
+We use the full "fc-time-grid-event" class instead of using descendants because the event won't
+be a descendant of the grid when it is being dragged.
+*/
+
+.timeslot-calendar-container .fc-time-grid-event {
+    overflow: hidden;
+    /* don't let the bg flow over rounded corners */
+}
+
+.timeslot-calendar-container .fc-time-grid-event.fc-selected {
+    /* need to allow touch resizers to extend outside event's bounding box */
+    /* common fc-selected styles hide the fc-bg, so don't need this anyway */
+    overflow: visible;
+}
+
+.timeslot-calendar-container .fc-time-grid-event.fc-selected .fc-bg {
+    display: none;
+    /* hide semi-white background, to appear darker */
+}
+
+.timeslot-calendar-container .fc-time-grid-event .fc-content {
+    overflow: hidden;
+    /* for when .fc-selected */
+}
+
+.timeslot-calendar-container .fc-time-grid-event .fc-time,
+.timeslot-calendar-container .fc-time-grid-event .fc-title {
+    padding: 0 1px;
+}
+
+.timeslot-calendar-container .fc-time-grid-event .fc-time {
+    font-size: .85em;
+    white-space: nowrap;
+}
+
+/* short mode, where time and title are on the same line */
+
+.timeslot-calendar-container .fc-time-grid-event.fc-short .fc-content {
+    /* don't wrap to second line (now that contents will be inline) */
+    white-space: nowrap;
+}
+
+.timeslot-calendar-container .fc-time-grid-event.fc-short .fc-time,
+.timeslot-calendar-container .fc-time-grid-event.fc-short .fc-title {
+    /* put the time and title on the same line */
+    display: inline-block;
+    vertical-align: top;
+}
+
+.timeslot-calendar-container .fc-time-grid-event.fc-short .fc-time span {
+    display: none;
+    /* don't display the full time text... */
+}
+
+.timeslot-calendar-container .fc-time-grid-event.fc-short .fc-time:before {
+    content: attr(data-start);
+    /* ...instead, display only the start time */
+}
+
+.timeslot-calendar-container .fc-time-grid-event.fc-short .fc-time:after {
+    content: "\000A0-\000A0";
+    /* seperate with a dash, wrapped in nbsp's */
+}
+
+.timeslot-calendar-container .fc-time-grid-event.fc-short .fc-title {
+    font-size: .85em;
+    /* make the title text the same size as the time */
+    padding: 0;
+    /* undo padding from above */
+}
+
+/* resizer (cursor device) */
+
+.timeslot-calendar-container .fc-time-grid-event.fc-allow-mouse-resize .fc-resizer {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 8px;
+    overflow: hidden;
+    line-height: 8px;
+    font-size: 11px;
+    font-family: monospace;
+    text-align: center;
+    cursor: s-resize;
+}
+
+.timeslot-calendar-container .fc-time-grid-event.fc-allow-mouse-resize .fc-resizer:after {
+    content: "=";
+}
+
+/* resizer (touch device) */
+
+.timeslot-calendar-container .fc-time-grid-event.fc-selected .fc-resizer {
+    /* 10x10 dot */
+    border-radius: 5px;
+    border-width: 1px;
+    width: 8px;
+    height: 8px;
+    border-style: solid;
+    border-color: inherit;
+    background: #fff;
+    /* horizontally center */
+    left: 50%;
+    margin-left: -5px;
+    /* center on the bottom edge */
+    bottom: -5px;
+}
+
+
+/* Now Indicator
+--------------------------------------------------------------------------------------------------*/
+
+.timeslot-calendar-container .fc-time-grid .fc-now-indicator-line {
+    border-top-width: 1px;
+    left: 0;
+    right: 0;
+}
+
+/* arrow on axis */
+
+.timeslot-calendar-container .fc-time-grid .fc-now-indicator-arrow {
+    margin-top: -5px;
+    /* vertically center on top coordinate */
+}
+
+.timeslot-calendar-container .fc-ltr .fc-time-grid .fc-now-indicator-arrow {
+    left: 0;
+    /* triangle pointing right... */
+    border-width: 5px 0 5px 6px;
+    border-top-color: transparent;
+    border-bottom-color: transparent;
+}
+
+.timeslot-calendar-container .fc-rtl .fc-time-grid .fc-now-indicator-arrow {
+    right: 0;
+    /* triangle pointing left... */
+    border-width: 5px 6px 5px 0;
+    border-top-color: transparent;
+    border-bottom-color: transparent;
+}
+
+
+
+/* List View
+--------------------------------------------------------------------------------------------------*/
+
+/* possibly reusable */
+
+.timeslot-calendar-container .fc-event-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+}
+
+/* view wrapper */
+
+.timeslot-calendar-container .fc-rtl .fc-list-view {
+    direction: rtl;
+    /* unlike core views, leverage browser RTL */
+}
+
+.timeslot-calendar-container .fc-list-view {
+    border-width: 1px;
+    border-style: solid;
+}
+
+/* table resets */
+
+.timeslot-calendar-container .fc .fc-list-table {
+    table-layout: auto;
+    /* for shrinkwrapping cell content */
+}
+
+.timeslot-calendar-container .fc-list-table td {
+    border-width: 1px 0 0;
+    padding: 8px 14px;
+}
+
+.timeslot-calendar-container .fc-list-table tr:first-child td {
+    border-top-width: 0;
+}
+
+/* day headings with the list */
+
+.timeslot-calendar-container .fc-list-heading {
+    border-bottom-width: 1px;
+}
+
+.timeslot-calendar-container .fc-list-heading td {
+    font-weight: bold;
+}
+
+.timeslot-calendar-container .fc-ltr .fc-list-heading-main {
+    float: left;
+}
+
+.timeslot-calendar-container .fc-ltr .fc-list-heading-alt {
+    float: right;
+}
+
+.timeslot-calendar-container .fc-rtl .fc-list-heading-main {
+    float: right;
+}
+
+.timeslot-calendar-container .fc-rtl .fc-list-heading-alt {
+    float: left;
+}
+
+/* event list items */
+
+.timeslot-calendar-container .fc-list-item.fc-has-url {
+    cursor: pointer;
+    /* whole row will be clickable */
+}
+
+.timeslot-calendar-container .fc-list-item:hover td {
+    background-color: #f5f5f5;
+}
+
+.timeslot-calendar-container .fc-list-item-marker,
+.timeslot-calendar-container .fc-list-item-time {
+    white-space: nowrap;
+    width: 1px;
+}
+
+/* make the dot closer to the event title */
+.timeslot-calendar-container .fc-ltr .fc-list-item-marker {
+    padding-right: 0;
+}
+
+.timeslot-calendar-container .fc-rtl .fc-list-item-marker {
+    padding-left: 0;
+}
+
+.timeslot-calendar-container .fc-list-item-title a {
+    /* every event title cell has an <a> tag */
+    text-decoration: none;
+    color: inherit;
+}
+
+.timeslot-calendar-container .fc-list-item-title a[href]:hover {
+    /* hover effect only on titles with hrefs */
+    text-decoration: underline;
+}
+
+/* message when no events */
+
+.timeslot-calendar-container .fc-list-empty-wrap2 {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.timeslot-calendar-container .fc-list-empty-wrap1 {
+    width: 100%;
+    height: 100%;
+    display: table;
+}
+
+.timeslot-calendar-container .fc-list-empty {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.timeslot-calendar-container .fc-unthemed .fc-list-empty {
+    /* theme will provide own background */
+    background-color: #eee;
+}
+
+.timeslot-calendar-container {
+    max-width: 1200px;
+    margin: auto;
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0px 0px 6px rgba(0, 0, 0, 0.1);
+}
+
+.timeslot-calendar-container .calendarinnercontent {
+    display: flex;
+}
+
+.timeslot-calendar-container .sidebar {
+    width: 220px;
+
+    border: 1px solid #ddd;
+}
+
+.timeslot-calendar-container .sidebar h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 0px;
+    margin-top: 0px;
+    padding: 10px 12px;
+    color: #2F373A;
+    border-bottom: 1px solid #eee;
+}
+
+.timeslot-calendar-container .servicebox {
+    border-bottom: 1px solid #eee;
+    float: left;
+    padding: 10.5px;
+    height: 124px;
+    width:100%;
+}
+
+.timeslot-calendar-container .service-item {
+    font-size: 14px;
+    padding: 3px;
+    width: 100%;
+    height: auto;
+    float: left;
+    color: #4D5E80;
+}
+
+.timeslot-calendar-container .service-item h4 {
+    width: 100%;
+    float: left;
+    margin: 0px;
+    font-weight: normal;
+}
+
+.timeslot-calendar-container .service-item h4 span {
+    float: left;
+    font-size: 14px;
+}
+
+.timeslot-calendar-container .service-item img {
+    width: 17px;
+    float: left;
+    margin-right: 5px;
+}
+
+.timeslot-calendar-container .service-item i {
+    width: 18px;
+    font-size: 18px;
+    margin-right: 10px;
+    text-align: center;
+}
+
+.timeslot-calendar-container #calendar {
+    flex: 1;
+
+}
+
+.timeslot-calendar-container .fc-event {
+    font-size: 12px;
+    text-align: center;
+}
+
+.timeslot-calendar-container .filter-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #4D5E80;
+    width: 100%;
+    margin-bottom: 15px;
+    justify-content: space-between;
+}
+
+.timeslot-calendar-container .date-picker {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: white;
+    font-size: 14px;
+}
+
+.timeslot-calendar-container .filter-dropdown {
+    width: 210px;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background-color: white;
+    cursor: pointer;
+}
+
+.timeslot-calendar-container .filter-dropdown {
+    padding: 8px 30px 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    background-color: white;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    position: relative;
+}
+
+/* Custom Font Awesome Chevron Down */
+.timeslot-calendar-container .filter-dropdown-container {
+    position: relative;
+    display: inline-block;
+}
+
+.timeslot-calendar-container .filter-dropdown-container i {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: #555;
+    pointer-events: none;
+}
+
+.timeslot-calendar-container .fc-h-event .fc-event-main {
+    color: #000;
+}
+
+.timeslot-calendar-container .fc-event-past {
+    display: none;
+}
+
+.timeslot-calendar-container .past-date-event {
+    pointer-events: none;
+}
+
+.timeslot-calendar-container #timeslot_fullcalendar_slot_value:hover {
+    outline: none;
+    box-shadow: 0px 0px 5px #61C5FA;
+}
+
+.timeslot-calendar-container .filter-dropdown-container {
+    width: 200px;
+}
+
+.timeslot-calendar-container #timeslot_calendar {
+    flex: 1;
+}
+
+.timeslot-calendar-container .timeselectbox {
+    float: none !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin-bottom: 7px !important;
+}
+
+.timeslot-calendar-container .show_more {
+    cursor: pointer;
+}
+
+.timeslot-calendar-container .show_more:hover {
+    outline: none;
+    font-size: 12px important;
+    border: none;
+    /* transition: font-size 0.2s ease, background-color 0.2s ease; */
+    color: #082f49 !important;
+}
+
+/* Counter Styles */
+.timeslot-counter-container {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+    margin: auto;
+    text-align: center;
+    width: 150px;
+    margin-top: 24px;
+    margin-bottom: 24px;
+}
+
+.timeslot-counter-btn {
+    width: 40px;
+    height: 40px;
+    padding: 10px;
+    font-size: 20px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color:#333;
+    cursor: pointer;
+}
+
+.timeslot-counter-container input[type=number] {
+    width: 60px !important;
+    height: 40px !important;
+    margin: 0 10px !important;
+    text-align: right !important;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.timeslot-counter-info,
+.timeslot-selected-slot-info {
+    text-align: left;
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+.timeslot-dialog-footer {
+    text-align: center;
+    display: flex;
+    justify-content: space-between;
+}
+
+.timeslot-proceed-btn {
+    padding: 10px 20px;
+    background-color: #363636;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px !important;
+}
+
+.timeslot-cancel-btn {
+    padding: 10px 20px;
+    background-color: #b4b2b2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px !important;
+}
+
+.timeslot-proceed-btn:hover,
+.timeslot-cancel-btn:hover {
+    background-color: #000000;
+}
+
+.timeslot-calendar-container .services-calendar-box .fc-event {
+    border: none;
+    border-bottom: 1px solid #eee;
+    border-radius: 0px;
+    margin-right: 0px !important;
+    margin-left: 0px !important;
+    height: 120px !important;
+}
+
+.timeslot-calendar-container .cl-slot-box .timeselectbox {
+    width: 100%;
+    margin-bottom: 8px;
+    margin-left: 0%;
+    display: flex;
+    justify-content: space-between;
+}
+
+.timeslot-calendar-container .services-calendar-box .timeselectbox {
+    font-size: 13px;
+    padding: 3px 6px !important;
+    background: #def6fdc2;
+    border: 1px solid #316878c2;
+}
+
+.timeslot-calendar-container .services-calendar-box .timeselectbox div {
+    text-align: left;
+}
+
+.timeslot-calendar-container .services-calendar-box .timeselectbox span {
+    font-size: 12px;
+    color: #382F2F !important;
+}
+
+.timeslot-calendar-container .cl-slot-box .show_more {
+    width: 100%;
+    text-align: left;
+    text-decoration: underline;
+    font-size: 12px;
+    float: left;
+    color: #276F9F;
+}
+
+.timeslot-calendar-container .services-calendar-box .fc-event,
+.timeslot-calendar-container .fc-event-dot {
+    /* background-color: #fff; */
+}
+
+.timeslot-calendar-container .services-calendar-box .noevents {
+    height: 115px !important;
+    border-bottom: 1px solid #eee;
+}
+
+.timeslot-calendar-container .calendar-container .filter-dropdown {
+    width: 200px !important;
+    padding: 9px 14px !important;
+    font-size: 13px;
+    color: #aaa;
+    /* Space for text */
+    border: 1px solid #B7BDC2;
+    border-radius: 4px !important;
+    background-color: white;
+    cursor: pointer;
+    appearance: none;
+    /* Remove default arrow */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    position: relative;
+}
+
+/* Custom Font Awesome Chevron Down */
+.timeslot-calendar-container .calendar-container .filter-dropdown-container {
+    position: relative;
+    display: inline-block;
+}
+
+.timeslot-calendar-container .calendar-container .filter-dropdown-container img {
+    position: absolute;
+    right: 8px;
+    top: 40%;
+    height: 10px;
+    color: #555;
+    pointer-events: none;
+    /* Prevent interaction */
+}
+
+.timeslot-calendar-container #arrowLeft {
+    display: none;
+    margin-left: 10px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+/* Rotate arrow when sidebar is hidden */
+.timeslot-calendar-container #toggleArrow.rotate {
+    transform: rotate(180deg);
+}
+
+@media (max-width:550px) {
+.daterangepicker{
+    width: 350px;
+}
+
+}
+
+@media (max-width:1000px) {
+    .timeslot-calendar-container .date-picker{
+        margin-bottom: 10px;
+    }
+    .timeslot-calendar-container .cl-slot-box .timeselectbox {
+        width: 100% !important;
+    }
+    .timeslot-counter-container input[type=number] {
+        text-align: center !important;
+    }
+    .timeslot-calendar-container {
+        position: relative;
+
+    }
+
+    .timeslot-calendar-container .filter-container {
+        display: inherit !important;
+    }
+
+    .timeslot-calendar-container .selectservicecontainer {
+        display: flex;
+        gap: 5px;
+    }
+
+    .timeslot-calendar-container .selectservicecontainer .filter-dropdown-container {
+        width: 49.5%;
+    }
+
+    .timeslot-calendar-container .selectservicecontainer .filter-dropdown-container select {
+        width: 100% !important;
+    }
+
+    .fc .fc-view-harness-active>.fc-view {
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .timeslot-calendar-container .fc-view>table {
+        width: auto !important;
+    }
+
+    .timeslot-calendar-container .fc th,
+    .timeslot-calendar-container .fc td {
+        width: 130px !important;
+    }
+
+    .timeslot-calendar-container .sidebar {
+        width: 180px;
+    }
+
+    .timeslot-calendar-container .service-item h4 {
+        font-size: 14px !important;
+    }
+
+    .timeslot-calendar-container #arrowLeft {
+        display: inline-block;
+        margin-left: 10px;
+        cursor: pointer;
+        position: absolute;
+        bottom: 40px;
+        left: 178px;
+        z-index: 99;
+        /* box-shadow:rgba(0, 0, 0, 0.16) 0px 3px 6px, rgba(0, 0, 0, 0.23) 0px 3px 6px */
+    }
+
+
+    .timeslot-calendar-container #arrowRight {
+        display: inline-block;
+        margin-left: 10px;
+        cursor: pointer;
+        position: absolute;
+        bottom: 40px;
+        left: 1px;
+        z-index: 9999;
+    }
+
+    .timeslot-calendar-container .calendarinnercontent {
+        display: flex;
+        flex-direction: row;
+    }
+
+    .timeslot-calendar-container .sidebar {
+        width: 180px;
+        transition: all 0.3s ease;
+    }
+
+    .timeslot-calendar-container .sidebar.collapsed {
+        width: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .timeslot-calendar-container #calendar {
+        transition: all 0.3s ease;
+        flex-grow: 1;
+        width: calc(100% - 180px);
+    }
+
+    .timeslot-calendar-container .sidebar.collapsed+#calendar {
+        width: 100% !important;
+    }
+
+    .timeslot-calendar-container{
+            padding: 9px;
+    }
+}
+
+.timeslot-dialog-content {
+    font-size: 14px !important;
+}
+
+.timeslot-info {
+    display: grid;
+    margin-bottom: 10px;
+}
+
+.timeslot-info .info-text {
+    display: inline-block;
+    width: 35%;
+}
+
+.timeslot-calendar-container .calendarinnercontent .service-title {
+    font-weight: 600;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    line-height: 1.2em;
+    max-height: 2.4em;
+        color: #2F373A;
+}
+
+.timeslot-dialog-content .timeslot-dialog-footer button{
+        width: 100%;    
+}
+
+.timeslot-dialog-content .timeslot-dialog-footer{
+    gap:10px;
+}
+
+
+.fc-scrollgrid-sync-table .fc-daygrid-day-events .fc-h-event{
+  background-color: initial !important;
+}

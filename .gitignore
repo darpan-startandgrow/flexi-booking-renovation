@@ -1,0 +1,3 @@
+# Ignore all files in src/mail-attachments
+src/mail-attachments/
+/vendor/

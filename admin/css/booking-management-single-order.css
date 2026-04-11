@@ -1,0 +1,153 @@
+.single-order-container {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    width: 95%;
+    margin-top: 20px;
+    border-radius: 8px;
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.order-header h1 {
+    margin: 0;
+    font-size: 24px;
+    color: #333;
+}
+
+.single-order-container .order-reference {
+    font-size: 16px;
+    color: #666;
+}
+
+.single-order-container .order-section {
+    padding-bottom: 25px;
+    /* border-bottom: 1px solid #eee; */
+}
+
+.order-section h2, .order-section h3 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.customer-info-grid, .order-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.customer-field, .order-field {
+    display: flex;
+    flex-direction: column;
+    flex-direction: row;
+    gap: 40px;
+}
+
+.single-order-container .field-label {
+    font-weight: bold;
+    color: #555;
+    margin-bottom: 5px;
+    display:block;
+}
+
+.single-order-container .field-value {
+    color: #333;
+}
+
+.product-tabs {
+    display: flex;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #ddd;
+}
+
+.tab {
+    padding: 10px 15px;
+    cursor: pointer;
+    color: #555;
+    border-bottom: 2px solid transparent;
+}
+
+.tab.active {
+    color: #0073aa;
+    border-bottom-color: #0073aa;
+    font-weight: bold;
+}
+
+.products-table,
+.products-table-container {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.products-table th, .products-table td,
+.products-table-container th, .products-table-container td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.products-table th,
+.products-table-container th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+    color: #555;
+}
+
+.single-order-container .order-summary {
+    margin-top: 0px;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: 12px;
+}
+
+.single-order-container .revenue-column-width{
+        text-align: right;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+}
+
+.summary-label {
+    font-weight: bold;
+}
+
+.summary-value {
+    color: #333;
+}
+
+.discount .summary-value {
+    color: #d63638;
+}
+
+.total {
+    border-top: 1px solid #eee;
+    margin-top: 5px;
+    padding-top: 15px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.view-email-btn {
+    font-size: 16px;
+    cursor: pointer;
+    margin-left: 22px;
+}
+
+.resend-message.success { 
+    color: green; 
+}
+
+.resend-message.error { 
+    color: red; 
+}

@@ -1,0 +1,205 @@
+#resend_email .email-container {
+    /* max-width: 564px; */
+    margin: auto;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 2px 4px 10px #e9e9e9;
+}
+
+#resend_email .email-container .email-content-box {
+    height: 433px;
+    overflow: auto;
+}
+
+#resend_email .email-container .header {
+    display: flex;
+    Padding: 16px 20px 16px 20px;
+    border-bottom: 1px solid #E8E8E8;
+    margin-bottom: 24px;
+}
+
+#resend_email .email-container h2 {
+    font-size: 16px;
+    color: #4F4F4F;
+    margin: 0px;
+}
+
+#resend_email .email-container .input-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 0px 20px 0px 20px;
+}
+
+#resend_email .email-container .input-group label {
+    width: 80px;
+    margin-right: 10px;
+    color: #818181;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+#resend_email .email-container .input-group input:not([type='button']) {
+    width: 60%;
+    font-size: 14px;
+    font-weight: 500;
+    color: #919191;
+}
+
+#resend_email .email-container .tox-tinymce {
+    width: 100%;
+}
+
+#resend_email .email-container .input-group textarea {
+    width: 100%;
+}
+
+#resend_email .email-container .input-group input:not([type='button']),
+#resend_email .input-group textarea {
+    padding: 10px 16px 10px 16px;
+    border: 1px solid #BABABA;
+    border-radius: 4px;
+}
+
+#resend_email .email-container .input-group textarea {
+    height: 150px;
+}
+
+#resend_email .email-container .cc-bcc-buttons {
+    display: flex;
+    margin-left: 10px;
+}
+
+#resend_email .email-container .cc-bcc-buttons button {
+    background: none;
+    border: none;
+    color: #919191;
+    font-size: 14px;
+
+    cursor: pointer;
+}
+
+#resend_email .email-container .hidden {
+    display: none;
+}
+
+#resend_email .email-container .attachment-send-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0px 17px;
+    height: 60px;
+    margin-top: 10px;
+    border-top: 1px solid #E8E8E8;
+}
+
+#resend_email .email-container .attachments {
+    display: flex;
+    align-items: center;
+}
+
+#resend_email .email-container .attachmentimage {
+    display: flex;
+    align-items: center;
+    padding: 0px 16px 0px 16px;
+    line-height: 1.8;
+}
+
+#resend_email .email-container .attachmentimage img {
+    height: 12px;
+    margin-right: 5px;
+}
+
+#resend_email .email-container .attachment {
+    display: flex;
+    align-items: center;
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+#resend_email .email-container .attachment img {
+    width: 20px;
+    height: 20px;
+    margin-right: 16px;
+    cursor: pointer;
+}
+
+#resend_email .email-container .attachmentimage span {
+    font-size: 14px;
+    color: #494949;
+    font-weight: 400;
+    margin-right: 10px;
+}
+
+#resend_email .email-container .attachment button,
+#resend_email .attachmentimage button {
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+#resend_email .email-container .send-button {
+    width: 99px;
+    height: 36px;
+    padding: 10px;
+    background: #00649D;
+    color: white;
+    border: none;
+    font-weight: 500;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+#resend_email .email-container .tox .tox-menubar {
+    display: none !important;
+}
+
+#resend_email .email-container .tox-tinymce {
+    height: 271px !important;
+}
+
+#resend_email .email-container .progress {
+    height: 20px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+    width: 93.5%;
+    position: relative;
+    left: 16px;
+    margin-bottom: 10px;
+}
+
+#resend_email .email-container .progress-bar {
+    height: 100%;
+    background-color: #007bff;
+    text-align: center;
+    line-height: 20px;
+    color: white;
+}
+
+/* #resend_email .file-item {
+    margin-bottom: 8px;
+    background-color: #f4f4f4;
+    font-weight: bold;
+    color: black;
+    font-size: 10px;
+    text-align: center;
+    padding: 2px 5px 2px 4px;
+    width: 100%;
+    box-shadow: 0 0 0 1px #a8a8a8;
+    flex: 1 0 40%;
+} */
+
+/* #resend_email #fileList {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+#resend_email .remove_email_attachment {
+    font-size: 10px;
+    cursor: pointer;
+    color: red;
+    margin-left: 5px;
+} */

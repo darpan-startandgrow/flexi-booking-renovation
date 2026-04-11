@@ -1,0 +1,39 @@
+.ui-dialog .ui-dialog-content {
+    display: block !important;
+    height: auto !important;
+    padding: 20px !important;
+    text-align: justify !important;
+    width:95% !important;
+}
+
+.ui-widget-header {
+    background: #5EA8ED !important;
+    color: #ffffff !important;
+}
+
+.ui-dialog .ui-dialog-buttonpane button {
+    background: #000 !important;
+    color: #ffffff !important;
+    border: 1px solid #ffffff !important;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 4px 12px;
+    /* padding: 8px 12px; */
+    width: 70px;
+    float: right;
+    text-align: center;
+    border-radius: 3px;
+}
+
+
+/* .ui-dialog .ui-dialog-titlebar-close {
+    margin: -10px 10px 0 0 !important;
+} */
+
+/* .ui-dialog .ui-dialog-titlebar {
+    padding: 2px 5px !important;
+} */
+
+/* .ui-dialog .ui-dialog-title {
+    margin: -2px 0 !important;
+} */

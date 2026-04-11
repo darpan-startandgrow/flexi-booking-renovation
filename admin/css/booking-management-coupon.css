@@ -1,0 +1,16 @@
+.restriction_field{
+    display: table-row; 
+}
+.bm_remove_restrictions{
+    margin-left: 8px;
+    margin-top:5px;
+}
+#event_content, #service_content, #cat_content, #email_content, #included_service_content {
+    display: none;
+}
+.event_date_input_span{
+    display: flex;
+    margin-bottom: 10px;
+    justify-content: space-between;
+    width: 360px;
+}

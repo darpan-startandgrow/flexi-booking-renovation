@@ -1,0 +1,355 @@
+/* QR Dashboard Styles */
+.top-actions {
+    margin-bottom: 20px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.status-badge.pending {
+    background-color: #ffba00;
+    color: #000;
+}
+
+.status-badge.checked {
+    background-color: #46b450;
+    color: #fff;
+}
+
+.status-badge.expired {
+    background-color: #dc3232;
+    color: #fff;
+}
+
+.action-buttons a {
+    display: inline-block;
+    margin-right: 10px;
+    text-decoration: none;
+    color: #555;
+    font-size: 16px;
+}
+
+.action-buttons a:hover {
+    color: #0073aa;
+}
+
+.checkin-default-modal {
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 900px;
+    position: relative;
+    border-radius: 6px;
+    padding-bottom: 20px;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #000;
+}
+
+.scanner-container {
+    position: relative;
+    margin: 20px 0;
+    border: 2px solid #ddd;
+}
+
+.manual_checkin-container {
+    position: relative;
+    margin: 20px 0;
+}
+
+.scanner-controls,
+.manual_checkin-controls {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    display: inline-block;
+}
+
+.status-badge.pending {
+    background-color: #f0ad4e;
+    color: #fff;
+}
+
+.status-badge.checked_in {
+    background-color: #5cb85c;
+    color: #fff;
+}
+
+.status-badge.expired {
+    background-color: #d9534f;
+    color: #fff;
+}
+
+.screen-options {
+    float: right;
+    margin-top: -40px;
+}
+
+.screen-options-toggle {
+    background: #f0f0f1;
+    border: 1px solid #c3c4c7;
+    padding: 5px 10px;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.checkin-listing-admin-main-box select.checkin-status-dropdown {
+       width: 98px;
+    padding: 0px 4px;
+        height: 11px !important;
+}
+
+#manual_checkin_search {
+    width: 100% !important;
+}
+
+.sg-admin-main-box .wp-core-ui .button, .wp-core-ui .button-secondary i {
+    color: #2e59c5 !important;
+}
+
+.resend-email {
+    cursor: pointer;
+}
+
+.order_records .no_records_class, .checkin_records .no_records_class {
+    left: 358% !important;
+}
+
+#checkin_advanced_search_box .service_filter_span {
+    display: inline-flex;
+    vertical-align: bottom;
+}
+
+.checkin_advanced_search_box #checkin_date_search_button {
+    margin-left: 15px !important;
+}
+
+.checkin_advanced_search_box #checkin_date_search_button,
+.checkin_advanced_search_box #reset_date_search {
+    min-width: 20px !important;
+    width: 20px !important;
+}
+
+.checkin_advanced_search_box #checkin_date_search_button i,
+.checkin_advanced_search_box #reset_date_search i {
+    position: relative !important;
+    right: 5px !important;
+}
+
+#manual_checkin-modal .manual-cherckin-buttons {
+    text-align: center;
+}
+
+#manual_checkin-modal .modal-content {
+    max-width: 80% !important;
+}
+
+.manual_checkin-container input[type="text"],
+.manual_checkin-container input[type="email"] {
+    width: 60% !important;
+}
+
+#manual_checkin-result {
+    margin-top: 20px;
+}
+
+.manual_checkin_records_table input[type="checkbox"]:first-of-type {
+    margin: 0 !important;
+}
+
+.manual_checkin_records_table .bm-view-details i {
+    cursor: pointer;
+}
+
+.checkin-order-details-container {
+    height: 400px;
+    overflow: auto;
+}
+
+table.manual_checkin_records_table thead th, 
+table.manual_checkin_records_table thead td {
+    padding: 5px 11px !important;
+}
+
+.qr-modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+}
+
+/* Modal box */
+.qr-modal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 10px;
+  width: 70%;
+  max-width: 800px;
+  min-width: 300px;
+  min-height: 300px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+/* Header for dragging */
+.qr-modal-header {
+  background: #0073aa;
+  color: #fff;
+  padding: 10px;
+  cursor: move;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+/* Close button */
+.qr-modal-close {
+  font-size: 22px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.qr-modal-close:hover {
+  color: #ff3333;
+}
+
+/* Body */
+.qr-modal-body {
+  padding: 15px;
+  text-align: center;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+/* Resizer handle */
+.qr-resizer {
+  width: 15px;
+  height: 15px;
+  background: transparent;
+  border-right: 3px solid #0073aa;
+  border-bottom: 3px solid #0073aa;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  cursor: se-resize;
+}
+
+.qr-cropper-wrapper {
+  width: 100%;
+  height: calc(70vh - 100px); /* leave room for header + buttons */
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#cropper-image {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.qr-spinner {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid #0073aa; /* WP blue */
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  margin: 20px auto;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.fx-modal-header h2{
+    padding: 0px;
+    margin: 0px;
+    font-size: 18px;
+}
+
+#order-details-content .widefat{
+    padding: 12px;
+    box-shadow: none;
+        border: none;
+}
+
+#order-details-content .widefat td{
+        border-bottom: none;
+}
+
+#order-details-content .widefat th{
+    font-weight: 600;
+    color: #2e3235;
+}
+
+#order-details-modal .close{
+    margin-top: 10px;
+    margin-right: 10px;
+}
+
+.checkin-default-modal h2.fx-manual_checkin-heading{
+    margin:0px;
+}
+ 
+.fx-modal-header{
+    display: block;
+    background: #f4faff;
+    padding: 14px 20px;
+    font-size: 18px;
+    font-weight: 600;
+    border-radius: 6px 6px 0px 0px;
+}
+
+.manual_checkin-container{
+    position: relative;
+    margin: 20px 20px;
+    min-height: 126px;
+}
+
+#qr-cropper-modal {
+  display: none;
+  z-index: 9999;
+  position: fixed;
+}
