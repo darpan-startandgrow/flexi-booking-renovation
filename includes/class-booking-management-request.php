@@ -11156,9 +11156,10 @@ class BM_Request {
 	 */
 	public function bm_get_payment_status_condition( $status = '' ) {
 		if ( $status === 'pending' ) {
-			return array( 't.payment_status' => array( 'IN' => array( 'requires_capture', 'pending', 'on_hold' ) ) );
+			// Payments that have not yet been captured (on-request) or confirmed (pending).
+			return array( 't.payment_status' => array( 'IN' => array( 'requires_capture', 'pending' ) ) );
 		}
-		return array( 't.payment_status' => array( 'NOT IN' => array( 'requires_capture', 'pending', 'on_hold' ) ) );
+		return array( 't.payment_status' => array( 'NOT IN' => array( 'requires_capture', 'pending' ) ) );
 	}//end bm_get_payment_status_condition()
 
 
@@ -11169,9 +11170,11 @@ class BM_Request {
 	 */
 	public function bm_get_order_status_condition( $status = '' ) {
 		if ( $status === 'pending' ) {
-			return array( 'b.order_status' => array( 'IN' => array( 'processing', 'pending', 'on_hold' ) ) );
+			// Bookings awaiting admin action or payment: new on_hold requests + legacy pending.
+			return array( 'b.order_status' => array( 'IN' => array( 'pending', 'on_hold' ) ) );
 		}
-		return array( 'b.order_status' => array( 'NOT IN' => array( 'processing', 'pending', 'on_hold' ) ) );
+		// Exclude still-open statuses; include confirmed, completed, succeeded (legacy), etc.
+		return array( 'b.order_status' => array( 'NOT IN' => array( 'pending', 'on_hold' ) ) );
 	}//end bm_get_order_status_condition()
 
 
@@ -12163,7 +12166,7 @@ class BM_Request {
 						$order_data['total_ext_svc_slots'] = ! empty( $extra_slots_booked ) ? array_sum( explode( ',', $extra_slots_booked ) ) : 0;
 						$order_data['disount_amount']      = $discount_amount;
 						$order_data['subtotal']            = $subtotal;
-						$order_data['order_status']        = 'processing';
+						$order_data['order_status']        = ( $booking_type === 'on_request' ) ? 'on_hold' : 'confirmed';
 						$order_data['booking_country']     = $booking_country;
 						$order_data['booking_type']        = $booking_type;
 						$order_data['price_module_data']   = $this->bm_fetch_price_module_data_for_order( $booking_key );
@@ -13839,7 +13842,10 @@ class BM_Request {
 		$where = array_merge(
 			$where,
 			array(
-				'b.is_active' => array( '=' => 1 ),
+				'b.is_active'    => array( '=' => 1 ),
+				// Only fetch bookings that have not been marked completed yet
+				// (covers both the new 'confirmed' key and legacy 'processing'/'succeeded' values).
+				'b.order_status' => array( 'NOT IN' => array( 'completed', 'refunded', 'cancelled', 'failed' ) ),
 			)
 		);
 
@@ -13969,6 +13975,7 @@ class BM_Request {
 						);
 
 						$booking_data = array(
+							'order_status'       => 'confirmed',
 							'booking_updated_at' => $this->bm_fetch_current_wordpress_datetime_stamp(),
 						);
 
@@ -14569,7 +14576,7 @@ class BM_Request {
 				$status = 'on_hold';
 				break;
 			case 'wc-completed':
-				$status = 'succeeded';
+				$status = 'completed';
 				break;
 			case 'wc-cancelled':
 				$status = 'cancelled';
@@ -14599,9 +14606,9 @@ class BM_Request {
 	public function bm_fetch_order_status_key_value( $status = '', $exclude = array() ) {
 		$statusList = array(
 			'pending'    => esc_html__( 'Pending', 'service-booking' ),
-			'processing' => esc_html__( 'Processing', 'service-booking' ),
 			'on_hold'    => esc_html__( 'On Hold', 'service-booking' ),
-			'succeeded'  => esc_html__( 'Completed', 'service-booking' ),
+			'confirmed'  => esc_html__( 'Confirmed', 'service-booking' ),
+			'completed'  => esc_html__( 'Completed', 'service-booking' ),
 			'cancelled'  => esc_html__( 'Cancelled', 'service-booking' ),
 			'refunded'   => esc_html__( 'Refunded', 'service-booking' ),
 			'failed'     => esc_html__( 'Failed', 'service-booking' ),
@@ -14610,6 +14617,13 @@ class BM_Request {
 
 		if ( ! empty( $status ) ) {
 			$status = strtolower( $status );
+			// Backward-compat: legacy 'succeeded' and 'processing' keys map to their new labels.
+			if ( $status === 'succeeded' ) {
+				return esc_html__( 'Completed', 'service-booking' );
+			}
+			if ( $status === 'processing' ) {
+				return esc_html__( 'Confirmed', 'service-booking' );
+			}
 			return isset( $statusList[ $status ] ) ? $statusList[ $status ] : '';
 		}
 
@@ -14619,6 +14633,56 @@ class BM_Request {
 
 		return $statusList;
 	}//end bm_fetch_order_status_key_value()
+
+
+	/**
+	 * Return all order_status values that represent a completed/finalized booking.
+	 * This covers the legacy 'succeeded' key as well as the canonical 'confirmed'
+	 * and 'completed' keys so that revenue/analytics queries are backward-compatible.
+	 *
+	 * @return string[]
+	 */
+	public function bm_get_completed_order_statuses() {
+		return array( 'succeeded', 'confirmed', 'completed' );
+	}//end bm_get_completed_order_statuses()
+
+
+	/**
+	 * Return the allowed state transitions for BOOKING.order_status.
+	 *
+	 * @return array<string, string[]>
+	 */
+	public function bm_get_allowed_booking_transitions() {
+		return array(
+			'pending'    => array( 'on_hold', 'confirmed', 'cancelled', 'failed' ),
+			'on_hold'    => array( 'confirmed', 'cancelled', 'refunded', 'failed' ),
+			'confirmed'  => array( 'completed', 'refunded', 'cancelled', 'failed' ),
+			// Legacy aliases treated as equivalent to their canonical counterparts.
+			'processing' => array( 'confirmed', 'completed', 'cancelled', 'refunded', 'failed' ),
+			'succeeded'  => array( 'completed', 'refunded', 'cancelled', 'failed' ),
+			'completed'  => array( 'refunded' ),
+			'cancelled'  => array(),
+			'refunded'   => array(),
+			'failed'     => array( 'pending', 'on_hold' ),
+		);
+	}//end bm_get_allowed_booking_transitions()
+
+
+	/**
+	 * Check whether a booking status transition is valid.
+	 *
+	 * @param string $from Current order_status value.
+	 * @param string $to   Desired order_status value.
+	 * @return bool
+	 */
+	public function bm_is_valid_booking_transition( $from, $to ) {
+		if ( $from === $to ) {
+			return true; // Idempotent – no real change.
+		}
+		$transitions = $this->bm_get_allowed_booking_transitions();
+		$allowed     = isset( $transitions[ $from ] ) ? $transitions[ $from ] : array();
+		return in_array( $to, $allowed, true );
+	}//end bm_is_valid_booking_transition()
 
 
 	/**
@@ -16504,6 +16568,8 @@ class BM_Request {
 			'refunded'                => 'refunded',
 			'free'                    => 'Free order',
 			'succeeded'               => 'paid',
+			'confirmed'               => 'paid',
+			'completed'               => 'paid',
 			'requires_payment_method' => 'failed',
 		);
 

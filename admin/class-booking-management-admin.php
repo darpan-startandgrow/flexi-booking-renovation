@@ -5495,16 +5495,24 @@ class Booking_Management_Admin {
 			$order_id = isset( $post['id'] ) && ! empty( $post['id'] ) ? $post['id'] : 0;
 			$status   = isset( $post['status'] ) && ! empty( $post['status'] ) ? $post['status'] : '';
 
-			if ( $status == 'cancelled' ) {
-				$update_data = array(
-					'order_status' => $status,
-					'is_active'    => 0,
-				);
-			} else {
-				$update_data = array( 'order_status' => $status );
-			}
-
 			if ( $order_id !== 0 && ! empty( $status ) ) {
+				$current_status = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
+
+				if ( ! $bmrequests->bm_is_valid_booking_transition( (string) $current_status, $status ) ) {
+					$data['error'] = 'invalid_transition';
+					echo wp_json_encode( $data );
+					die;
+				}
+
+				if ( $status === 'cancelled' ) {
+					$update_data = array(
+						'order_status' => $status,
+						'is_active'    => 0,
+					);
+				} else {
+					$update_data = array( 'order_status' => $status );
+				}
+
 				$update_data['booking_updated_at'] = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
 				$updated_status                    = $dbhandler->update_row( 'BOOKING', 'id', $order_id, $update_data, '', '%s' );
 
@@ -5539,16 +5547,24 @@ class Booking_Management_Admin {
 			$order_id = isset( $post['id'] ) && ! empty( $post['id'] ) ? $post['id'] : 0;
 			$status   = isset( $post['status'] ) && ! empty( $post['status'] ) ? $post['status'] : '';
 
-			if ( $status == 'cancelled' ) {
-				$update_data = array(
-					'order_status' => $status,
-					'is_active'    => 0,
-				);
-			} else {
-				$update_data = array( 'order_status' => $status );
-			}
-
 			if ( $order_id !== 0 && ! empty( $status ) ) {
+				$current_status = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
+
+				if ( ! $bmrequests->bm_is_valid_booking_transition( (string) $current_status, $status ) ) {
+					$data['error'] = 'invalid_transition';
+					echo wp_json_encode( $data );
+					die;
+				}
+
+				if ( $status === 'cancelled' ) {
+					$update_data = array(
+						'order_status' => $status,
+						'is_active'    => 0,
+					);
+				} else {
+					$update_data = array( 'order_status' => $status );
+				}
+
 				$update_data['booking_updated_at'] = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
 				$updated_status                    = $dbhandler->update_row( 'BOOKING', 'id', $order_id, $update_data, '', '%s' );
 
@@ -8644,7 +8660,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         $results = $dbhandler->get_results_with_join(
             array( 'BOOKING', 'b' ),
@@ -8707,7 +8723,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         $results = $dbhandler->get_results_with_join(
             array( 'BOOKING', 'b' ),
@@ -8764,7 +8780,7 @@ class Booking_Management_Admin {
         foreach ( $date_range as $date ) {
             $where = array(
                 'b.booking_date' => array( '=' => $date ),
-                'b.order_status' => array( '=' => 'succeeded' ),
+                'b.order_status' => array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ),
             );
 
             $results = $dbhandler->get_results_with_join(
@@ -8828,7 +8844,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         if ( $service_id !== '' ) {
             $where['b.service_id'] = array( '=' => $service_id );
@@ -8930,7 +8946,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         if ( $service_id !== '' ) {
             $where['b.service_id'] = array( '=' => $service_id );
@@ -9038,7 +9054,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         $joins = array(
             array(
@@ -9143,7 +9159,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         $results = $dbhandler->get_results_with_join(
             array( 'BOOKING', 'b' ),
@@ -9311,7 +9327,7 @@ class Booking_Management_Admin {
 
         $where = array(
             'b.booking_date' => array( '=' => $date ),
-            'b.order_status' => array( '=' => 'succeeded' ),
+            'b.order_status' => array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ),
         );
 
         $results = $dbhandler->get_results_with_join(
@@ -9359,7 +9375,7 @@ class Booking_Management_Admin {
 
         $where = array(
             'b.booking_date' => array( '=' => $date ),
-            'b.order_status' => array( '=' => 'succeeded' ),
+            'b.order_status' => array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ),
         );
 
         $results = $dbhandler->get_results_with_join(
@@ -9408,7 +9424,7 @@ class Booking_Management_Admin {
 
         $where = array(
             'b.booking_date' => array( '=' => $date ),
-            'b.order_status' => array( '=' => 'succeeded' ),
+            'b.order_status' => array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ),
         );
 
         if ( $service_id !== '' ) {
@@ -9588,7 +9604,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         // ------------------------------------------------------------------
         // 2. Apply dynamic filters from frontend
@@ -9885,7 +9901,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' ); // adjust as needed
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ); // adjust as needed
 
         // Apply multi‑select filters
         if ( ! empty( $filters['customers'] ) && is_array( $filters['customers'] ) ) {
@@ -10198,7 +10214,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         // ------------------------------------------------------------------
         // 2. Apply dynamic filters
@@ -10461,7 +10477,7 @@ class Booking_Management_Admin {
                 'type'  => 'LEFT',
             ),
         );
-        $where['b.order_status'] = array( '=', 'succeeded' );
+        $where['b.order_status'] = array( 'IN', array( 'succeeded', 'confirmed', 'completed' ) );
 
         // ------------------------------------------------------------------
         // 3. Apply dynamic filters
@@ -11036,7 +11052,7 @@ class Booking_Management_Admin {
 
         $where = array(
             'b.booking_date' => array( '=' => $date ),
-            'b.order_status' => array( '=' => 'succeeded' ),
+            'b.order_status' => array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ),
         );
 
         $result = $dbhandler->get_results_with_join(
@@ -11567,7 +11583,7 @@ class Booking_Management_Admin {
 
 		if ( ! empty( $booking_id ) ) {
 			$booking_data = array(
-				'order_status'       => 'succeeded',
+				'order_status'       => 'completed',
 				'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
@@ -11594,7 +11610,7 @@ class Booking_Management_Admin {
 
 		if ( ! empty( $booking_id ) ) {
 			$booking_data = array(
-				'order_status'       => 'succeeded',
+				'order_status'       => 'completed',
 				'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
@@ -11646,21 +11662,25 @@ class Booking_Management_Admin {
 				'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
+			// All four table updates must succeed together; roll back on any failure.
+			$dbhandler->begin_transaction();
 			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
 			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
 			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
 			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
 
-			if ( ( $customer_count == 1 ) ) {
-				$customer_data = array(
-					'is_active'           => 0,
-					'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
-				);
-				$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
-			}
-
-			if ( $one != false && $two != false && $three != false ) {
+			if ( $one !== false && $two !== false && $three !== false ) {
+				if ( $customer_count == 1 ) {
+					$customer_data = array(
+						'is_active'           => 0,
+						'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
+					);
+					$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
+				}
+				$dbhandler->commit_transaction();
 				$cancelled = true;
+			} else {
+				$dbhandler->rollback_transaction();
 			}
 		}
 
@@ -11705,21 +11725,25 @@ class Booking_Management_Admin {
 				'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
+			// All table updates must succeed atomically; roll back on any failure.
+			$dbhandler->begin_transaction();
 			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
 			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
 			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
 			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
 
-			if ( ( $customer_count == 1 ) ) {
-				$customer_data = array(
-					'is_active'           => 0,
-					'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
-				);
-				$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
-			}
-
-			if ( $one != false && $two != false && $three != false ) {
+			if ( $one !== false && $two !== false && $three !== false ) {
+				if ( $customer_count == 1 ) {
+					$customer_data = array(
+						'is_active'           => 0,
+						'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
+					);
+					$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
+				}
+				$dbhandler->commit_transaction();
 				$updated = true;
+			} else {
+				$dbhandler->rollback_transaction();
 			}
 		}
 
@@ -11737,6 +11761,7 @@ class Booking_Management_Admin {
 
 		if ( $booking_id > 0 ) {
 			$bmrequests       = new BM_Request();
+			$dbhandler        = new BM_DBhandler();
 			$transaction_data = array(
 				'payment_status'         => 'succeeded',
 				'is_active'              => 1,
@@ -11744,7 +11769,7 @@ class Booking_Management_Admin {
 			);
 
 			$booking_data = array(
-				'order_status'       => 'succeeded',
+				'order_status'       => 'completed',
 				'is_active'          => 1,
 				'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
@@ -11759,22 +11784,25 @@ class Booking_Management_Admin {
 				'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
-			$dbhandler = new BM_DBhandler();
-
-			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
-			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
-			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
-			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
-
 			$customer_id   = $dbhandler->get_value( 'TRANSACTIONS', 'customer_id', $booking_id, 'booking_id' );
 			$customer_data = array(
 				'is_active'           => 1,
 				'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
-			$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
 
-			if ( $one != false && $two != false && $three != false ) {
+			// All table updates must succeed atomically; roll back on any failure.
+			$dbhandler->begin_transaction();
+			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
+			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
+			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
+
+			if ( $one !== false && $two !== false && $three !== false ) {
+				$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
+				$dbhandler->commit_transaction();
 				$updated = true;
+			} else {
+				$dbhandler->rollback_transaction();
 			}
 		}
 
@@ -11792,6 +11820,7 @@ class Booking_Management_Admin {
 
 		if ( $booking_id > 0 ) {
 			$bmrequests       = new BM_Request();
+			$dbhandler        = new BM_DBhandler();
 			$transaction_data = array(
 				'payment_status'         => 'pending',
 				'is_active'              => 1,
@@ -11799,7 +11828,7 @@ class Booking_Management_Admin {
 			);
 
 			$booking_data = array(
-				'order_status'       => 'processing',
+				'order_status'       => 'pending',
 				'is_active'          => 1,
 				'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
@@ -11814,22 +11843,24 @@ class Booking_Management_Admin {
 				'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
-			$dbhandler = new BM_DBhandler();
-
-			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
-			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
-			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
-			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
-
 			$customer_id   = $dbhandler->get_value( 'TRANSACTIONS', 'customer_id', $booking_id, 'booking_id' );
 			$customer_data = array(
 				'is_active'           => 1,
 				'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
-			$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
 
-			if ( $one != false && $two != false && $three != false ) {
+			$dbhandler->begin_transaction();
+			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
+			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
+			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
+
+			if ( $one !== false && $two !== false && $three !== false ) {
+				$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
+				$dbhandler->commit_transaction();
 				$updated = true;
+			} else {
+				$dbhandler->rollback_transaction();
 			}
 		}
 
@@ -11847,8 +11878,9 @@ class Booking_Management_Admin {
 
 		if ( $booking_id > 0 ) {
 			$bmrequests       = new BM_Request();
+			$dbhandler        = new BM_DBhandler();
 			$transaction_data = array(
-				'payment_status'         => 'pending',
+				'payment_status'         => 'requires_capture',
 				'is_active'              => 1,
 				'transaction_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
@@ -11869,22 +11901,24 @@ class Booking_Management_Admin {
 				'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
-			$dbhandler = new BM_DBhandler();
-
-			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
-			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
-			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
-			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
-
 			$customer_id   = $dbhandler->get_value( 'TRANSACTIONS', 'customer_id', $booking_id, 'booking_id' );
 			$customer_data = array(
 				'is_active'           => 1,
 				'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
-			$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
 
-			if ( $one != false && $two != false && $three != false ) {
+			$dbhandler->begin_transaction();
+			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
+			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
+			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
+
+			if ( $one !== false && $two !== false && $three !== false ) {
+				$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
+				$dbhandler->commit_transaction();
 				$updated = true;
+			} else {
+				$dbhandler->rollback_transaction();
 			}
 		}
 
@@ -11936,8 +11970,15 @@ class Booking_Management_Admin {
 								'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 							);
 
-							$dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
-							$dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+							// Both DB updates must succeed atomically; roll back on failure.
+							$dbhandler->begin_transaction();
+							$t_ok = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
+							$b_ok = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+							if ( $t_ok !== false && $b_ok !== false ) {
+								$dbhandler->commit_transaction();
+							} else {
+								$dbhandler->rollback_transaction();
+							}
 						}
 					}
 				}
