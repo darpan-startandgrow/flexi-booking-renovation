@@ -97,11 +97,12 @@ class BM_Payment_Logs_Table extends WP_List_Table {
         $offset       = ( $current_page - 1 ) * $per_page;
 
         global $wpdb;
+        $bm_activator = new Booking_Management_Activator();
 
-        $bookings_table     = $wpdb->prefix . 'sgbm_booking';
-        $transactions_table = $wpdb->prefix . 'sgbm_transactions';
-        $failed_table       = $wpdb->prefix . 'sgbm_failed_transactions';
-        $customers_table    = $wpdb->prefix . 'sgbm_customers';
+        $bookings_table     = esc_sql( $bm_activator->get_db_table_name( 'BOOKING' ) );
+        $transactions_table = esc_sql( $bm_activator->get_db_table_name( 'TRANSACTIONS' ) );
+        $failed_table       = esc_sql( $bm_activator->get_db_table_name( 'FAILED_TRANSACTIONS' ) );
+        $customers_table    = esc_sql( $bm_activator->get_db_table_name( 'CUSTOMERS' ) );
 
         // Build WHERE conditions
         $where = array( '1=1' );
@@ -166,7 +167,7 @@ class BM_Payment_Logs_Table extends WP_List_Table {
         WHERE $where_sql";
 
         // Combine with UNION
-        $union_sql = "( $success_sql ) UNION ( $failed_sql ) ORDER BY created_at DESC LIMIT $offset, $per_page";
+        $union_sql = $wpdb->prepare( "( $success_sql ) UNION ( $failed_sql ) ORDER BY created_at DESC LIMIT %d, %d", $offset, $per_page );
 
         $this->items = $wpdb->get_results( $union_sql );
 
