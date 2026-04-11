@@ -1280,7 +1280,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_flexibooking_set_language() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1337,7 +1337,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_sort_service_listing() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1403,7 +1403,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_change_service_visibility() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1448,7 +1448,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_change_extra_service_visibility() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1486,7 +1486,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_service() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1609,7 +1609,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_template_listing() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1660,7 +1660,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_price_module_listing() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1699,7 +1699,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_notification_processes_listing() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1747,7 +1747,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_template() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1816,7 +1816,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_change_email_template_visibility() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1869,7 +1869,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_change_notification_process_visibility() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1922,7 +1922,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_notification_process() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -1980,7 +1980,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_sort_category_listing() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2041,7 +2041,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_change_category_visibility() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2085,7 +2085,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_change_customer_visibility() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2129,7 +2129,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_category() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2214,7 +2214,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_price_module() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2278,7 +2278,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_get_service_prices() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2316,7 +2316,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_get_serice_stopsales() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2351,7 +2351,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_get_service_saleswitch() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2386,7 +2386,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_get_service_max_cap() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2421,7 +2421,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_get_service_time_slots() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2454,7 +2454,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_get_specific_time_slot() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2498,7 +2498,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_get_all_field_labels() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2546,7 +2546,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_get_fieldkey_and_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2593,7 +2593,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_variable_time_slot() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2669,7 +2669,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_field() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -2702,7 +2702,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_archive_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( esc_html__( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -2801,7 +2801,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( esc_html__( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -2850,7 +2850,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_failed_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( esc_html__( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -2882,7 +2882,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_restore_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( esc_html__( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -2968,7 +2968,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_delete_archive_permanently() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( esc_html__( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -3007,7 +3007,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_get_field_settings() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -3051,7 +3051,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_check_if_existing_field_key() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -3092,7 +3092,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_serice_price() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -3203,7 +3203,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_bulk_serice_price() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -3342,7 +3342,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_serice_price_module() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -3444,7 +3444,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_bulk_serice_price_module() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -3569,7 +3569,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_serice_stopsales() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -3702,7 +3702,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_service_saleswitch() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -3835,7 +3835,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_bulk_serice_stopsales() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -3994,7 +3994,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_bulk_service_saleswitch() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4153,7 +4153,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_serice_max_cap() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4274,7 +4274,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_bulk_serice_max_cap() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4417,7 +4417,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_set_variable_time_slot() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4568,7 +4568,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_save_field_and_setting() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4669,7 +4669,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_preview_form() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4697,7 +4697,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_check_smtp_connection() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4855,7 +4855,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_timezone() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4884,7 +4884,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_customer_data_for_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4917,7 +4917,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_customer_data_for_failed_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4945,7 +4945,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_customer_data_for_archived_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -4973,7 +4973,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_attachments_for_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5002,7 +5002,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_attachments_for_archived_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5031,7 +5031,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_attachments_for_failed_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5060,7 +5060,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_services_by_category_id() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5087,7 +5087,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_bookable_services_by_category_id_and_date() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5114,7 +5114,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_ordered_product_details() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5151,7 +5151,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_ordered_service_details() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5258,7 +5258,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_new_order_service_time_slots() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5293,7 +5293,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_service_extras_for_backend_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5317,7 +5317,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_mincap_and_cap_left() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5363,7 +5363,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_service_price_for_backend_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5391,7 +5391,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_price_discount_module_for_backend_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5419,7 +5419,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_age_data_and_check_backend_discount() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5450,7 +5450,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_reset_backend_discounted_value() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5482,7 +5482,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_change_order_status_to_complete_or_cancelled() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5495,16 +5495,24 @@ class Booking_Management_Admin {
 			$order_id = isset( $post['id'] ) && ! empty( $post['id'] ) ? $post['id'] : 0;
 			$status   = isset( $post['status'] ) && ! empty( $post['status'] ) ? $post['status'] : '';
 
-			if ( $status == 'cancelled' ) {
-				$update_data = array(
-					'order_status' => $status,
-					'is_active'    => 0,
-				);
-			} else {
-				$update_data = array( 'order_status' => $status );
-			}
-
 			if ( $order_id !== 0 && ! empty( $status ) ) {
+				$current_status = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
+
+				if ( ! $bmrequests->bm_is_valid_booking_transition( (string) $current_status, $status ) ) {
+					$data['error'] = 'invalid_transition';
+					echo wp_json_encode( $data );
+					die;
+				}
+
+				if ( $status === 'cancelled' ) {
+					$update_data = array(
+						'order_status' => $status,
+						'is_active'    => 0,
+					);
+				} else {
+					$update_data = array( 'order_status' => $status );
+				}
+
 				$update_data['booking_updated_at'] = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
 				$updated_status                    = $dbhandler->update_row( 'BOOKING', 'id', $order_id, $update_data, '', '%s' );
 
@@ -5526,7 +5534,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_change_order_status() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5539,16 +5547,24 @@ class Booking_Management_Admin {
 			$order_id = isset( $post['id'] ) && ! empty( $post['id'] ) ? $post['id'] : 0;
 			$status   = isset( $post['status'] ) && ! empty( $post['status'] ) ? $post['status'] : '';
 
-			if ( $status == 'cancelled' ) {
-				$update_data = array(
-					'order_status' => $status,
-					'is_active'    => 0,
-				);
-			} else {
-				$update_data = array( 'order_status' => $status );
-			}
-
 			if ( $order_id !== 0 && ! empty( $status ) ) {
+				$current_status = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
+
+				if ( ! $bmrequests->bm_is_valid_booking_transition( (string) $current_status, $status ) ) {
+					$data['error'] = 'invalid_transition';
+					echo wp_json_encode( $data );
+					die;
+				}
+
+				if ( $status === 'cancelled' ) {
+					$update_data = array(
+						'order_status' => $status,
+						'is_active'    => 0,
+					);
+				} else {
+					$update_data = array( 'order_status' => $status );
+				}
+
 				$update_data['booking_updated_at'] = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
 				$updated_status                    = $dbhandler->update_row( 'BOOKING', 'id', $order_id, $update_data, '', '%s' );
 
@@ -5570,7 +5586,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_columns_screen_options() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5598,7 +5614,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_save_columns_screen_options() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5683,7 +5699,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_order_as_per_search() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -5958,7 +5974,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_archived_order_as_per_search() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -6233,7 +6249,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_checkin_as_per_search() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -6438,7 +6454,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_failed_order_as_per_search() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -6657,7 +6673,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_filter_service_planner_events_callback() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -7191,7 +7207,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_filter_fullcalendar_events_callback() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -7347,7 +7363,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_single_service_planner_events_callback() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -7503,7 +7519,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_service_planner_time_slots() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -7541,7 +7557,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_dashoboard_order_global_search() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -7738,7 +7754,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_upcoming_orders() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -7887,7 +7903,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_dashboard_weekly_orders() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -7963,7 +7979,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_cat_wise_orders() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -8054,7 +8070,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_service_wise_revenue() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -8144,7 +8160,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_datewise_revenue_orders() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -8252,7 +8268,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_customer_wise_revenue_orders() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -8343,7 +8359,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_booking_counts() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -8389,7 +8405,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_customer_and_total_booked_slot_counts() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -8417,7 +8433,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_booking_status_counts() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -8444,7 +8460,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_booking_overview() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -8473,7 +8489,7 @@ class Booking_Management_Admin {
      */
     public function bm_fetch_analytics_data_callback() {
         $nonce = filter_input( INPUT_POST, 'nonce' );
-        if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+        if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
             wp_die( esc_html__( 'Failed security check', 'service-booking' ) );
         }
 
@@ -8644,7 +8660,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         $results = $dbhandler->get_results_with_join(
             array( 'BOOKING', 'b' ),
@@ -8707,7 +8723,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         $results = $dbhandler->get_results_with_join(
             array( 'BOOKING', 'b' ),
@@ -8764,7 +8780,7 @@ class Booking_Management_Admin {
         foreach ( $date_range as $date ) {
             $where = array(
                 'b.booking_date' => array( '=' => $date ),
-                'b.order_status' => array( '=' => 'succeeded' ),
+                'b.order_status' => array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ),
             );
 
             $results = $dbhandler->get_results_with_join(
@@ -8828,7 +8844,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         if ( $service_id !== '' ) {
             $where['b.service_id'] = array( '=' => $service_id );
@@ -8930,7 +8946,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         if ( $service_id !== '' ) {
             $where['b.service_id'] = array( '=' => $service_id );
@@ -9038,7 +9054,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         $joins = array(
             array(
@@ -9143,7 +9159,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         $results = $dbhandler->get_results_with_join(
             array( 'BOOKING', 'b' ),
@@ -9311,7 +9327,7 @@ class Booking_Management_Admin {
 
         $where = array(
             'b.booking_date' => array( '=' => $date ),
-            'b.order_status' => array( '=' => 'succeeded' ),
+            'b.order_status' => array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ),
         );
 
         $results = $dbhandler->get_results_with_join(
@@ -9359,7 +9375,7 @@ class Booking_Management_Admin {
 
         $where = array(
             'b.booking_date' => array( '=' => $date ),
-            'b.order_status' => array( '=' => 'succeeded' ),
+            'b.order_status' => array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ),
         );
 
         $results = $dbhandler->get_results_with_join(
@@ -9408,7 +9424,7 @@ class Booking_Management_Admin {
 
         $where = array(
             'b.booking_date' => array( '=' => $date ),
-            'b.order_status' => array( '=' => 'succeeded' ),
+            'b.order_status' => array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ),
         );
 
         if ( $service_id !== '' ) {
@@ -9503,7 +9519,7 @@ class Booking_Management_Admin {
      */
     public function bm_fetch_analytics_detail_callback() {
         $nonce = filter_input( INPUT_POST, 'nonce' );
-        if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+        if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
             // Return valid JSON even on error
             wp_send_json(
                 array(
@@ -9588,7 +9604,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         // ------------------------------------------------------------------
         // 2. Apply dynamic filters from frontend
@@ -9885,7 +9901,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' ); // adjust as needed
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ); // adjust as needed
 
         // Apply multi‑select filters
         if ( ! empty( $filters['customers'] ) && is_array( $filters['customers'] ) ) {
@@ -10198,7 +10214,7 @@ class Booking_Management_Admin {
                 '<=' => $date_to,
             );
         }
-        $where['b.order_status'] = array( '=' => 'succeeded' );
+        $where['b.order_status'] = array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) );
 
         // ------------------------------------------------------------------
         // 2. Apply dynamic filters
@@ -10461,7 +10477,7 @@ class Booking_Management_Admin {
                 'type'  => 'LEFT',
             ),
         );
-        $where['b.order_status'] = array( '=', 'succeeded' );
+        $where['b.order_status'] = array( 'IN', array( 'succeeded', 'confirmed', 'completed' ) );
 
         // ------------------------------------------------------------------
         // 3. Apply dynamic filters
@@ -10769,7 +10785,7 @@ class Booking_Management_Admin {
 
     public function bm_download_analytics_csv_callback() {
         $nonce = filter_input( INPUT_POST, 'nonce' );
-        if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+        if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
             die( esc_html__( 'Failed security check', 'service-booking' ) );
         }
 
@@ -11006,9 +11022,9 @@ class Booking_Management_Admin {
      * @return float
      */
     private function bm_get_daily_metric_value( $date, $metric ) {
-        global $wpdb;
         $dbhandler          = new BM_DBhandler();
-        $transactions_table = $wpdb->prefix . 'sgbm_transactions';
+        $bm_activator       = new Booking_Management_Activator();
+        $transactions_table = esc_sql( $bm_activator->get_db_table_name( 'TRANSACTIONS' ) );
 
         $metric_map = array(
             'total_sales'         => 'SUM(b.total_cost)',
@@ -11036,7 +11052,7 @@ class Booking_Management_Admin {
 
         $where = array(
             'b.booking_date' => array( '=' => $date ),
-            'b.order_status' => array( '=' => 'succeeded' ),
+            'b.order_status' => array( 'IN' => array( 'succeeded', 'confirmed', 'completed' ) ),
         );
 
         $result = $dbhandler->get_results_with_join(
@@ -11061,7 +11077,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_all_orders() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -11102,7 +11118,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_saved_order_search() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -11127,7 +11143,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_saved_checkin_search() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -11152,7 +11168,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_get_primary_email_field_key() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -11182,7 +11198,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_save_primary_email_field_key() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -11228,7 +11244,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_save_non_primary_email_as_primary() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -11567,7 +11583,7 @@ class Booking_Management_Admin {
 
 		if ( ! empty( $booking_id ) ) {
 			$booking_data = array(
-				'order_status'       => 'succeeded',
+				'order_status'       => 'completed',
 				'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
@@ -11594,7 +11610,7 @@ class Booking_Management_Admin {
 
 		if ( ! empty( $booking_id ) ) {
 			$booking_data = array(
-				'order_status'       => 'succeeded',
+				'order_status'       => 'completed',
 				'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
@@ -11646,21 +11662,25 @@ class Booking_Management_Admin {
 				'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
+			// All four table updates must succeed together; roll back on any failure.
+			$dbhandler->begin_transaction();
 			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
 			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
 			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
 			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
 
-			if ( ( $customer_count == 1 ) ) {
-				$customer_data = array(
-					'is_active'           => 0,
-					'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
-				);
-				$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
-			}
-
-			if ( $one != false && $two != false && $three != false ) {
+			if ( $one !== false && $two !== false && $three !== false ) {
+				if ( $customer_count == 1 ) {
+					$customer_data = array(
+						'is_active'           => 0,
+						'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
+					);
+					$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
+				}
+				$dbhandler->commit_transaction();
 				$cancelled = true;
+			} else {
+				$dbhandler->rollback_transaction();
 			}
 		}
 
@@ -11705,21 +11725,25 @@ class Booking_Management_Admin {
 				'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
+			// All table updates must succeed atomically; roll back on any failure.
+			$dbhandler->begin_transaction();
 			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
 			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
 			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
 			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
 
-			if ( ( $customer_count == 1 ) ) {
-				$customer_data = array(
-					'is_active'           => 0,
-					'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
-				);
-				$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
-			}
-
-			if ( $one != false && $two != false && $three != false ) {
+			if ( $one !== false && $two !== false && $three !== false ) {
+				if ( $customer_count == 1 ) {
+					$customer_data = array(
+						'is_active'           => 0,
+						'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
+					);
+					$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
+				}
+				$dbhandler->commit_transaction();
 				$updated = true;
+			} else {
+				$dbhandler->rollback_transaction();
 			}
 		}
 
@@ -11737,6 +11761,7 @@ class Booking_Management_Admin {
 
 		if ( $booking_id > 0 ) {
 			$bmrequests       = new BM_Request();
+			$dbhandler        = new BM_DBhandler();
 			$transaction_data = array(
 				'payment_status'         => 'succeeded',
 				'is_active'              => 1,
@@ -11744,7 +11769,7 @@ class Booking_Management_Admin {
 			);
 
 			$booking_data = array(
-				'order_status'       => 'succeeded',
+				'order_status'       => 'completed',
 				'is_active'          => 1,
 				'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
@@ -11759,22 +11784,25 @@ class Booking_Management_Admin {
 				'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
-			$dbhandler = new BM_DBhandler();
-
-			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
-			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
-			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
-			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
-
 			$customer_id   = $dbhandler->get_value( 'TRANSACTIONS', 'customer_id', $booking_id, 'booking_id' );
 			$customer_data = array(
 				'is_active'           => 1,
 				'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
-			$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
 
-			if ( $one != false && $two != false && $three != false ) {
+			// All table updates must succeed atomically; roll back on any failure.
+			$dbhandler->begin_transaction();
+			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
+			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
+			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
+
+			if ( $one !== false && $two !== false && $three !== false ) {
+				$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
+				$dbhandler->commit_transaction();
 				$updated = true;
+			} else {
+				$dbhandler->rollback_transaction();
 			}
 		}
 
@@ -11792,6 +11820,7 @@ class Booking_Management_Admin {
 
 		if ( $booking_id > 0 ) {
 			$bmrequests       = new BM_Request();
+			$dbhandler        = new BM_DBhandler();
 			$transaction_data = array(
 				'payment_status'         => 'pending',
 				'is_active'              => 1,
@@ -11799,7 +11828,7 @@ class Booking_Management_Admin {
 			);
 
 			$booking_data = array(
-				'order_status'       => 'processing',
+				'order_status'       => 'pending',
 				'is_active'          => 1,
 				'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
@@ -11814,22 +11843,24 @@ class Booking_Management_Admin {
 				'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
-			$dbhandler = new BM_DBhandler();
-
-			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
-			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
-			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
-			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
-
 			$customer_id   = $dbhandler->get_value( 'TRANSACTIONS', 'customer_id', $booking_id, 'booking_id' );
 			$customer_data = array(
 				'is_active'           => 1,
 				'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
-			$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
 
-			if ( $one != false && $two != false && $three != false ) {
+			$dbhandler->begin_transaction();
+			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
+			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
+			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
+
+			if ( $one !== false && $two !== false && $three !== false ) {
+				$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
+				$dbhandler->commit_transaction();
 				$updated = true;
+			} else {
+				$dbhandler->rollback_transaction();
 			}
 		}
 
@@ -11847,8 +11878,9 @@ class Booking_Management_Admin {
 
 		if ( $booking_id > 0 ) {
 			$bmrequests       = new BM_Request();
+			$dbhandler        = new BM_DBhandler();
 			$transaction_data = array(
-				'payment_status'         => 'pending',
+				'payment_status'         => 'requires_capture',
 				'is_active'              => 1,
 				'transaction_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
@@ -11869,22 +11901,24 @@ class Booking_Management_Admin {
 				'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 
-			$dbhandler = new BM_DBhandler();
-
-			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
-			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
-			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
-			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
-
 			$customer_id   = $dbhandler->get_value( 'TRANSACTIONS', 'customer_id', $booking_id, 'booking_id' );
 			$customer_data = array(
 				'is_active'           => 1,
 				'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
-			$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
 
-			if ( $one != false && $two != false && $three != false ) {
+			$dbhandler->begin_transaction();
+			$one   = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
+			$two   = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+			$three = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
+			$four  = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
+
+			if ( $one !== false && $two !== false && $three !== false ) {
+				$dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
+				$dbhandler->commit_transaction();
 				$updated = true;
+			} else {
+				$dbhandler->rollback_transaction();
 			}
 		}
 
@@ -11936,8 +11970,15 @@ class Booking_Management_Admin {
 								'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 							);
 
-							$dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
-							$dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+							// Both DB updates must succeed atomically; roll back on failure.
+							$dbhandler->begin_transaction();
+							$t_ok = $dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $booking_id, $transaction_data, '', '%d' );
+							$b_ok = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+							if ( $t_ok !== false && $b_ok !== false ) {
+								$dbhandler->commit_transaction();
+							} else {
+								$dbhandler->rollback_transaction();
+							}
 						}
 					}
 				}
@@ -12130,7 +12171,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_value_for_notification_event_type() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -12161,7 +12202,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_cancel_book_on_request_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -12197,7 +12238,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_approve_book_on_request_order() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -12228,7 +12269,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_update_order_transaction() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -12259,7 +12300,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_save_order_transaction() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -12319,6 +12360,28 @@ class Booking_Management_Admin {
 
 		if ( empty( $booking_id ) ) {
 			return $status;
+		}
+
+		// Validate that the incoming payment_status results in a valid booking transition.
+		$payment_to_order_map = array(
+			'succeeded'        => 'confirmed',
+			'free'             => 'confirmed',
+			'requires_capture' => 'on_hold',
+			'pending'          => 'pending',
+			'cancelled'        => 'cancelled',
+			'refunded'         => 'refunded',
+			'failed'           => 'failed',
+		);
+		$target_order_status  = isset( $payment_to_order_map[ $payment_status ] ) ? $payment_to_order_map[ $payment_status ] : $payment_status;
+		$current_order_status = (string) $dbhandler->get_value( 'BOOKING', 'order_status', $booking_id, 'id' );
+
+		if ( ! $bmrequests->bm_is_valid_booking_transition( $current_order_status, $target_order_status ) ) {
+			// Duplicate / already-in-target-state is idempotent → return 1.
+			if ( $current_order_status === $target_order_status ) {
+				return 1;
+			}
+			// Genuinely invalid transition — reject without touching any data.
+			return 0;
 		}
 
 		do_action( 'flexibooking_save_existing_transaction_data_before_update', $booking_id );
@@ -12872,58 +12935,84 @@ class Booking_Management_Admin {
 			return 0;
 		}
 
+		// Map payment_status to the canonical booking order_status.
+		// payment_status must never bleed into order_status directly.
+		$payment_to_order_map = array(
+			'succeeded'        => 'confirmed',  // payment captured → booking confirmed
+			'free'             => 'confirmed',  // free booking → booking confirmed
+			'requires_capture' => 'on_hold',    // on-request, awaiting capture
+			'pending'          => 'pending',
+			'cancelled'        => 'cancelled',
+			'refunded'         => 'refunded',
+			'failed'           => 'failed',
+		);
+		$new_order_status = isset( $payment_to_order_map[ $payment_status ] ) ? $payment_to_order_map[ $payment_status ] : $payment_status;
+
+		// Enforce valid transition before writing.
+		$current_order_status = (string) $dbhandler->get_value( 'BOOKING', 'order_status', $booking_id, 'id' );
+		if ( ! $bmrequests->bm_is_valid_booking_transition( $current_order_status, $new_order_status ) ) {
+			// Invalid transition: return success (idempotent) without any write.
+			return 1;
+		}
+
+		$is_deactivating = in_array( $payment_status, array( 'refunded', 'cancelled', 'failed' ), true );
+
 		$customer_id    = $dbhandler->get_value( 'TRANSACTIONS', 'customer_id', $booking_id, 'booking_id' );
 		$customer_count = $dbhandler->bm_count( 'TRANSACTIONS', array( 'customer_id' => $customer_id ) );
 
 		$booking_data = array(
-			'is_active'          => $payment_status == 'refunded' ? 0 : 1,
-			'order_status'       => $payment_status,
+			'is_active'          => $is_deactivating ? 0 : 1,
+			'order_status'       => $new_order_status,
 			'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 		);
 
 		$slotcount_data = array(
-			'is_active'       => $payment_status == 'refunded' ? 0 : 1,
+			'is_active'       => $is_deactivating ? 0 : 1,
 			'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 		);
 
 		$extra_slotcount_data = array(
-			'is_active'       => $payment_status == 'refunded' ? 0 : 1,
+			'is_active'       => $is_deactivating ? 0 : 1,
 			'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 		);
 
-		if ( ( $customer_count == 1 ) ) {
+		if ( $customer_count == 1 ) {
 			$customer_data = array(
-				'is_active'           => $payment_status == 'refunded' ? 0 : 1,
+				'is_active'           => $is_deactivating ? 0 : 1,
 				'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 		}
 
-		$booking_update = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+		// All updates must succeed together; roll back on any failure.
+		$dbhandler->begin_transaction();
 
-		if ( is_wp_error( $booking_update ) ) {
-			$status = 0;
+		$booking_update = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+		if ( is_wp_error( $booking_update ) || $booking_update === false ) {
+			$dbhandler->rollback_transaction();
+			return 0;
 		}
 
 		$slotcount_update = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
-
 		if ( is_wp_error( $slotcount_update ) ) {
-			$status = 0;
+			$dbhandler->rollback_transaction();
+			return 0;
 		}
 
 		$extra_slotcount_update = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
-
 		if ( is_wp_error( $extra_slotcount_update ) ) {
-			$status = 0;
+			$dbhandler->rollback_transaction();
+			return 0;
 		}
 
 		if ( ! empty( $customer_data ) ) {
 			$customer_update = $dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
-
 			if ( is_wp_error( $customer_update ) ) {
-				$status = 0;
+				$dbhandler->rollback_transaction();
+				return 0;
 			}
 		}
 
+		$dbhandler->commit_transaction();
 		return $status;
 	}//end bm_flexibooking_update_booking_data_after_transaction_update()
 
@@ -13037,7 +13126,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_states_by_country() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -13307,7 +13396,7 @@ class Booking_Management_Admin {
 
 	public function bm_qr_checkin_process() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -15009,7 +15098,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_show_mail_details() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15038,7 +15127,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_show_email_body_old() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15067,7 +15156,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_show_email_body() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15097,7 +15186,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_open_email_body_old() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15161,7 +15250,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_open_email_body() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15230,7 +15319,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_resend_email() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15386,7 +15475,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_add_email_attachment() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15447,7 +15536,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_email_attachment() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15488,7 +15577,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_temporary_email_attachment() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15528,7 +15617,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_check_admin_password() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15584,7 +15673,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_export_order_modal_options_html() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15611,7 +15700,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_export_checkin_options_html() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15638,7 +15727,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_export_order_records_as_per_type() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -15841,7 +15930,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_export_checkin_records_as_per_type() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 
@@ -16221,7 +16310,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_check_if_exisiting_customer() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
 			return;
 		}
@@ -16256,7 +16345,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_remove_coupon_function() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 		$id        = filter_input( INPUT_POST, 'id', FILTER_VALIDATE_INT );
@@ -16294,7 +16383,7 @@ class Booking_Management_Admin {
 	 */
 	public function bm_fetch_value_for_coupon_type() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
 			die( esc_html__( 'Failed security check', 'service-booking' ) );
 		}
 

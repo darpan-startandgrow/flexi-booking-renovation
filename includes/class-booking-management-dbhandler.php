@@ -1,24 +1,60 @@
 <?php
+/**
+ * Database handler for the booking plugin.
+ *
+ * Provides a centralized abstraction over $wpdb for all CRUD operations.
+ * All database access within the plugin MUST go through this class.
+ *
+ * @since      1.0.0
+ * @package    Booking_Management
+ * @subpackage Booking_Management/includes
+ */
 class BM_DBhandler {
 
 
+	/**
+	 * Cached instance of the activator for table name lookups.
+	 *
+	 * @var Booking_Management_Activator|null
+	 */
+	private $activator_instance = null;
 
+	/**
+	 * Get the activator instance (cached to avoid repeated instantiation).
+	 *
+	 * @return Booking_Management_Activator
+	 */
+	private function get_activator() {
+		if ( $this->activator_instance === null ) {
+			$this->activator_instance = new Booking_Management_Activator();
+		}
+		return $this->activator_instance;
+	}
+
+
+	/**
+	 * Insert a row into the specified table.
+	 *
+	 * @param string     $identifier Table identifier (e.g., 'SERVICE', 'BOOKING').
+	 * @param array      $data       Column => value pairs.
+	 * @param array|null $format     Optional format array for wpdb.
+	 * @return int|false Insert ID on success, false on failure.
+	 */
 	public function insert_row( $identifier, $data, $format = null ) {
 		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
+		$bm_activator = $this->get_activator();
 		$table        = $bm_activator->get_db_table_name( $identifier );
 		$result       = $wpdb->insert( $table, $data, $format );
 		if ( $result !== false ) {
 			return $wpdb->insert_id;
-		} else {
-			return false;
 		}
+		return false;
 	}//end insert_row()
 
 
 	public function update_row( $identifier, $unique_field, $unique_field_value, $data, $format = null, $where_format = null ) {
 		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
+		$bm_activator = $this->get_activator();
 		$table        = $bm_activator->get_db_table_name( $identifier );
 		if ( $unique_field === false ) {
 			$unique_field = $bm_activator->get_db_table_unique_field_name( $identifier );
@@ -46,7 +82,7 @@ class BM_DBhandler {
 
 	public function remove_row( $identifier, $unique_field, $unique_field_value, $where_format = null ) {
 		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
+		$bm_activator = $this->get_activator();
 		$table        = $bm_activator->get_db_table_name( $identifier );
 		if ( $unique_field === false ) {
 			$unique_field = $bm_activator->get_db_table_unique_field_name( $identifier );
@@ -74,7 +110,7 @@ class BM_DBhandler {
 
 	public function get_row( $identifier, $unique_field_value, $unique_field = false, $output_type = 'OBJECT' ) {
 		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
+		$bm_activator = $this->get_activator();
 		$table        = $bm_activator->get_db_table_name( $identifier );
 		$result       = null;
 		if ( $unique_field === false ) {
@@ -100,7 +136,7 @@ class BM_DBhandler {
 
 	public function get_value( $identifier, $field, $unique_field_value, $unique_field = false ) {
 		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
+		$bm_activator = $this->get_activator();
 		$table        = $bm_activator->get_db_table_name( $identifier );
 
 		if ( $unique_field === false ) {
@@ -126,7 +162,7 @@ class BM_DBhandler {
 
 	public function get_value_with_multicondition( $identifier, $field, $where ) {
 		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
+		$bm_activator = $this->get_activator();
 		$table        = $bm_activator->get_db_table_name( $identifier );
 		$qry          = "SELECT $field from $table where";
 		$i            = 0;
@@ -218,7 +254,7 @@ class BM_DBhandler {
 		if ( $limit === false ) {
 			$qry .= '';
 		} else {
-			$qry .= " LIMIT $limit OFFSET $offset";
+			$qry .= $wpdb->prepare( ' LIMIT %d OFFSET %d', intval( $limit ), intval( $offset ) );
 		}
 
 		if ( $result_type === 'results' || $result_type === 'row' || $result_type === 'var' ) {
@@ -253,12 +289,12 @@ class BM_DBhandler {
 	 */
 	public function get_results_with_join( $tables, $columns = '*', $joins = array(), $where = array(), $result_type = 'results', $offset = 0, $limit = false, $sort_by = null, $descending = false, $additional = '', $increase_group_concat_length = false, $group_concat_length = 10000, $output = 'OBJECT' ) {
 		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
+		$bm_activator = $this->get_activator();
 		$base_table   = $bm_activator->get_db_table_name( $tables[0] );
 		$base_alias   = isset( $tables[1] ) ? $tables[1] : 's';
 
 		if ( $increase_group_concat_length ) {
-			$wpdb->query( "SET SESSION group_concat_max_len = $group_concat_length;" );
+			$wpdb->query( $wpdb->prepare( 'SET SESSION group_concat_max_len = %d;', intval( $group_concat_length ) ) );
 		}
 
 		$qry = "SELECT $columns FROM $base_table $base_alias";
@@ -355,7 +391,7 @@ class BM_DBhandler {
 		}
 
 		if ( $limit ) {
-			$qry .= " LIMIT $limit OFFSET $offset";
+			$qry .= $wpdb->prepare( ' LIMIT %d OFFSET %d', intval( $limit ), intval( $offset ) );
 		}
 
 		$method_name = 'get_' . $result_type;
@@ -380,7 +416,7 @@ class BM_DBhandler {
 
 	public function bm_count( $identifier, $where = 1, $data_specifiers = '' ) {
 		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
+		$bm_activator = $this->get_activator();
 		$table_name   = $bm_activator->get_db_table_name( $identifier );
 		if ( $data_specifiers == '' ) {
 			$unique_id_name = $bm_activator->get_db_table_unique_field_name( $identifier );
@@ -479,7 +515,7 @@ class BM_DBhandler {
 	 */
 	public function get_table_columns( $identifier, $exclude_columns = array() ) {
 		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
+		$bm_activator = $this->get_activator();
 		$table        = $bm_activator->get_db_table_name( $identifier );
 
 		$columns = $wpdb->get_col(
@@ -499,13 +535,20 @@ class BM_DBhandler {
 
 
 	/**
-	 * get results by column
+	 * Get results filtered by specific columns.
 	 *
 	 * @author Darpan
+	 *
+	 * @param string $identifier      Table identifier.
+	 * @param array  $columns         Columns to select.
+	 * @param array  $exclude_columns Columns to exclude.
+	 * @param string $result_type     Result type: 'results', 'row', or 'var'.
+	 * @param string $output          Output type for results.
+	 * @return mixed Query results or null on failure.
 	 */
 	public function get_results_by_columns( $identifier, $columns, $exclude_columns = array(), $result_type = 'results', $output = 'OBJECT' ) {
 		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
+		$bm_activator = $this->get_activator();
 		$table        = $bm_activator->get_db_table_name( $identifier );
 
 		// Exclude specified columns
@@ -513,15 +556,24 @@ class BM_DBhandler {
 			$columns = array_diff( $columns, $exclude_columns );
 		}
 
-		$query = $wpdb->prepare( "SELECT $columns FROM TABLE_NAME = %s', $table" );
+		if ( empty( $columns ) ) {
+			return null;
+		}
+
+		$column_list = implode( ', ', array_map( 'esc_sql', $columns ) );
+		$safe_table  = esc_sql( $table );
+		$query       = "SELECT {$column_list} FROM {$safe_table}";
+
+		$method_name = 'get_' . $result_type;
+		if ( ! in_array( $result_type, array( 'results', 'row', 'var' ), true ) ) {
+			return null;
+		}
 
 		if ( $result_type === 'results' ) {
 			$results = $wpdb->$method_name( $query, $output );
 		} else {
 			$results = $wpdb->$method_name( $query );
 		}
-
-		/**$results = $wpdb->get_results( $query, ARRAY_A );*/
 
 		return $results;
 	}//end get_results_by_columns()
@@ -573,7 +625,12 @@ class BM_DBhandler {
 	} //end get_results_by_columns()
 
 
-	// Helper function to convert objects to arrays
+	/**
+	 * Helper function to convert objects to arrays recursively.
+	 *
+	 * @param mixed $obj The object or value to convert.
+	 * @return mixed Converted array or the original value.
+	 */
 	public function object_to_array( $obj ) {
 		if ( is_object( $obj ) ) {
 			$obj = (array) $obj;
@@ -581,7 +638,7 @@ class BM_DBhandler {
 		if ( is_array( $obj ) ) {
 			$new = array();
 			foreach ( $obj as $key => $val ) {
-				$new[ $key ] = object_to_array( $val );
+				$new[ $key ] = $this->object_to_array( $val );
 			}
 		} else {
 			$new = $obj;
@@ -928,4 +985,274 @@ class BM_DBhandler {
 	public function bm_delete_transient( $transient_name ) {
 		delete_transient( $transient_name );
 	}//end bm_delete_transient()
+
+
+	/**
+	 * Begin a database transaction.
+	 *
+	 * @since 1.0.0
+	 * @return bool True on success, false on failure.
+	 */
+	public function begin_transaction() {
+		global $wpdb;
+		return $wpdb->query( 'START TRANSACTION' ) !== false;
+	}
+
+
+	/**
+	 * Commit the current database transaction.
+	 *
+	 * @since 1.0.0
+	 * @return bool True on success, false on failure.
+	 */
+	public function commit_transaction() {
+		global $wpdb;
+		return $wpdb->query( 'COMMIT' ) !== false;
+	}
+
+
+	/**
+	 * Roll back the current database transaction.
+	 *
+	 * @since 1.0.0
+	 * @return bool True on success, false on failure.
+	 */
+	public function rollback_transaction() {
+		global $wpdb;
+		return $wpdb->query( 'ROLLBACK' ) !== false;
+	}
+
+
+	/**
+	 * Execute a callback within a database transaction.
+	 *
+	 * Automatically commits on success or rolls back on failure/exception.
+	 *
+	 * @since 1.0.0
+	 * @param callable $callback The operations to execute inside the transaction.
+	 * @return mixed The return value of the callback, or WP_Error on failure.
+	 */
+	public function with_transaction( $callback ) {
+		$this->begin_transaction();
+		try {
+			$result = call_user_func( $callback );
+			$this->commit_transaction();
+			return $result;
+		} catch ( \Exception $e ) {
+			$this->rollback_transaction();
+			return new \WP_Error( 'db_transaction_failed', $e->getMessage() );
+		}
+	}
+
+
+	// -------------------------------------------------------------------------
+	// Low-level $wpdb proxy helpers
+	// These keep all $wpdb usage centralized inside this class while still
+	// allowing callers to build parameterized queries without importing $wpdb.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Escape a string for use in a SQL LIKE clause.
+	 *
+	 * Wraps $wpdb->esc_like() so callers never need to import $wpdb directly.
+	 *
+	 * @param string $text The raw search string.
+	 * @return string Escaped string safe for use in a LIKE pattern.
+	 */
+	public function esc_like( string $text ): string {
+		global $wpdb;
+		return $wpdb->esc_like( $text );
+	}
+
+
+	/**
+	 * Prepare a parameterized SQL statement.
+	 *
+	 * Wraps $wpdb->prepare() so callers never need to import $wpdb directly.
+	 * All arguments after $query are passed as substitution values.
+	 *
+	 * @param string $query SQL template with sprintf-style placeholders (%s, %d, %f).
+	 * @param mixed  ...$args Values to substitute into the placeholders.
+	 * @return string Prepared (safe) SQL string.
+	 */
+	public function prepare_sql( string $query, ...$args ): string {
+		global $wpdb;
+		return $wpdb->prepare( $query, ...$args );
+	}
+
+
+	/**
+	 * Execute a raw SQL query and return all matching rows.
+	 *
+	 * Use only for complex queries (e.g. UNION) that cannot be expressed
+	 * through the structured helper methods. The query MUST be pre-prepared
+	 * via prepare_sql() before being passed here.
+	 *
+	 * @param string $sql    A fully-prepared SQL string (output of prepare_sql()).
+	 * @param string $output Output format: OBJECT, ARRAY_A, or ARRAY_N.
+	 * @return array|null Array of rows on success, null when no results.
+	 */
+	public function get_results_raw( string $sql, string $output = OBJECT ): ?array {
+		global $wpdb;
+		$results = $wpdb->get_results( $sql, $output );
+		return ( is_array( $results ) && ! empty( $results ) ) ? $results : null;
+	}
+
+
+	/**
+	 * Execute a raw SQL query and return a single scalar value.
+	 *
+	 * Use only when no structured method can express the query. The query
+	 * MUST be pre-prepared via prepare_sql() before being passed here.
+	 *
+	 * @param string $sql A fully-prepared SQL string (output of prepare_sql()).
+	 * @return string|null The first column of the first row, or null.
+	 */
+	public function get_var_raw( string $sql ): ?string {
+		global $wpdb;
+		return $wpdb->get_var( $sql );
+	}
+
+
+	/**
+	 * Delete all transients whose names start with the given prefix.
+	 *
+	 * Removes both the transient value and its corresponding timeout entry
+	 * from the options table in a single query.
+	 *
+	 * @param string $prefix Prefix to match (e.g. 'FLEXI').
+	 * @return void
+	 */
+	public function delete_transients_by_prefix( string $prefix ): void {
+		// Restrict prefix to safe characters only to prevent injection.
+		$prefix = preg_replace( '/[^a-zA-Z0-9_-]/', '', $prefix );
+		if ( empty( $prefix ) ) {
+			return;
+		}
+		global $wpdb;
+		$like_value   = $wpdb->esc_like( '_transient_' . $prefix ) . '%';
+		$like_timeout = $wpdb->esc_like( '_transient_timeout_' . $prefix ) . '%';
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+				$like_value,
+				$like_timeout
+			)
+		);
+	}
+
+
+	/**
+	 * Execute a SELECT ... FOR UPDATE on rows matching given conditions.
+	 *
+	 * Must be called inside an active transaction. Locks the matching rows
+	 * (and the surrounding gap in InnoDB) until the transaction is committed
+	 * or rolled back, serialising concurrent capacity checks for the same slot.
+	 *
+	 * @since 1.0.0
+	 * @param string $identifier Table identifier (e.g. 'SLOTCOUNT').
+	 * @param array  $where      Column => value conditions (ANDed together).
+	 * @return array|null Locked rows, or null when none exist.
+	 */
+	public function select_for_update( string $identifier, array $where ): ?array {
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( $identifier );
+
+		if ( ! $table || empty( $where ) ) {
+			return null;
+		}
+
+		$conditions = array();
+		$values     = array();
+		foreach ( $where as $col => $val ) {
+			// Sanitize column name to safe identifier characters only.
+			$col = preg_replace( '/[^a-zA-Z0-9_]/', '', $col );
+			if ( empty( $col ) ) {
+				continue;
+			}
+			$conditions[] = is_numeric( $val ) ? "`$col` = %d" : "`$col` = %s";
+			$values[]     = $val;
+		}
+
+		if ( empty( $conditions ) ) {
+			return null;
+		}
+
+		$where_sql = implode( ' AND ', $conditions );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql     = $wpdb->prepare( "SELECT * FROM `$table` WHERE $where_sql FOR UPDATE", ...$values );
+		$results = $wpdb->get_results( $sql );
+		return ( ! empty( $results ) ) ? $results : null;
+	}
+
+
+	/**
+	 * Check whether at least one row matching given conditions exists.
+	 *
+	 * @since 1.0.0
+	 * @param string $identifier Table identifier.
+	 * @param array  $where      Column => value conditions (ANDed together).
+	 * @return bool True if at least one matching row exists.
+	 */
+	public function record_exists( string $identifier, array $where ): bool {
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( $identifier );
+
+		if ( ! $table || empty( $where ) ) {
+			return false;
+		}
+
+		$conditions = array();
+		$values     = array();
+		foreach ( $where as $col => $val ) {
+			$col = preg_replace( '/[^a-zA-Z0-9_]/', '', $col );
+			if ( empty( $col ) ) {
+				continue;
+			}
+			$conditions[] = is_numeric( $val ) ? "`$col` = %d" : "`$col` = %s";
+			$values[]     = $val;
+		}
+
+		if ( empty( $conditions ) ) {
+			return false;
+		}
+
+		$where_sql = implode( ' AND ', $conditions );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql   = $wpdb->prepare( "SELECT COUNT(*) FROM `$table` WHERE $where_sql LIMIT 1", ...$values );
+		$count = (int) $wpdb->get_var( $sql );
+		return $count > 0;
+	}
+
+
+	/**
+	 * Insert a row only if no existing row matches the deduplication conditions.
+	 *
+	 * @since 1.0.0
+	 * @param string $identifier Table identifier.
+	 * @param array  $check      Column => value pairs used as the uniqueness check.
+	 * @param array  $data       Column => value pairs to insert.
+	 * @return int|false Insert ID on success, false if row already existed or insert failed.
+	 */
+	public function insert_if_not_exists( string $identifier, array $check, array $data ) {
+		if ( $this->record_exists( $identifier, $check ) ) {
+			return false;
+		}
+
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( $identifier );
+
+		if ( ! $table ) {
+			return false;
+		}
+
+		$result = $wpdb->insert( $table, $data );
+		if ( $result !== false ) {
+			return $wpdb->insert_id;
+		}
+		return false;
+	}
 }//end class

@@ -113,7 +113,7 @@ if ( !empty( $services ) && is_array( $services ) ) {
     }
 }
 
-$calendar_events_json = json_encode( $calendar_events ?: array() )
+$calendar_events_json = wp_json_encode( $calendar_events ?: array() )
 ?>
 
 <div class="calendar-container">

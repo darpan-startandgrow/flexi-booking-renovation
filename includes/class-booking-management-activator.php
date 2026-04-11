@@ -498,6 +498,17 @@ class Booking_Management_Activator {
 		)$charset_collate;";
 		dbDelta( $sql );
 
+		$table_name = $this->get_db_table_name( 'STRIPE_EVENTS' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`event_id` varchar(255) NOT NULL,
+			`event_type` varchar(255) DEFAULT NULL,
+			`processed_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (`id`),
+			UNIQUE KEY `unique_event_id` (`event_id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
 		$this->add_error_column_to_emails();
 		$this->add_error_column_to_failed_transactions();
 		$this->create_default_form_fields();
@@ -585,6 +596,9 @@ class Booking_Management_Activator {
 			case 'COUPON':
 				$table_name = $plugin_prefix . 'coupon';
 				break;
+			case 'STRIPE_EVENTS':
+				$table_name = $plugin_prefix . 'stripe_events';
+				break;
 			default:
 				$classname = "BM_Helper_$identifier";
 				if ( class_exists( $classname ) ) {
@@ -671,6 +685,9 @@ class Booking_Management_Activator {
 				$unique_field_name = 'id';
 				break;
 			case 'PDF_CUSTOMIZATION':
+				$unique_field_name = 'id';
+				break;
+			case 'STRIPE_EVENTS':
 				$unique_field_name = 'id';
 				break;
 			default:
@@ -1742,19 +1759,23 @@ class Booking_Management_Activator {
 
 	private function add_error_column_to_emails() {
 		global $wpdb;
-		$table_name = $this->get_db_table_name( 'EMAILS' );
-		$row        = $wpdb->get_results( "SHOW COLUMNS FROM $table_name LIKE 'error_message'" );
+		$table_name = esc_sql( $this->get_db_table_name( 'EMAILS' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$row        = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'error_message' ) );
 		if ( empty( $row ) ) {
-			$wpdb->query( "ALTER TABLE $table_name ADD `error_message` text NULL AFTER `mail_lang`" );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `error_message` text NULL AFTER `mail_lang`" );
 		}
 	}
 
 	private function add_error_column_to_failed_transactions() {
 		global $wpdb;
-		$table_name = $this->get_db_table_name( 'FAILED_TRANSACTIONS' );
-		$row        = $wpdb->get_results( "SHOW COLUMNS FROM $table_name LIKE 'error_message'" );
+		$table_name = esc_sql( $this->get_db_table_name( 'FAILED_TRANSACTIONS' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$row        = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'error_message' ) );
 		if ( empty( $row ) ) {
-			$wpdb->query( "ALTER TABLE $table_name ADD `error_message` text NULL AFTER `refund_status`" );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `error_message` text NULL AFTER `refund_status`" );
 		}
 	}
 

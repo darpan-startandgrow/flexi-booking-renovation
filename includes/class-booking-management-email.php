@@ -14,11 +14,9 @@ class BM_Email {
     public function bm_send_notification_to_shop_admin( $subject, $message, $booking_id ) {
         $dbhandler           = new BM_DBhandler();
         $bmrequests          = new BM_Request();
-        $from_email_address  = $this->bm_get_from_email();
+        $from_email_address  = sanitize_email( $this->bm_get_from_email() );
         $admin_email_address = $this->bm_get_admin_email();
-        $headers             = "MIME-Version: 1.0\r\n";
-        $headers            .= "Content-type:text/html;charset=UTF-8\r\n";
-        $headers            .= "From:$from_email_address\r\n";
+        $headers             = $this->bm_build_email_headers( $from_email_address );
         $language            = $dbhandler->get_global_option_value( 'bm_flexi_current_language', 'en' );
         $back_lang           = $dbhandler->get_global_option_value( 'bm_flexi_current_language_backend', '' );
         $language            = ! empty( $back_lang ) ? $back_lang : $language;
@@ -57,12 +55,10 @@ class BM_Email {
      */
     public function bm_send_email_to_customer( $subject, $message, $booking_id ) {
         $bmrequests         = new BM_Request();
-        $from_email_address = $this->bm_get_from_email();
+        $from_email_address = sanitize_email( $this->bm_get_from_email() );
         $dbhandler          = new BM_DBhandler();
         $booking_refrence   = $dbhandler->get_value( 'BOOKING', 'booking_key', $booking_id, 'id' );
-        $headers            = "MIME-Version: 1.0\r\n";
-        $headers           .= "Content-type:text/html;charset=UTF-8\r\n";
-        $headers           .= "From:$from_email_address\r\n";
+        $headers            = $this->bm_build_email_headers( $from_email_address );
         $customer_email     = $bmrequests->bm_fetch_customer_email_from_booking_form_data( $booking_id );
         $attachment_urls    = array();
 
@@ -83,14 +79,12 @@ class BM_Email {
      */
     public function bm_send_voucher_email_to_recipient( $subject, $message, $booking_id, $send_voucher_pdf = true ) {
         $bmrequests         = new BM_Request();
-        $from_email_address = $this->bm_get_from_email();
+        $from_email_address = sanitize_email( $this->bm_get_from_email() );
         $dbhandler          = new BM_DBhandler();
         $booking_refrence   = $dbhandler->get_value( 'BOOKING', 'booking_key', $booking_id, 'id' );
         $old_locale         = $bmrequests->bm_switch_locale_by_booking_reference( $booking_refrence );
 
-        $headers         = "MIME-Version: 1.0\r\n";
-        $headers        .= "Content-type:text/html;charset=UTF-8\r\n";
-        $headers        .= "From:$from_email_address\r\n";
+        $headers         = $this->bm_build_email_headers( $from_email_address );
         $recipient_email = $bmrequests->bm_fetch_gift_recipient_email_from_booking_form_data( (int) $booking_id );
         $attachment_urls = array();
 
@@ -223,16 +217,31 @@ class BM_Email {
 
     public function bm_send_invoice_to_email( $subject, $message, $booking_id, $email ) {
          $bmrequests        = new BM_Request();
-        $from_email_address = $this->bm_get_from_email();
-        $headers            = "MIME-Version: 1.0\r\n";
-        $headers           .= "Content-type:text/html;charset=UTF-8\r\n";
-        $headers           .= "From:$from_email_address\r\n";
+        $from_email_address = sanitize_email( $this->bm_get_from_email() );
+        $headers            = $this->bm_build_email_headers( $from_email_address );
         $attachment_urls    = array();
 
         $attachment_urls[] = $bmrequests->bm_get_order_details_attachment( $booking_id, true );
 
-        return wp_mail( $email, $subject, $message, $headers, $attachment_urls );
+        return wp_mail( sanitize_email( $email ), $subject, $message, $headers, $attachment_urls );
     } //end bm_send_invoice_to_email()
+
+	/**
+	 * Build sanitized email headers to prevent header injection.
+	 *
+	 * @param string $from_email Sanitized email address.
+	 * @return string Email headers.
+	 */
+	private function bm_build_email_headers( $from_email ) {
+		$from_name = sanitize_text_field( $this->bm_get_from_name() );
+		// Strip all ASCII control characters (including CRLF) to prevent header injection.
+		$from_name = preg_replace( '/[\x00-\x1F\x7F]/', '', $from_name );
+		$headers   = "MIME-Version: 1.0\r\n";
+		$headers  .= "Content-type:text/html;charset=UTF-8\r\n";
+		$headers  .= 'From: ' . $from_name . ' <' . $from_email . ">\r\n";
+		return $headers;
+	}//end bm_build_email_headers()
+
 
 	/**
      * Send email and capture any failure reason.

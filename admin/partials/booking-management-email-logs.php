@@ -90,8 +90,6 @@ class BM_Email_Logs_Table extends WP_List_Table {
     }
 
     public function prepare_items() {
-		global $wpdb;
-
 		$per_page     = 20;
 		$current_page = $this->get_pagenum();
 		$offset       = ( $current_page - 1 ) * $per_page;
@@ -101,8 +99,8 @@ class BM_Email_Logs_Table extends WP_List_Table {
 
 		// Search
 		if ( ! empty( $_REQUEST['s'] ) ) {
-			$search      = '%' . $wpdb->esc_like( $_REQUEST['s'] ) . '%';
-			$additional .= $wpdb->prepare(
+			$search      = '%' . $this->dbhandler->esc_like( sanitize_text_field( wp_unslash( $_REQUEST['s'] ) ) ) . '%';
+			$additional .= $this->dbhandler->prepare_sql(
                 ' AND (e.mail_to LIKE %s OR e.mail_sub LIKE %s)',
                 $search,
                 $search
@@ -122,9 +120,9 @@ class BM_Email_Logs_Table extends WP_List_Table {
 		// Month filter
 		if ( ! empty( $_REQUEST['m'] ) ) {
 			$yearmonth   = $_REQUEST['m'];
-			$year        = substr( $yearmonth, 0, 4 );
-			$month       = substr( $yearmonth, 4, 2 );
-			$additional .= $wpdb->prepare(
+			$year        = absint( substr( $yearmonth, 0, 4 ) );
+			$month       = absint( substr( $yearmonth, 4, 2 ) );
+			$additional .= $this->dbhandler->prepare_sql(
                 ' AND YEAR(e.created_at) = %d AND MONTH(e.created_at) = %d',
                 $year,
                 $month

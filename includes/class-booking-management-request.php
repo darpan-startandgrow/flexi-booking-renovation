@@ -20,44 +20,47 @@ use Dompdf\Dompdf;
 class BM_Request {
 
 	public function sanitize_request( $post, $identifier, $exclude = array() ) {
-		$bmsanitizer = new BM_Sanitizer();
+		if ( empty( $post ) || ! is_array( $post ) ) {
+			return null;
+		}
 
-		$post = $bmsanitizer->remove_magic_quotes( $post );
+		$bmsanitizer = new BM_Sanitizer();
+		$post        = $bmsanitizer->remove_magic_quotes( $post );
+		$data        = array();
 
 		foreach ( $post as $key => $value ) {
-			if ( ! in_array( $key, $exclude ) ) {
-				if ( ! is_array( $value ) ) {
-					$data[ $key ] = $bmsanitizer->get_sanitized_fields( $identifier, $key, $value );
-				} else {
-					$data[ $key ] = maybe_serialize( $this->sanitize_request_array( $value, $identifier ) );
-				}
+			if ( in_array( $key, $exclude, true ) ) {
+				continue;
+			}
+
+			if ( ! is_array( $value ) ) {
+				$data[ $key ] = $bmsanitizer->get_sanitized_fields( $identifier, $key, $value );
+			} else {
+				$data[ $key ] = maybe_serialize( $this->sanitize_request_array( $value, $identifier ) );
 			}
 		}
 
-		if ( isset( $data ) ) {
-			return $data;
-		} else {
-			return null;
-		}
+		return ! empty( $data ) ? $data : null;
 	}//end sanitize_request()
 
 
-	public function sanitize_request_array( $post, $identifier ) {
+	public function sanitize_request_array( $post, $identifier, $depth = 0 ) {
+		if ( empty( $post ) || ! is_array( $post ) || $depth > 10 ) {
+			return null;
+		}
+
 		$bmsanitizer = new BM_Sanitizer();
+		$data        = array();
 
 		foreach ( $post as $key => $value ) {
 			if ( is_array( $value ) ) {
-				$data[ $key ] = $this->sanitize_request_array( $value, $identifier );
+				$data[ $key ] = $this->sanitize_request_array( $value, $identifier, $depth + 1 );
 			} else {
 				$data[ $key ] = $bmsanitizer->get_sanitized_fields( $identifier, $key, $value );
 			}
 		}
 
-		if ( isset( $data ) ) {
-			return $data;
-		} else {
-			return null;
-		}
+		return ! empty( $data ) ? $data : null;
 	}//end sanitize_request_array()
 
 
@@ -11153,9 +11156,10 @@ class BM_Request {
 	 */
 	public function bm_get_payment_status_condition( $status = '' ) {
 		if ( $status === 'pending' ) {
-			return array( 't.payment_status' => array( 'IN' => array( 'requires_capture', 'pending', 'on_hold' ) ) );
+			// Payments that have not yet been captured (on-request) or confirmed (pending).
+			return array( 't.payment_status' => array( 'IN' => array( 'requires_capture', 'pending' ) ) );
 		}
-		return array( 't.payment_status' => array( 'NOT IN' => array( 'requires_capture', 'pending', 'on_hold' ) ) );
+		return array( 't.payment_status' => array( 'NOT IN' => array( 'requires_capture', 'pending' ) ) );
 	}//end bm_get_payment_status_condition()
 
 
@@ -11166,9 +11170,11 @@ class BM_Request {
 	 */
 	public function bm_get_order_status_condition( $status = '' ) {
 		if ( $status === 'pending' ) {
-			return array( 'b.order_status' => array( 'IN' => array( 'processing', 'pending', 'on_hold' ) ) );
+			// Bookings awaiting admin action or payment: new on_hold requests + legacy pending.
+			return array( 'b.order_status' => array( 'IN' => array( 'pending', 'on_hold' ) ) );
 		}
-		return array( 'b.order_status' => array( 'NOT IN' => array( 'processing', 'pending', 'on_hold' ) ) );
+		// Exclude still-open statuses; include confirmed, completed, succeeded (legacy), etc.
+		return array( 'b.order_status' => array( 'NOT IN' => array( 'pending', 'on_hold' ) ) );
 	}//end bm_get_order_status_condition()
 
 
@@ -12029,6 +12035,13 @@ class BM_Request {
 		$order_number = 0;
 		$data         = array();
 
+		// Idempotency guard: if this booking_key was already persisted (e.g. due to a
+		// network retry), return the existing booking ID instead of creating a duplicate.
+		$existing_booking_id = $dbhandler->get_value( 'BOOKING', 'id', $booking_key, 'booking_key' );
+		if ( ! empty( $existing_booking_id ) ) {
+			return (int) $existing_booking_id;
+		}
+
 		if ( $dbhandler->get_global_option_value( 'discount_' . $booking_key ) == 1 ) {
 			$order_data = $dbhandler->bm_fetch_data_from_transient( 'discounted_' . $booking_key );
 		} else {
@@ -12098,6 +12111,22 @@ class BM_Request {
 				$slot_info = $this->bm_fetch_slot_details( $service_id, $from, $date, $svc_total_time_slots, $total_service_booked, $is_variable_slot );
 
                 if ( !empty( $slot_info ) || ( isset( $checkout_data['checkout']['is_gift'] ) && $checkout_data['checkout']['is_gift'] == 1 ) ) {
+                    // For non-gift bookings, acquire a SELECT FOR UPDATE lock on any existing
+                    // SLOTCOUNT rows for this slot. This serialises concurrent requests so
+                    // that each one sees the definitive, post-lock capacity before inserting.
+                    $is_gift_booking = isset( $checkout_data['checkout']['is_gift'] ) && $checkout_data['checkout']['is_gift'] == 1;
+                    if ( ! $is_gift_booking && ! empty( $slot_info ) && ! empty( $slot_info['slot_id'] ) ) {
+                        $dbhandler->select_for_update( 'SLOTCOUNT', array(
+                            'service_id'   => $service_id,
+                            'booking_date' => $date,
+                            'slot_id'      => $slot_info['slot_id'],
+                            'is_active'    => 1,
+                        ) );
+                        // Re-fetch slot details with the row-level lock held to get the
+                        // definitive capacity (prevents double-booking race condition).
+                        $slot_info = $this->bm_fetch_slot_details( $service_id, $from, $date, $svc_total_time_slots, $total_service_booked, $is_variable_slot );
+                    }
+
                     if ( ( isset( $slot_info['slot_capacity_left_after_booking'] ) && isset( $slot_info['slot_min_cap'] ) && ( $slot_info['slot_capacity_left_after_booking'] >= 0 ) && ( $total_service_booked % $slot_info['slot_min_cap'] == 0 ) ) || ( isset( $checkout_data['checkout']['is_gift'] ) && $checkout_data['checkout']['is_gift'] == 1 ) ) {
                         if ( isset( $order_data['total_service_booking'] ) ) {
                             unset( $order_data['total_service_booking'] );
@@ -12137,7 +12166,7 @@ class BM_Request {
 						$order_data['total_ext_svc_slots'] = ! empty( $extra_slots_booked ) ? array_sum( explode( ',', $extra_slots_booked ) ) : 0;
 						$order_data['disount_amount']      = $discount_amount;
 						$order_data['subtotal']            = $subtotal;
-						$order_data['order_status']        = 'processing';
+						$order_data['order_status']        = ( $booking_type === 'on_request' ) ? 'on_hold' : 'confirmed';
 						$order_data['booking_country']     = $booking_country;
 						$order_data['booking_type']        = $booking_type;
 						$order_data['price_module_data']   = $this->bm_fetch_price_module_data_for_order( $booking_key );
@@ -12939,6 +12968,7 @@ class BM_Request {
         $payment_status    = '';
         $paid_amount       = 0;
         $process_status    = 'error';
+        $transaction_started = false;
         $intentStatuses    = array( 'succeeded', 'requires_capture' );
 
         if ( $this->bm_check_if_cart_order_is_still_bookable( $booking_key, $gift ) ) {
@@ -12980,6 +13010,10 @@ class BM_Request {
 							$transaction_data['transaction_updated_at'] = $this->bm_fetch_current_wordpress_datetime_stamp();
 							$dbhandler->update_row( 'TRANSACTIONS', 'id', $payment_id, $transaction_data, '', '%d' );
 						} else {
+							// Begin atomic transaction: booking + customer + payment record + checkin
+							// must all succeed or all roll back together.
+							$transaction_started = true;
+							$dbhandler->begin_transaction();
 							$booking_id = $this->bm_save_booking_data( $booking_key, $checkout_key );
 
 							if ( $booking_id ) {
@@ -13106,7 +13140,10 @@ class BM_Request {
 
 					$dbhandler->update_global_option_value( 'bm_booking-checkin-id-' . $booking_key, $checkin_id );
 
-					$booking_type   = $dbhandler->get_value( 'BOOKING', 'booking_type', $booking_id, 'id' );
+					$booking_type = $dbhandler->get_value( 'BOOKING', 'booking_type', $booking_id, 'id' );
+					if ( $transaction_started ) {
+						$dbhandler->commit_transaction();
+					}
 					$process_status = 'success';
 
 					if ( $booking_type == 'on_request' ) {
@@ -13139,6 +13176,9 @@ class BM_Request {
 		do_action( 'bm_after_booking_saved', $booking_id, isset( $order_data[0] ) ? $order_data[0] : array() );
 
 		if ( $process_status !== 'success' ) {
+			if ( $transaction_started ) {
+				$dbhandler->rollback_transaction();
+			}
 			$this->bm_remove_order_data_after_failed_payment( $customer_id, $booking_id );
 			$this->bm_unset_session( 'flexi_current_payment_session' );
 		}
@@ -13306,6 +13346,7 @@ class BM_Request {
 		$booking_id       = 0;
 		$payment_id       = 0;
 		$process_status   = 'error';
+		$transaction_started = false;
 
 		if ( isset( $gift_recipient['is_gift'] ) ) {
 			unset( $gift_recipient['is_gift'] );
@@ -13331,6 +13372,9 @@ class BM_Request {
 				'is_active'            => 1,
 			);
 
+			// Begin atomic transaction: all DB writes must succeed or all roll back.
+			$transaction_started = true;
+			$dbhandler->begin_transaction();
 			$booking_id = $this->bm_save_booking_data( $booking_key, $checkout_key );
 
 			if ( $booking_id ) {
@@ -13447,7 +13491,10 @@ class BM_Request {
 
 			$dbhandler->update_global_option_value( 'bm_booking-checkin-id-' . $booking_key, $checkin_id );
 
-			$booking_type   = $dbhandler->get_value( 'BOOKING', 'booking_type', $booking_id, 'id' );
+			$booking_type = $dbhandler->get_value( 'BOOKING', 'booking_type', $booking_id, 'id' );
+			if ( $transaction_started ) {
+				$dbhandler->commit_transaction();
+			}
 			$process_status = 'success';
 
 			if ( $booking_type == 'on_request' ) {
@@ -13478,6 +13525,9 @@ class BM_Request {
 		do_action( 'bm_after_booking_saved', $booking_id, isset( $order_data[0] ) ? $order_data[0] : array() );
 
 		if ( $process_status !== 'success' ) {
+			if ( $transaction_started ) {
+				$dbhandler->rollback_transaction();
+			}
 			$this->bm_remove_order_data_after_failed_payment( $customer_id, $booking_id );
 			$this->bm_unset_session( 'flexi_current_payment_session' );
 		}
@@ -13590,7 +13640,16 @@ class BM_Request {
 		}
 
 		$transaction_data['error_message'] = $this->get_payment_error( $booking_key );
-		$dbhandler->insert_row( 'FAILED_TRANSACTIONS', $transaction_data );
+
+		// Idempotency guard: only insert if this transaction_id isn't already recorded
+		// as a failed transaction. Prevents duplicate entries on repeated calls.
+		$already_recorded = ! empty( $transaction_data['transaction_id'] )
+			? $dbhandler->get_value( 'FAILED_TRANSACTIONS', 'id', $transaction_data['transaction_id'], 'transaction_id' )
+			: false;
+
+		if ( ! $already_recorded ) {
+			$dbhandler->insert_row( 'FAILED_TRANSACTIONS', $transaction_data );
+		}
 
 		return $is_cancelled;
 	} // end bm_cancel_payment_intent_for_failed_payment()
@@ -13783,7 +13842,10 @@ class BM_Request {
 		$where = array_merge(
 			$where,
 			array(
-				'b.is_active' => array( '=' => 1 ),
+				'b.is_active'    => array( '=' => 1 ),
+				// Only fetch bookings that have not been marked completed yet
+				// (covers both the new 'confirmed' key and legacy 'processing'/'succeeded' values).
+				'b.order_status' => array( 'NOT IN' => array( 'completed', 'refunded', 'cancelled', 'failed' ) ),
 			)
 		);
 
@@ -13913,11 +13975,20 @@ class BM_Request {
 						);
 
 						$booking_data = array(
+							'order_status'       => 'confirmed',
 							'booking_updated_at' => $this->bm_fetch_current_wordpress_datetime_stamp(),
 						);
 
+						// Both updates must succeed together; roll back if either fails.
+						$dbhandler->begin_transaction();
 						$one = $dbhandler->update_row( 'TRANSACTIONS', 'id', $transaction_id, $transaction_data, '', '%d' );
 						$two = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+						if ( $one !== false && $two !== false ) {
+							$dbhandler->commit_transaction();
+						} else {
+							$dbhandler->rollback_transaction();
+							$approved = false;
+						}
 					}
 				}
 			}
@@ -14505,7 +14576,7 @@ class BM_Request {
 				$status = 'on_hold';
 				break;
 			case 'wc-completed':
-				$status = 'succeeded';
+				$status = 'completed';
 				break;
 			case 'wc-cancelled':
 				$status = 'cancelled';
@@ -14535,9 +14606,9 @@ class BM_Request {
 	public function bm_fetch_order_status_key_value( $status = '', $exclude = array() ) {
 		$statusList = array(
 			'pending'    => esc_html__( 'Pending', 'service-booking' ),
-			'processing' => esc_html__( 'Processing', 'service-booking' ),
 			'on_hold'    => esc_html__( 'On Hold', 'service-booking' ),
-			'succeeded'  => esc_html__( 'Completed', 'service-booking' ),
+			'confirmed'  => esc_html__( 'Confirmed', 'service-booking' ),
+			'completed'  => esc_html__( 'Completed', 'service-booking' ),
 			'cancelled'  => esc_html__( 'Cancelled', 'service-booking' ),
 			'refunded'   => esc_html__( 'Refunded', 'service-booking' ),
 			'failed'     => esc_html__( 'Failed', 'service-booking' ),
@@ -14546,6 +14617,13 @@ class BM_Request {
 
 		if ( ! empty( $status ) ) {
 			$status = strtolower( $status );
+			// Backward-compat: legacy 'succeeded' and 'processing' keys map to their new labels.
+			if ( $status === 'succeeded' ) {
+				return esc_html__( 'Completed', 'service-booking' );
+			}
+			if ( $status === 'processing' ) {
+				return esc_html__( 'Confirmed', 'service-booking' );
+			}
 			return isset( $statusList[ $status ] ) ? $statusList[ $status ] : '';
 		}
 
@@ -14555,6 +14633,56 @@ class BM_Request {
 
 		return $statusList;
 	}//end bm_fetch_order_status_key_value()
+
+
+	/**
+	 * Return all order_status values that represent a completed/finalized booking.
+	 * This covers the legacy 'succeeded' key as well as the canonical 'confirmed'
+	 * and 'completed' keys so that revenue/analytics queries are backward-compatible.
+	 *
+	 * @return string[]
+	 */
+	public function bm_get_completed_order_statuses() {
+		return array( 'succeeded', 'confirmed', 'completed' );
+	}//end bm_get_completed_order_statuses()
+
+
+	/**
+	 * Return the allowed state transitions for BOOKING.order_status.
+	 *
+	 * @return array<string, string[]>
+	 */
+	public function bm_get_allowed_booking_transitions() {
+		return array(
+			'pending'    => array( 'on_hold', 'confirmed', 'cancelled', 'failed' ),
+			'on_hold'    => array( 'confirmed', 'cancelled', 'refunded', 'failed' ),
+			'confirmed'  => array( 'completed', 'refunded', 'cancelled', 'failed' ),
+			// Legacy aliases treated as equivalent to their canonical counterparts.
+			'processing' => array( 'confirmed', 'completed', 'cancelled', 'refunded', 'failed' ),
+			'succeeded'  => array( 'completed', 'refunded', 'cancelled', 'failed' ),
+			'completed'  => array( 'refunded' ),
+			'cancelled'  => array(),
+			'refunded'   => array(),
+			'failed'     => array( 'pending', 'on_hold' ),
+		);
+	}//end bm_get_allowed_booking_transitions()
+
+
+	/**
+	 * Check whether a booking status transition is valid.
+	 *
+	 * @param string $from Current order_status value.
+	 * @param string $to   Desired order_status value.
+	 * @return bool
+	 */
+	public function bm_is_valid_booking_transition( $from, $to ) {
+		if ( $from === $to ) {
+			return true; // Idempotent – no real change.
+		}
+		$transitions = $this->bm_get_allowed_booking_transitions();
+		$allowed     = isset( $transitions[ $from ] ) ? $transitions[ $from ] : array();
+		return in_array( $to, $allowed, true );
+	}//end bm_is_valid_booking_transition()
 
 
 	/**
@@ -15647,9 +15775,12 @@ class BM_Request {
 				return 0;
 			}
 
+			// Begin atomic transaction: all multi-table writes must succeed together.
+			$dbhandler->begin_transaction();
 			$booking_id = $this->bm_save_booking_data( $booking_key, $checkout_key, $wc_order_id );
 
 			if ( $booking_id <= 0 ) {
+				$dbhandler->rollback_transaction();
 				$this->bm_remove_order_data( $booking_id, $customer_id );
 				return 0;
 			}
@@ -15837,8 +15968,10 @@ class BM_Request {
 			WC()->session->__unset( 'flexi_booking_key' );
 			WC()->session->__unset( 'flexi_checkout_key' );
 
+			$dbhandler->commit_transaction();
 			return $booking_id;
 		} catch ( Exception $e ) {
+			$dbhandler->rollback_transaction();
 			return 0;
 		}
 	}
@@ -15959,7 +16092,10 @@ class BM_Request {
 			),
 		);
 
-		global $wpdb;
+		$bm_activator   = new Booking_Management_Activator();
+		$booking_table  = esc_sql( $bm_activator->get_db_table_name( 'BOOKING' ) );
+		$extra_sc_table = esc_sql( $bm_activator->get_db_table_name( 'EXTRASVCBOOKINGCOUNT' ) );
+		$extra_table    = esc_sql( $bm_activator->get_db_table_name( 'EXTRA' ) );
 
 		$columns = '
             c.id as customer_id, c.customer_name, c.customer_email, c.billing_details, c.is_active, c.customer_created_at,
@@ -15990,7 +16126,7 @@ class BM_Request {
                         SUM(b2.total_svc_slots) AS total_ordered,
                         SUM(b2.service_cost) AS total_revenue,
                         COUNT(DISTINCT b2.service_id) AS unique_product
-                    FROM ' . $wpdb->prefix . 'sgbm_booking b2
+                    FROM ' . $booking_table . ' b2
                     WHERE b2.customer_id = customer_id AND b2.order_status NOT IN ("processing", "cancelled", "on_hold", "pending") AND b2.is_active=1
                     GROUP BY b2.service_id
                 ) AS service_summary
@@ -16007,11 +16143,11 @@ class BM_Request {
                         SUM(exsc.slots_booked) AS total_ordered,
                         SUM(exsc.slots_booked * ex.extra_price) AS total_revenue,
                         COUNT(DISTINCT exsc.extra_svc_id) AS unique_product
-                    FROM  ' . $wpdb->prefix . 'sgbm_extra_svc_booking_count exsc
-                    INNER JOIN  ' . $wpdb->prefix . 'sgbm_service_extras ex ON ex.id = exsc.extra_svc_id
+                    FROM  ' . $extra_sc_table . ' exsc
+                    INNER JOIN  ' . $extra_table . ' ex ON ex.id = exsc.extra_svc_id
                     WHERE exsc.booking_id IN (
                         SELECT b.id
-                        FROM  ' . $wpdb->prefix . 'sgbm_booking b
+                        FROM  ' . $booking_table . ' b
                         WHERE b.customer_id = customer_id AND b.order_status NOT IN ("processing", "cancelled", "on_hold", "pending") AND b.is_active=1
                     )
                     GROUP BY exsc.service_id
@@ -16432,6 +16568,8 @@ class BM_Request {
 			'refunded'                => 'refunded',
 			'free'                    => 'Free order',
 			'succeeded'               => 'paid',
+			'confirmed'               => 'paid',
+			'completed'               => 'paid',
 			'requires_payment_method' => 'failed',
 		);
 

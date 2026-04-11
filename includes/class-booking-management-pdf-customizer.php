@@ -329,11 +329,12 @@ class BM_PDF_Processor {
                     case 'logo':
                         $logo_url = $this->bmrequests->bm_fetch_image_url_or_guid( 1, 'PDF_CUSTOMIZATION', 'url' );
                         if ( $logo_url ) {
-                            $image_data = @file_get_contents( $logo_url );
+                            $response = wp_remote_get( esc_url( $logo_url ), array( 'timeout' => 10 ) );
+                            $image_data = ( ! is_wp_error( $response ) ) ? wp_remote_retrieve_body( $response ) : false;
                             if ( $image_data ) {
                                 $base64 = base64_encode( $image_data );
                                 $mime   = wp_check_filetype( $logo_url )['type'] ?: 'image/jpeg';
-                                $value  = '<img src="data:' . $mime . ';base64,' . $base64 . '" style="max-width: 200px; max-height: 100px;">';
+                                $value  = '<img src="data:' . esc_attr( $mime ) . ';base64,' . $base64 . '" style="max-width: 200px; max-height: 100px;">';
                             } else {
                                 $value = '<img src="' . esc_url( $logo_url ) . '" style="max-width: 200px; max-height: 100px;">';
                             }
