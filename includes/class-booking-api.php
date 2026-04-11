@@ -629,6 +629,13 @@ class Booking_API
                 ],
             ]
         ]);
+
+        // Stripe webhook - signature verification serves as authentication.
+        register_rest_route('booking/v1', '/stripe-webhook', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'stripe_webhook'],
+            'permission_callback' => '__return_true',
+        ]);
     }
 
     public function get_fields(WP_REST_Request $request)
@@ -1226,6 +1233,98 @@ class Booking_API
             'data'   => $data,
             'message' => ($data['status'] == 'error') ? 'Error Saving Payment Info !!' : ''
         ]);
+    }
+
+    /**
+     * Handle incoming Stripe webhook events.
+     *
+     * Verifies the webhook signature, enforces idempotency by recording each
+     * processed event_id, and dispatches to the appropriate handler.
+     *
+     * @since 1.0.0
+     * @param WP_REST_Request $request Incoming REST request.
+     * @return WP_REST_Response
+     */
+    public function stripe_webhook(WP_REST_Request $request)
+    {
+        $dbhandler = new BM_DBhandler();
+
+        // Read the raw payload before WordPress can alter it.
+        $payload    = file_get_contents('php://input');
+        $sig_header = isset($_SERVER['HTTP_STRIPE_SIGNATURE']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_STRIPE_SIGNATURE'])) : '';
+
+        if (! defined('STRIPE_SECRET_KEY') || ! defined('STRIPE_WEBHOOK_SECRET')) {
+            return rest_ensure_response(['status' => 400, 'message' => 'Webhook not configured.']);
+        }
+
+        $stripes = new Booking_Management_Stripes(STRIPE_SECRET_KEY);
+        $event   = $stripes->verify_webhook_signature($payload, $sig_header, STRIPE_WEBHOOK_SECRET);
+
+        if (! $event) {
+            return rest_ensure_response(['status' => 400, 'message' => 'Invalid webhook signature.']);
+        }
+
+        $event_id   = isset($event['id']) ? sanitize_text_field($event['id']) : '';
+        $event_type = isset($event['type']) ? sanitize_text_field($event['type']) : '';
+
+        if (empty($event_id)) {
+            return rest_ensure_response(['status' => 400, 'message' => 'Missing event ID.']);
+        }
+
+        // Idempotency: skip events that have already been processed.
+        if ($dbhandler->record_exists('STRIPE_EVENTS', array('event_id' => $event_id))) {
+            return rest_ensure_response(['status' => 200, 'message' => 'Event already processed.']);
+        }
+
+        // Record the event before processing to prevent duplicate processing even if
+        // processing fails partway through (the record acts as a distributed lock).
+        $dbhandler->insert_if_not_exists(
+            'STRIPE_EVENTS',
+            array('event_id' => $event_id),
+            array(
+                'event_id'     => $event_id,
+                'event_type'   => $event_type,
+                'processed_at' => current_time('mysql'),
+            )
+        );
+
+        // Dispatch based on event type.
+        switch ($event_type) {
+            case 'payment_intent.succeeded':
+                $payment_intent = isset($event['data']['object']) ? $event['data']['object'] : array();
+                $transaction_id = isset($payment_intent['id']) ? sanitize_text_field($payment_intent['id']) : '';
+                if (! empty($transaction_id)) {
+                    // Confirm any booking tied to this payment intent that is still pending.
+                    $payment_id = $dbhandler->get_value('TRANSACTIONS', 'id', $transaction_id, 'transaction_id');
+                    if (! empty($payment_id)) {
+                        $dbhandler->update_row('TRANSACTIONS', 'id', $payment_id, array(
+                            'payment_status'         => 'succeeded',
+                            'transaction_updated_at' => current_time('mysql'),
+                        ), '', '%d');
+                    }
+                }
+                break;
+
+            case 'payment_intent.payment_failed':
+                $payment_intent = isset($event['data']['object']) ? $event['data']['object'] : array();
+                $transaction_id = isset($payment_intent['id']) ? sanitize_text_field($payment_intent['id']) : '';
+                if (! empty($transaction_id)) {
+                    $payment_id = $dbhandler->get_value('TRANSACTIONS', 'id', $transaction_id, 'transaction_id');
+                    if (! empty($payment_id)) {
+                        $dbhandler->update_row('TRANSACTIONS', 'id', $payment_id, array(
+                            'payment_status'         => 'failed',
+                            'transaction_updated_at' => current_time('mysql'),
+                        ), '', '%d');
+                    }
+                }
+                break;
+
+            default:
+                // Unhandled event type - recorded above, no further action needed.
+                break;
+        }
+
+        return rest_ensure_response(['status' => 200, 'message' => 'Webhook processed.']);
     }
 
     public function countries(WP_REST_Request $request)

@@ -46,7 +46,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
      * @param string $webhook_secret The webhook endpoint secret.
      * @return \Stripe\Event|false The verified event, or false on failure.
      */
-    protected function verify_webhook_signature( $payload, $sig_header, $webhook_secret ) {
+    public function verify_webhook_signature( $payload, $sig_header, $webhook_secret ) {
         try {
             $event = \Stripe\Webhook::constructEvent(
                 $payload,

@@ -12032,6 +12032,13 @@ class BM_Request {
 		$order_number = 0;
 		$data         = array();
 
+		// Idempotency guard: if this booking_key was already persisted (e.g. due to a
+		// network retry), return the existing booking ID instead of creating a duplicate.
+		$existing_booking_id = $dbhandler->get_value( 'BOOKING', 'id', $booking_key, 'booking_key' );
+		if ( ! empty( $existing_booking_id ) ) {
+			return (int) $existing_booking_id;
+		}
+
 		if ( $dbhandler->get_global_option_value( 'discount_' . $booking_key ) == 1 ) {
 			$order_data = $dbhandler->bm_fetch_data_from_transient( 'discounted_' . $booking_key );
 		} else {
@@ -12101,6 +12108,22 @@ class BM_Request {
 				$slot_info = $this->bm_fetch_slot_details( $service_id, $from, $date, $svc_total_time_slots, $total_service_booked, $is_variable_slot );
 
                 if ( !empty( $slot_info ) || ( isset( $checkout_data['checkout']['is_gift'] ) && $checkout_data['checkout']['is_gift'] == 1 ) ) {
+                    // For non-gift bookings, acquire a SELECT FOR UPDATE lock on any existing
+                    // SLOTCOUNT rows for this slot. This serialises concurrent requests so
+                    // that each one sees the definitive, post-lock capacity before inserting.
+                    $is_gift_booking = isset( $checkout_data['checkout']['is_gift'] ) && $checkout_data['checkout']['is_gift'] == 1;
+                    if ( ! $is_gift_booking && ! empty( $slot_info ) && ! empty( $slot_info['slot_id'] ) ) {
+                        $dbhandler->select_for_update( 'SLOTCOUNT', array(
+                            'service_id'   => $service_id,
+                            'booking_date' => $date,
+                            'slot_id'      => $slot_info['slot_id'],
+                            'is_active'    => 1,
+                        ) );
+                        // Re-fetch slot details with the row-level lock held to get the
+                        // definitive capacity (prevents double-booking race condition).
+                        $slot_info = $this->bm_fetch_slot_details( $service_id, $from, $date, $svc_total_time_slots, $total_service_booked, $is_variable_slot );
+                    }
+
                     if ( ( isset( $slot_info['slot_capacity_left_after_booking'] ) && isset( $slot_info['slot_min_cap'] ) && ( $slot_info['slot_capacity_left_after_booking'] >= 0 ) && ( $total_service_booked % $slot_info['slot_min_cap'] == 0 ) ) || ( isset( $checkout_data['checkout']['is_gift'] ) && $checkout_data['checkout']['is_gift'] == 1 ) ) {
                         if ( isset( $order_data['total_service_booking'] ) ) {
                             unset( $order_data['total_service_booking'] );

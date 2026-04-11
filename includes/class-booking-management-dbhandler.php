@@ -1140,4 +1140,105 @@ class BM_DBhandler {
 			)
 		);
 	}
+
+
+	/**
+	 * Execute a SELECT ... FOR UPDATE on rows matching given conditions.
+	 *
+	 * Must be called inside an active transaction. Locks the matching rows
+	 * (and the surrounding gap in InnoDB) until the transaction is committed
+	 * or rolled back, serialising concurrent capacity checks for the same slot.
+	 *
+	 * @since 1.0.0
+	 * @param string $identifier Table identifier (e.g. 'SLOTCOUNT').
+	 * @param array  $where      Column => value conditions (ANDed together).
+	 * @return array|null Locked rows, or null when none exist.
+	 */
+	public function select_for_update( string $identifier, array $where ): ?array {
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( $identifier );
+
+		if ( ! $table || empty( $where ) ) {
+			return null;
+		}
+
+		$conditions = array();
+		$values     = array();
+		foreach ( $where as $col => $val ) {
+			// Sanitize column name to safe identifier characters only.
+			$col          = preg_replace( '/[^a-zA-Z0-9_]/', '', $col );
+			$conditions[] = is_numeric( $val ) ? "`$col` = %d" : "`$col` = %s";
+			$values[]     = $val;
+		}
+
+		$where_sql = implode( ' AND ', $conditions );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql     = $wpdb->prepare( "SELECT * FROM $table WHERE $where_sql FOR UPDATE", ...$values );
+		$results = $wpdb->get_results( $sql );
+		return ( ! empty( $results ) ) ? $results : null;
+	}
+
+
+	/**
+	 * Check whether at least one row matching given conditions exists.
+	 *
+	 * @since 1.0.0
+	 * @param string $identifier Table identifier.
+	 * @param array  $where      Column => value conditions (ANDed together).
+	 * @return bool True if at least one matching row exists.
+	 */
+	public function record_exists( string $identifier, array $where ): bool {
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( $identifier );
+
+		if ( ! $table || empty( $where ) ) {
+			return false;
+		}
+
+		$conditions = array();
+		$values     = array();
+		foreach ( $where as $col => $val ) {
+			$col          = preg_replace( '/[^a-zA-Z0-9_]/', '', $col );
+			$conditions[] = is_numeric( $val ) ? "`$col` = %d" : "`$col` = %s";
+			$values[]     = $val;
+		}
+
+		$where_sql = implode( ' AND ', $conditions );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$sql   = $wpdb->prepare( "SELECT COUNT(*) FROM $table WHERE $where_sql LIMIT 1", ...$values );
+		$count = (int) $wpdb->get_var( $sql );
+		return $count > 0;
+	}
+
+
+	/**
+	 * Insert a row only if no existing row matches the deduplication conditions.
+	 *
+	 * @since 1.0.0
+	 * @param string $identifier Table identifier.
+	 * @param array  $check      Column => value pairs used as the uniqueness check.
+	 * @param array  $data       Column => value pairs to insert.
+	 * @return int|false Insert ID on success, false if row already existed or insert failed.
+	 */
+	public function insert_if_not_exists( string $identifier, array $check, array $data ) {
+		if ( $this->record_exists( $identifier, $check ) ) {
+			return false;
+		}
+
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( $identifier );
+
+		if ( ! $table ) {
+			return false;
+		}
+
+		$result = $wpdb->insert( $table, $data );
+		if ( $result !== false ) {
+			return $wpdb->insert_id;
+		}
+		return false;
+	}
 }//end class
