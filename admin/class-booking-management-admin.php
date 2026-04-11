@@ -12362,6 +12362,28 @@ class Booking_Management_Admin {
 			return $status;
 		}
 
+		// Validate that the incoming payment_status results in a valid booking transition.
+		$payment_to_order_map = array(
+			'succeeded'        => 'confirmed',
+			'free'             => 'confirmed',
+			'requires_capture' => 'on_hold',
+			'pending'          => 'pending',
+			'cancelled'        => 'cancelled',
+			'refunded'         => 'refunded',
+			'failed'           => 'failed',
+		);
+		$target_order_status  = isset( $payment_to_order_map[ $payment_status ] ) ? $payment_to_order_map[ $payment_status ] : $payment_status;
+		$current_order_status = (string) $dbhandler->get_value( 'BOOKING', 'order_status', $booking_id, 'id' );
+
+		if ( ! $bmrequests->bm_is_valid_booking_transition( $current_order_status, $target_order_status ) ) {
+			// Duplicate / already-in-target-state is idempotent → return 1.
+			if ( $current_order_status === $target_order_status ) {
+				return 1;
+			}
+			// Genuinely invalid transition — reject without touching any data.
+			return 0;
+		}
+
 		do_action( 'flexibooking_save_existing_transaction_data_before_update', $booking_id );
 
 		$transaction_id_before_update = $dbhandler->bm_fetch_data_from_transient( 'transaction_id_before_update_' . $booking_id );
@@ -12913,58 +12935,84 @@ class Booking_Management_Admin {
 			return 0;
 		}
 
+		// Map payment_status to the canonical booking order_status.
+		// payment_status must never bleed into order_status directly.
+		$payment_to_order_map = array(
+			'succeeded'        => 'confirmed',  // payment captured → booking confirmed
+			'free'             => 'confirmed',  // free booking → booking confirmed
+			'requires_capture' => 'on_hold',    // on-request, awaiting capture
+			'pending'          => 'pending',
+			'cancelled'        => 'cancelled',
+			'refunded'         => 'refunded',
+			'failed'           => 'failed',
+		);
+		$new_order_status = isset( $payment_to_order_map[ $payment_status ] ) ? $payment_to_order_map[ $payment_status ] : $payment_status;
+
+		// Enforce valid transition before writing.
+		$current_order_status = (string) $dbhandler->get_value( 'BOOKING', 'order_status', $booking_id, 'id' );
+		if ( ! $bmrequests->bm_is_valid_booking_transition( $current_order_status, $new_order_status ) ) {
+			// Invalid transition: return success (idempotent) without any write.
+			return 1;
+		}
+
+		$is_deactivating = in_array( $payment_status, array( 'refunded', 'cancelled', 'failed' ), true );
+
 		$customer_id    = $dbhandler->get_value( 'TRANSACTIONS', 'customer_id', $booking_id, 'booking_id' );
 		$customer_count = $dbhandler->bm_count( 'TRANSACTIONS', array( 'customer_id' => $customer_id ) );
 
 		$booking_data = array(
-			'is_active'          => $payment_status == 'refunded' ? 0 : 1,
-			'order_status'       => $payment_status,
+			'is_active'          => $is_deactivating ? 0 : 1,
+			'order_status'       => $new_order_status,
 			'booking_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 		);
 
 		$slotcount_data = array(
-			'is_active'       => $payment_status == 'refunded' ? 0 : 1,
+			'is_active'       => $is_deactivating ? 0 : 1,
 			'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 		);
 
 		$extra_slotcount_data = array(
-			'is_active'       => $payment_status == 'refunded' ? 0 : 1,
+			'is_active'       => $is_deactivating ? 0 : 1,
 			'slot_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 		);
 
-		if ( ( $customer_count == 1 ) ) {
+		if ( $customer_count == 1 ) {
 			$customer_data = array(
-				'is_active'           => $payment_status == 'refunded' ? 0 : 1,
+				'is_active'           => $is_deactivating ? 0 : 1,
 				'customer_updated_at' => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
 			);
 		}
 
-		$booking_update = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+		// All updates must succeed together; roll back on any failure.
+		$dbhandler->begin_transaction();
 
-		if ( is_wp_error( $booking_update ) ) {
-			$status = 0;
+		$booking_update = $dbhandler->update_row( 'BOOKING', 'id', $booking_id, $booking_data, '', '%d' );
+		if ( is_wp_error( $booking_update ) || $booking_update === false ) {
+			$dbhandler->rollback_transaction();
+			return 0;
 		}
 
 		$slotcount_update = $dbhandler->update_row( 'SLOTCOUNT', 'booking_id', $booking_id, $slotcount_data, '', '%d' );
-
 		if ( is_wp_error( $slotcount_update ) ) {
-			$status = 0;
+			$dbhandler->rollback_transaction();
+			return 0;
 		}
 
 		$extra_slotcount_update = $dbhandler->update_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, $extra_slotcount_data, '', '%d' );
-
 		if ( is_wp_error( $extra_slotcount_update ) ) {
-			$status = 0;
+			$dbhandler->rollback_transaction();
+			return 0;
 		}
 
 		if ( ! empty( $customer_data ) ) {
 			$customer_update = $dbhandler->update_row( 'CUSTOMERS', 'id', $customer_id, $customer_data, '', '%d' );
-
 			if ( is_wp_error( $customer_update ) ) {
-				$status = 0;
+				$dbhandler->rollback_transaction();
+				return 0;
 			}
 		}
 
+		$dbhandler->commit_transaction();
 		return $status;
 	}//end bm_flexibooking_update_booking_data_after_transaction_update()
 
