@@ -561,7 +561,8 @@ class BM_DBhandler {
 		}
 
 		$column_list = implode( ', ', array_map( 'esc_sql', $columns ) );
-		$query       = "SELECT {$column_list} FROM {$table}";
+		$safe_table  = esc_sql( $table );
+		$query       = "SELECT {$column_list} FROM {$safe_table}";
 
 		$method_name = 'get_' . $result_type;
 		if ( ! in_array( $result_type, array( 'results', 'row', 'var' ), true ) ) {
