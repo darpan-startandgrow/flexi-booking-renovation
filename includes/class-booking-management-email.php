@@ -234,8 +234,8 @@ class BM_Email {
 	 */
 	private function bm_build_email_headers( $from_email ) {
 		$from_name = sanitize_text_field( $this->bm_get_from_name() );
-		// Strip any control characters that could enable header injection.
-		$from_name = str_replace( array( "\r", "\n" ), '', $from_name );
+		// Strip all ASCII control characters (including CRLF) to prevent header injection.
+		$from_name = preg_replace( '/[\x00-\x1F\x7F]/', '', $from_name );
 		$headers   = "MIME-Version: 1.0\r\n";
 		$headers  .= "Content-type:text/html;charset=UTF-8\r\n";
 		$headers  .= 'From: ' . $from_name . ' <' . $from_email . ">\r\n";

@@ -12942,6 +12942,7 @@ class BM_Request {
         $payment_status    = '';
         $paid_amount       = 0;
         $process_status    = 'error';
+        $transaction_started = false;
         $intentStatuses    = array( 'succeeded', 'requires_capture' );
 
         if ( $this->bm_check_if_cart_order_is_still_bookable( $booking_key, $gift ) ) {
@@ -12985,6 +12986,7 @@ class BM_Request {
 						} else {
 							// Begin atomic transaction: booking + customer + payment record + checkin
 							// must all succeed or all roll back together.
+							$transaction_started = true;
 							$dbhandler->begin_transaction();
 							$booking_id = $this->bm_save_booking_data( $booking_key, $checkout_key );
 
@@ -13113,7 +13115,9 @@ class BM_Request {
 					$dbhandler->update_global_option_value( 'bm_booking-checkin-id-' . $booking_key, $checkin_id );
 
 					$booking_type = $dbhandler->get_value( 'BOOKING', 'booking_type', $booking_id, 'id' );
-					$dbhandler->commit_transaction();
+					if ( $transaction_started ) {
+						$dbhandler->commit_transaction();
+					}
 					$process_status = 'success';
 
 					if ( $booking_type == 'on_request' ) {
@@ -13146,7 +13150,9 @@ class BM_Request {
 		do_action( 'bm_after_booking_saved', $booking_id, isset( $order_data[0] ) ? $order_data[0] : array() );
 
 		if ( $process_status !== 'success' ) {
-			$dbhandler->rollback_transaction();
+			if ( $transaction_started ) {
+				$dbhandler->rollback_transaction();
+			}
 			$this->bm_remove_order_data_after_failed_payment( $customer_id, $booking_id );
 			$this->bm_unset_session( 'flexi_current_payment_session' );
 		}
@@ -13314,6 +13320,7 @@ class BM_Request {
 		$booking_id       = 0;
 		$payment_id       = 0;
 		$process_status   = 'error';
+		$transaction_started = false;
 
 		if ( isset( $gift_recipient['is_gift'] ) ) {
 			unset( $gift_recipient['is_gift'] );
@@ -13340,6 +13347,7 @@ class BM_Request {
 			);
 
 			// Begin atomic transaction: all DB writes must succeed or all roll back.
+			$transaction_started = true;
 			$dbhandler->begin_transaction();
 			$booking_id = $this->bm_save_booking_data( $booking_key, $checkout_key );
 
@@ -13458,7 +13466,9 @@ class BM_Request {
 			$dbhandler->update_global_option_value( 'bm_booking-checkin-id-' . $booking_key, $checkin_id );
 
 			$booking_type = $dbhandler->get_value( 'BOOKING', 'booking_type', $booking_id, 'id' );
-			$dbhandler->commit_transaction();
+			if ( $transaction_started ) {
+				$dbhandler->commit_transaction();
+			}
 			$process_status = 'success';
 
 			if ( $booking_type == 'on_request' ) {
@@ -13489,7 +13499,9 @@ class BM_Request {
 		do_action( 'bm_after_booking_saved', $booking_id, isset( $order_data[0] ) ? $order_data[0] : array() );
 
 		if ( $process_status !== 'success' ) {
-			$dbhandler->rollback_transaction();
+			if ( $transaction_started ) {
+				$dbhandler->rollback_transaction();
+			}
 			$this->bm_remove_order_data_after_failed_payment( $customer_id, $booking_id );
 			$this->bm_unset_session( 'flexi_current_payment_session' );
 		}
