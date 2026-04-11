@@ -1167,14 +1167,21 @@ class BM_DBhandler {
 		$values     = array();
 		foreach ( $where as $col => $val ) {
 			// Sanitize column name to safe identifier characters only.
-			$col          = preg_replace( '/[^a-zA-Z0-9_]/', '', $col );
+			$col = preg_replace( '/[^a-zA-Z0-9_]/', '', $col );
+			if ( empty( $col ) ) {
+				continue;
+			}
 			$conditions[] = is_numeric( $val ) ? "`$col` = %d" : "`$col` = %s";
 			$values[]     = $val;
 		}
 
+		if ( empty( $conditions ) ) {
+			return null;
+		}
+
 		$where_sql = implode( ' AND ', $conditions );
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$sql     = $wpdb->prepare( "SELECT * FROM $table WHERE $where_sql FOR UPDATE", ...$values );
+		$sql     = $wpdb->prepare( "SELECT * FROM `$table` WHERE $where_sql FOR UPDATE", ...$values );
 		$results = $wpdb->get_results( $sql );
 		return ( ! empty( $results ) ) ? $results : null;
 	}
@@ -1200,14 +1207,21 @@ class BM_DBhandler {
 		$conditions = array();
 		$values     = array();
 		foreach ( $where as $col => $val ) {
-			$col          = preg_replace( '/[^a-zA-Z0-9_]/', '', $col );
+			$col = preg_replace( '/[^a-zA-Z0-9_]/', '', $col );
+			if ( empty( $col ) ) {
+				continue;
+			}
 			$conditions[] = is_numeric( $val ) ? "`$col` = %d" : "`$col` = %s";
 			$values[]     = $val;
 		}
 
+		if ( empty( $conditions ) ) {
+			return false;
+		}
+
 		$where_sql = implode( ' AND ', $conditions );
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$sql   = $wpdb->prepare( "SELECT COUNT(*) FROM $table WHERE $where_sql LIMIT 1", ...$values );
+		$sql   = $wpdb->prepare( "SELECT COUNT(*) FROM `$table` WHERE $where_sql LIMIT 1", ...$values );
 		$count = (int) $wpdb->get_var( $sql );
 		return $count > 0;
 	}

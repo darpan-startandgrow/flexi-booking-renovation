@@ -1251,7 +1251,8 @@ class Booking_API
 
         // Read the raw payload before WordPress can alter it.
         $payload    = file_get_contents('php://input');
-        $sig_header = isset($_SERVER['HTTP_STRIPE_SIGNATURE']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_STRIPE_SIGNATURE'])) : '';
+        // wp_unslash only - sanitize_text_field may corrupt the HMAC signature.
+        $sig_header = isset($_SERVER['HTTP_STRIPE_SIGNATURE']) ? wp_unslash($_SERVER['HTTP_STRIPE_SIGNATURE']) : '';
 
         if (! defined('STRIPE_SECRET_KEY') || ! defined('STRIPE_WEBHOOK_SECRET')) {
             return rest_ensure_response(['status' => 400, 'message' => 'Webhook not configured.']);
@@ -1264,8 +1265,9 @@ class Booking_API
             return rest_ensure_response(['status' => 400, 'message' => 'Invalid webhook signature.']);
         }
 
-        $event_id   = isset($event['id']) ? sanitize_text_field($event['id']) : '';
-        $event_type = isset($event['type']) ? sanitize_text_field($event['type']) : '';
+        // Stripe SDK returns an Event object; use object property access.
+        $event_id   = ! empty( $event->id )   ? sanitize_text_field( $event->id )   : '';
+        $event_type = ! empty( $event->type ) ? sanitize_text_field( $event->type ) : '';
 
         if (empty($event_id)) {
             return rest_ensure_response(['status' => 400, 'message' => 'Missing event ID.']);
@@ -1291,8 +1293,8 @@ class Booking_API
         // Dispatch based on event type.
         switch ($event_type) {
             case 'payment_intent.succeeded':
-                $payment_intent = isset($event['data']['object']) ? $event['data']['object'] : array();
-                $transaction_id = isset($payment_intent['id']) ? sanitize_text_field($payment_intent['id']) : '';
+                $payment_intent = isset( $event->data->object ) ? $event->data->object : null;
+                $transaction_id = ! empty( $payment_intent->id ) ? sanitize_text_field( $payment_intent->id ) : '';
                 if (! empty($transaction_id)) {
                     // Confirm any booking tied to this payment intent that is still pending.
                     $payment_id = $dbhandler->get_value('TRANSACTIONS', 'id', $transaction_id, 'transaction_id');
@@ -1306,8 +1308,8 @@ class Booking_API
                 break;
 
             case 'payment_intent.payment_failed':
-                $payment_intent = isset($event['data']['object']) ? $event['data']['object'] : array();
-                $transaction_id = isset($payment_intent['id']) ? sanitize_text_field($payment_intent['id']) : '';
+                $payment_intent = isset( $event->data->object ) ? $event->data->object : null;
+                $transaction_id = ! empty( $payment_intent->id ) ? sanitize_text_field( $payment_intent->id ) : '';
                 if (! empty($transaction_id)) {
                     $payment_id = $dbhandler->get_value('TRANSACTIONS', 'id', $transaction_id, 'transaction_id');
                     if (! empty($payment_id)) {
