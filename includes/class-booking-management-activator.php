@@ -1743,7 +1743,8 @@ class Booking_Management_Activator {
 	private function add_error_column_to_emails() {
 		global $wpdb;
 		$table_name = esc_sql( $this->get_db_table_name( 'EMAILS' ) );
-		$row        = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `%1s` LIKE %s", $table_name, 'error_message' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$row        = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'error_message' ) );
 		if ( empty( $row ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
 			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `error_message` text NULL AFTER `mail_lang`" );
@@ -1753,7 +1754,8 @@ class Booking_Management_Activator {
 	private function add_error_column_to_failed_transactions() {
 		global $wpdb;
 		$table_name = esc_sql( $this->get_db_table_name( 'FAILED_TRANSACTIONS' ) );
-		$row        = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `%1s` LIKE %s", $table_name, 'error_message' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$row        = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'error_message' ) );
 		if ( empty( $row ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
 			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `error_message` text NULL AFTER `refund_status`" );

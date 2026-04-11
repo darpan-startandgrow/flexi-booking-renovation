@@ -167,7 +167,7 @@ class BM_Payment_Logs_Table extends WP_List_Table {
         WHERE $where_sql";
 
         // Combine with UNION
-        $union_sql = $wpdb->prepare( "( $success_sql ) UNION ( $failed_sql ) ORDER BY created_at DESC LIMIT %d, %d", $offset, $per_page );
+        $union_sql = $wpdb->prepare( "( $success_sql ) UNION ( $failed_sql ) ORDER BY created_at DESC LIMIT %d OFFSET %d", $per_page, $offset );
 
         $this->items = $wpdb->get_results( $union_sql );
 
