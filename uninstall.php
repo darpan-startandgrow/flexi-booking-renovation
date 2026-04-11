@@ -3,22 +3,6 @@
 /**
  * Fired when the plugin is uninstalled.
  *
- * When populating this file, consider the following flow
- * of control:
- *
- * - This method should be static
- * - Check if the $_REQUEST content actually is the plugin name
- * - Run an admin referrer check to make sure it goes through authentication
- * - Verify the output of $_GET makes sense
- * - Repeat with other user roles. Best directly by using the links/query string parameters.
- * - Repeat things for multisite. Once for a single site in the network, once sitewide.
- *
- * This file may be updated more in future version of the Boilerplate; however, this is the
- * general skeleton and outline for how the file should work.
- *
- * For more information, see the following discussion:
- * https://github.com/tommcfarlin/WordPress-Plugin-Boilerplate/pull/123#issuecomment-28541913
- *
  * @link  https://startandgrow.in
  * @since 1.0.0
  *
@@ -26,6 +10,60 @@
  */
 
 // If uninstall not called from WordPress, then exit.
-if (! defined('WP_UNINSTALL_PLUGIN')) {
-    exit;
+if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
+	exit;
 }
+
+/**
+ * Clean up plugin data on uninstall.
+ *
+ * Removes all plugin options and transients. Database tables
+ * are intentionally preserved to prevent accidental data loss.
+ * Use the 'bm_uninstall_drop_tables' filter to opt-in to table removal.
+ */
+
+// Remove plugin options.
+$bm_options = array(
+	'bm_frontend_book_button_color',
+	'bm_flexi_stripe_public_code',
+	'bm_booking_time_zone',
+	'bm_booking_currency',
+	'bm_flexi_current_language',
+	'bm_flexi_current_locale',
+	'bm_show_frontend_service_image',
+	'bm_show_frontend_service_desc_read_more_button',
+	'bm_show_frontend_service_price',
+	'bm_show_frontend_service_duration',
+	'bm_show_frontend_service_description',
+	'bm_frontend_service_title_color',
+	'bm_frontend_service_price_text_color',
+	'bm_service_title_font',
+	'bm_service_shrt_desc_font',
+	'bm_service_price_txt_font',
+	'bm_frontend_book_button_txt_color',
+	'bm_payment_session_time',
+	'bm_auto_apply_limit',
+	'bm_inactive_coupons',
+	'bm_flexi_stripe_secret_code',
+);
+
+foreach ( $bm_options as $option ) {
+	delete_option( $option );
+}
+
+// Clean up transients matching the plugin prefix.
+global $wpdb;
+$wpdb->query(
+	$wpdb->prepare(
+		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+		$wpdb->esc_like( '_transient_FLEXI' ) . '%',
+		$wpdb->esc_like( '_transient_timeout_FLEXI' ) . '%'
+	)
+);
+
+/**
+ * Allow add-ons to perform their own cleanup.
+ *
+ * @since 1.0.0
+ */
+do_action( 'bm_plugin_uninstall' );

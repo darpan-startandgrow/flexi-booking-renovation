@@ -25,6 +25,46 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
 
 
     /**
+     * Generate an idempotency key for Stripe requests to prevent duplicate charges.
+     *
+     * @since 1.0.0
+     * @param string $context           A context identifier (e.g., 'payment_intent', 'customer').
+     * @param string $unique_identifier A unique value for the operation (e.g., booking_key).
+     * @return string SHA-256 hash as idempotency key.
+     */
+    protected function generate_idempotency_key( $context, $unique_identifier ) {
+        return hash( 'sha256', $context . '_' . $unique_identifier . '_' . wp_salt( 'auth' ) );
+    }
+
+
+    /**
+     * Verify a Stripe webhook signature.
+     *
+     * @since 1.0.0
+     * @param string $payload        The raw request body.
+     * @param string $sig_header     The Stripe-Signature header value.
+     * @param string $webhook_secret The webhook endpoint secret.
+     * @return \Stripe\Event|false The verified event, or false on failure.
+     */
+    protected function verify_webhook_signature( $payload, $sig_header, $webhook_secret ) {
+        try {
+            $event = \Stripe\Webhook::constructEvent(
+                $payload,
+                $sig_header,
+                $webhook_secret
+            );
+            return $event;
+        } catch ( \Stripe\Exception\SignatureVerificationException $e ) {
+            error_log( 'Stripe webhook signature verification failed: ' . $e->getMessage() );
+            return false;
+        } catch ( \UnexpectedValueException $e ) {
+            error_log( 'Stripe webhook invalid payload: ' . $e->getMessage() );
+            return false;
+        }
+    }
+
+
+    /**
      * Check if stripe is connected
      *
      * @author Darpan
@@ -136,7 +176,11 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
                 $customer_details['payment_method'] = $paymentMethodId;
             }
 
-            $customer = \Stripe\Customer::create( $customer_details );
+            $idempotency_key = $this->generate_idempotency_key( 'customer', $booking_key . '_' . $email );
+            $customer = \Stripe\Customer::create(
+                $customer_details,
+                array( 'idempotency_key' => $idempotency_key )
+            );
 
             return $customer;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
@@ -208,6 +252,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
      */
     protected function create_one_time_payment_intent( $amount, $currency, $description, $customerID, $paymentMethodId, $booking_key, $checkout_key ) {
         try {
+            $idempotency_key = $this->generate_idempotency_key( 'payment_intent', $booking_key . '_' . $checkout_key );
             $intent = \Stripe\PaymentIntent::create(
                 array(
 					'amount'               => $amount,    // Amount in cents
@@ -225,7 +270,8 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
 						'booking_key'  => $booking_key,
 						'checkout_key' => $checkout_key,
 					),
-                )
+                ),
+                array( 'idempotency_key' => $idempotency_key )
             );
 
             return $intent;
@@ -390,6 +436,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
     protected function pre_authorize_amount( $amount, $currency, $description, $customerID, $paymentMethodId, $booking_key, $checkout_key ) {
         try {
             $stripe = new \Stripe\StripeClient( $this->stripe_secret_key );
+            $idempotency_key = $this->generate_idempotency_key( 'pre_auth', $booking_key . '_' . $checkout_key );
 
             $intent = $stripe->paymentIntents->create(
                 array(
@@ -409,7 +456,8 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
 						'booking_key'  => $booking_key,
 						'checkout_key' => $checkout_key,
 					),
-                )
+                ),
+                array( 'idempotency_key' => $idempotency_key )
             );
 
             return $intent;

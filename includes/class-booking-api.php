@@ -1,7 +1,12 @@
 <?php
 
-use MailPoetVendor\Doctrine\ORM\Query\Expr\Func;
-use WPForms\Vendor\Core\Logger\ConsoleLogger;
+/**
+ * REST API endpoints for the booking plugin.
+ *
+ * @since      1.0.0
+ * @package    Booking_Management
+ * @subpackage Booking_Management/includes
+ */
 
 if (! defined('ABSPATH')) exit;
 
@@ -12,7 +17,7 @@ class Booking_API
      *
      * @since  1.0.0
      * @access private
-     * @var    string    $plugin_name    The ID of this plugin.
+     * @var    string $plugin_name The ID of this plugin.
      */
     private $plugin_name;
 
@@ -21,11 +26,17 @@ class Booking_API
      *
      * @since  1.0.0
      * @access private
-     * @var    string    $version    The current version of this plugin.
+     * @var    string $version The current version of this plugin.
      */
     private $version;
 
+    /**
+     * Internal counter for tracking instances.
+     *
+     * @var int
+     */
     protected static $counter;
+
     /**
      * Initialize the class and set its properties.
      *
@@ -36,55 +47,87 @@ class Booking_API
     public function __construct($plugin_name, $version)
     {
         $this->plugin_name = $plugin_name;
-        $this->version         = $version;
+        $this->version     = $version;
 
         add_action('rest_api_init', [$this, 'register_routes']);
     } //end __construct()
 
+    /**
+     * Permission callback for public read-only endpoints.
+     *
+     * Applies a filter so add-ons can restrict access if needed.
+     *
+     * @since 1.0.0
+     * @return bool
+     */
+    public function public_read_permission_check()
+    {
+        return apply_filters('bm_api_public_read_permission', true);
+    }
+
+    /**
+     * Permission callback for public write endpoints (cart, checkout, payment).
+     *
+     * Applies a filter so add-ons can add authentication requirements.
+     *
+     * @since 1.0.0
+     * @param WP_REST_Request $request The incoming request.
+     * @return bool
+     */
+    public function public_write_permission_check($request)
+    {
+        return apply_filters('bm_api_public_write_permission', true, $request);
+    }
+
+    /**
+     * Sanitize an array recursively for REST API input.
+     *
+     * @since 1.0.0
+     * @param mixed $value The value to sanitize.
+     * @return array Sanitized array.
+     */
+    public static function sanitize_array_callback($value)
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $clean = [];
+        foreach ($value as $key => $val) {
+            $key = sanitize_key($key);
+            if (is_array($val)) {
+                $clean[$key] = self::sanitize_array_callback($val);
+            } elseif (is_numeric($val)) {
+                $clean[$key] = $val + 0;
+            } else {
+                $clean[$key] = sanitize_text_field($val);
+            }
+        }
+        return $clean;
+    }
+
+    /**
+     * Register all REST API routes for the booking plugin.
+     *
+     * @since 1.0.0
+     */
     public function register_routes()
     {
-        function sanitize_array($value)
-        {
-            if (! is_array($value)) {
-                return [];
-            }
+        $public_read  = [$this, 'public_read_permission_check'];
+        $public_write = [$this, 'public_write_permission_check'];
 
-            $clean = [];
-
-            foreach ($value as $key => $val) {
-                $key = sanitize_key($key);
-
-                if (is_array($val)) {
-                    // recursive sanitize but SAFE (does not trigger WP dynamic loading)
-                    $clean[$key] = sanitize_array($val);
-                } else {
-                    // sanitize text OR number
-                    if (is_numeric($val)) {
-                        $clean[$key] = $val + 0; // cast numeric
-                    } else {
-                        $clean[$key] = sanitize_text_field($val);
-                    }
-                }
-            }
-            return $clean;
-        }
-
-        function sanitize_int($value)
-        {
-            return intval($value);
-        }
-
+        // Public read-only endpoints
         register_rest_route('booking/v1', '/settings', [
             'methods'  => 'GET',
             'callback' => [$this, 'settings'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_read,
             'args' => []
         ]);
 
         register_rest_route('booking/v1', '/availability', [
             'methods'  => 'GET',
             'callback' => [$this, 'check_availability'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_read,
             'args' => [
                 'date' => [
                     'required' => true,
@@ -97,7 +140,7 @@ class Booking_API
         register_rest_route('booking/v1', '/service-availability-calendar', [
             'methods'  => 'GET',
             'callback' => [$this, 'service_availability'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_read,
             'args' => [
                 'month' => [
                     'required' => true,
@@ -110,13 +153,13 @@ class Booking_API
         register_rest_route('booking/v1', '/categories', [
             'methods'  => 'GET',
             'callback' => [$this, 'get_categories'],
-            'permission_callback' => '__return_true'
+            'permission_callback' => $public_read,
         ]);
 
         register_rest_route('booking/v1', '/services', [
             'methods'  => 'GET',
             'callback' => [$this, 'get_services'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_read,
             'args' => [
                 'date' => [
                     'required' => false,
@@ -137,7 +180,7 @@ class Booking_API
         register_rest_route('booking/v1', '/service-details', [
             'methods'  => 'GET',
             'callback' => [$this, 'get_service_details'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_read,
             'args' => [
                 'date' => [
                     'required' => true,
@@ -158,7 +201,7 @@ class Booking_API
         register_rest_route('booking/v1', '/slot-availability-calendar', [
             'methods'  => 'GET',
             'callback' => [$this, 'slot_availability'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_read,
             'args' => [
                 'month' => [
                     'required' => true,
@@ -175,7 +218,7 @@ class Booking_API
         register_rest_route('booking/v1', '/has-extra', [
             'methods'  => 'GET',
             'callback' => [$this, 'has_extra'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_read,
             'args' => [
                 'date' => [
                     'required' => true,
@@ -196,7 +239,7 @@ class Booking_API
         register_rest_route('booking/v1', '/extras', [
             'methods'  => 'GET',
             'callback' => [$this, 'get_extras'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_read,
             'args' => [
                 'date' => [
                     'required' => true,
@@ -217,7 +260,7 @@ class Booking_API
         register_rest_route('booking/v1', '/extra-details', [
             'methods'  => 'GET',
             'callback' => [$this, 'get_extra_details'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_read,
             'args' => [
                 'date' => [
                     'required' => true,
@@ -231,10 +274,87 @@ class Booking_API
             ]
         ]);
 
+        register_rest_route('booking/v1', '/countries', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'countries'],
+            'permission_callback' => $public_read,
+        ]);
+
+        register_rest_route('booking/v1', '/states', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'states'],
+            'permission_callback' => $public_read,
+            'args' => [
+                'country_code' => [
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ]
+            ]
+        ]);
+
+        register_rest_route('booking/v1', '/get-fields', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'get_fields'],
+            'permission_callback' => $public_read,
+        ]);
+
+        register_rest_route('booking/v1', '/price-format', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'priceformat'],
+            'permission_callback' => $public_read,
+            'args' => [
+                'service_id' => [
+                    'required' => true,
+                    'sanitize_callback' => 'absint',
+                ],
+                'capacity' => [
+                    'required' => true,
+                    'sanitize_callback' => 'absint',
+                ],
+                'extra_id' => [
+                    'required' => false,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'extra_capacity' => [
+                    'required' => false,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+            ]
+        ]);
+
+        register_rest_route('booking/v1', '/coupon-list', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'couponlist'],
+            'permission_callback' => $public_read,
+            'args' => [
+                'booking_key' => [
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ]
+            ]
+        ]);
+
+        register_rest_route('booking/v1', '/auto-apply-coupon', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'auto_apply_coupon'],
+            'permission_callback' => $public_read,
+            'args' => [
+                'booking_key' => [
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'email' => [
+                    'required' => false,
+                    'sanitize_callback' => 'sanitize_email',
+                ]
+            ]
+        ]);
+
+        // Public write endpoints (cart, checkout, payment)
         register_rest_route('booking/v1', '/addtocart', [
             'methods'  => 'POST',
             'callback' => [$this, 'addtocart'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'date' => [
                     'required' => true,
@@ -267,23 +387,23 @@ class Booking_API
         register_rest_route('booking/v1', '/checkout', [
             'methods'  => 'POST',
             'callback' => [$this, 'checkout'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'billing_details' => [
                     'required' => true,
-                    // 'sanitize_callback' => 'sanitize_array',
+                    'sanitize_callback' => [__CLASS__, 'sanitize_array_callback'],
                 ],
                 'shipping_details' => [
                     'required' => true,
-                    // 'sanitize_callback' => 'sanitize_array',
+                    'sanitize_callback' => [__CLASS__, 'sanitize_array_callback'],
                 ],
                 'gift_details' => [
                     'required' => false,
-                    // 'sanitize_callback' => 'sanitize_array',
+                    'sanitize_callback' => [__CLASS__, 'sanitize_array_callback'],
                 ],
                 'is_gift' => [
                     'required' => false,
-                    // 'sanitize_callback' => 'sanitize_int',
+                    'sanitize_callback' => 'absint',
                 ],
                 'booking_data' => [
                     'required' => true,
@@ -291,7 +411,7 @@ class Booking_API
                 ],
                 'other_data' => [
                     'required' => false,
-                    // 'sanitize_callback' => 'sanitize_array',
+                    'sanitize_callback' => [__CLASS__, 'sanitize_array_callback'],
                 ]
             ]
         ]);
@@ -299,7 +419,7 @@ class Booking_API
         register_rest_route('booking/v1', '/check-session', [
             'methods'  => 'POST',
             'callback' => [$this, 'check_session'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'booking_key' => [
                     'required' => true,
@@ -311,7 +431,7 @@ class Booking_API
         register_rest_route('booking/v1', '/payment-process', [
             'methods'  => 'POST',
             'callback' => [$this, 'payment_process'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'booking' => [
                     'required' => true,
@@ -331,7 +451,7 @@ class Booking_API
         register_rest_route('booking/v1', '/payment-save', [
             'methods'  => 'POST',
             'callback' => [$this, 'payment_save'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'booking' => [
                     'required' => true,
@@ -344,56 +464,10 @@ class Booking_API
             ]
         ]);
 
-        register_rest_route('booking/v1', '/countries', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'countries'],
-            'permission_callback' => '__return_true'
-        ]);
-
-        register_rest_route('booking/v1', '/states', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'states'],
-            'permission_callback' => '__return_true',
-            'args' => [
-                'country_code' => [
-                    'required' => true,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ]
-            ]
-        ]);
-
-        register_rest_route('booking/v1', '/coupon-list', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'couponlist'],
-            'permission_callback' => '__return_true',
-            'args' => [
-                'booking_key' => [
-                    'required' => true,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ]
-            ]
-        ]);
-
-        register_rest_route('booking/v1', '/auto-apply-coupon', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'auto_apply_coupon'],
-            'permission_callback' => '__return_true',
-            'args' => [
-                'booking_key' => [
-                    'required' => true,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
-                'email' => [
-                    'required' => false,
-                    'sanitize_callback' => 'sanitize_email',
-                ]
-            ]
-        ]);
-
         register_rest_route('booking/v1', '/apply-coupon', [
             'methods'  => 'POST',
             'callback' => [$this, 'apply_coupon'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'booking_key' => [
                     'required' => true,
@@ -413,7 +487,7 @@ class Booking_API
         register_rest_route('booking/v1', '/coupon-removal', [
             'methods'  => 'POST',
             'callback' => [$this, 'coupon_removal'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'booking_key' => [
                     'required' => true,
@@ -429,7 +503,7 @@ class Booking_API
         register_rest_route('booking/v1', '/check-voucher-validity', [
             'methods'  => 'POST',
             'callback' => [$this, 'check_voucher_validity'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'voucher' => [
                     'required' => true,
@@ -441,7 +515,7 @@ class Booking_API
         register_rest_route('booking/v1', '/voucher-detail', [
             'methods'  => 'POST',
             'callback' => [$this, 'get_voucher_detail'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'voucher' => [
                     'required' => true,
@@ -458,7 +532,7 @@ class Booking_API
         register_rest_route('booking/v1', '/voucher-redeem', [
             'methods'  => 'POST',
             'callback' => [$this, 'redeem_voucher'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'voucher' => [
                     'required' => true,
@@ -475,39 +549,15 @@ class Booking_API
                 ],
                 'recipient' => [
                     'required' => true,
-                    'sanitize_callback' => 'sanitize_array',
+                    'sanitize_callback' => [__CLASS__, 'sanitize_array_callback'],
                 ]
-            ]
-        ]);
-
-        register_rest_route('booking/v1', '/price-format', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'priceformat'],
-            'permission_callback' => '__return_true',
-            'args' => [
-                'service_id' => [
-                    'required' => true,
-                    'sanitize_callback' => 'absint',
-                ],
-                'capacity' => [
-                    'required' => true,
-                    'sanitize_callback' => 'absint',
-                ],
-                'extra_id' => [
-                    'required' => false,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
-                'extra_capacity' => [
-                    'required' => false,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
             ]
         ]);
 
         register_rest_route('booking/v1', '/create-payment-intent', [
             'methods'  => 'POST',
             'callback' => [$this, 'payment_process'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'booking' => [
                     'required' => true,
@@ -527,7 +577,7 @@ class Booking_API
         register_rest_route('booking/v1', '/check-for-refund-for-failed-payment', [
             'methods'  => 'POST',
             'callback' => [$this, 'check_for_refund_for_failed_payment'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'booking_key' => [
                     'required' => true,
@@ -543,7 +593,7 @@ class Booking_API
         register_rest_route('booking/v1', '/thankyou', [
             'methods'  => 'POST',
             'callback' => [$this, 'thankyou'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'booking_key' => [
                     'required' => true,
@@ -555,7 +605,7 @@ class Booking_API
         register_rest_route('booking/v1', '/redeem-thankyou', [
             'methods'  => 'POST',
             'callback' => [$this, 'redeem_thankyou'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'redeem_code' => [
                     'required' => true,
@@ -567,7 +617,7 @@ class Booking_API
         register_rest_route('booking/v1', '/send-email', [
             'methods'  => 'POST',
             'callback' => [$this, 'sendemail'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => $public_write,
             'args' => [
                 'email' => [
                     'required' => false,
@@ -578,12 +628,6 @@ class Booking_API
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
             ]
-        ]);
-
-        register_rest_route('booking/v1', '/get-fields', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'get_fields'],
-            'permission_callback' => '__return_true'
         ]);
     }
 
@@ -1641,11 +1685,6 @@ class Booking_API
 
         if (isset($validate['error'])) {
             $message = $validate['error'];
-            return rest_ensure_response([
-                'status' => 200,
-                'data'   => $data,
-                'message' => $message
-            ]);
             return rest_ensure_response([
                 'status' => 200,
                 'data'   => $data,
