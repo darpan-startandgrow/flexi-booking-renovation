@@ -98,10 +98,10 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
 
             return $charge;
         } catch ( \Stripe\Exception\CardException $e ) {
-            // Handle card errors
+            error_log( 'Stripe card charge declined: ' . $e->getMessage() );
             return false;
         } catch ( Exception $e ) {
-            // Handle other errors
+            error_log( 'Stripe charge_customer error: ' . $e->getMessage() );
             return false;
         }
     }// end charge_customer()
@@ -132,6 +132,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
 
             return $intent;
         } catch ( Exception $e ) {
+            error_log( 'Stripe create_payment_intent error: ' . $e->getMessage() );
             return false;
         }
     }// end create_payment_intent()
@@ -151,6 +152,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
 
             return $intent;
         } catch ( Exception $e ) {
+            error_log( 'Stripe setup_payment_intent error: ' . $e->getMessage() );
             return false;
         }
     }// end setup_payment_intent()
