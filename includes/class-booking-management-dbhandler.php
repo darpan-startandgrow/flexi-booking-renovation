@@ -1043,4 +1043,96 @@ class BM_DBhandler {
 			return new \WP_Error( 'db_transaction_failed', $e->getMessage() );
 		}
 	}
+
+
+	// -------------------------------------------------------------------------
+	// Low-level $wpdb proxy helpers
+	// These keep all $wpdb usage centralized inside this class while still
+	// allowing callers to build parameterized queries without importing $wpdb.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Escape a string for use in a SQL LIKE clause.
+	 *
+	 * Wraps $wpdb->esc_like() so callers never need to import $wpdb directly.
+	 *
+	 * @param string $text The raw search string.
+	 * @return string Escaped string safe for use in a LIKE pattern.
+	 */
+	public function esc_like( string $text ): string {
+		global $wpdb;
+		return $wpdb->esc_like( $text );
+	}
+
+
+	/**
+	 * Prepare a parameterized SQL statement.
+	 *
+	 * Wraps $wpdb->prepare() so callers never need to import $wpdb directly.
+	 * All arguments after $query are passed as substitution values.
+	 *
+	 * @param string $query SQL template with sprintf-style placeholders (%s, %d, %f).
+	 * @param mixed  ...$args Values to substitute into the placeholders.
+	 * @return string Prepared (safe) SQL string.
+	 */
+	public function prepare_sql( string $query, ...$args ): string {
+		global $wpdb;
+		return $wpdb->prepare( $query, ...$args );
+	}
+
+
+	/**
+	 * Execute a raw SQL query and return all matching rows.
+	 *
+	 * Use only for complex queries (e.g. UNION) that cannot be expressed
+	 * through the structured helper methods. The query MUST be pre-prepared
+	 * via prepare_sql() before being passed here.
+	 *
+	 * @param string $sql    A fully-prepared SQL string (output of prepare_sql()).
+	 * @param string $output Output format: OBJECT, ARRAY_A, or ARRAY_N.
+	 * @return array|null Array of rows on success, null when no results.
+	 */
+	public function get_results_raw( string $sql, string $output = OBJECT ): ?array {
+		global $wpdb;
+		$results = $wpdb->get_results( $sql, $output );
+		return ( is_array( $results ) && ! empty( $results ) ) ? $results : null;
+	}
+
+
+	/**
+	 * Execute a raw SQL query and return a single scalar value.
+	 *
+	 * Use only when no structured method can express the query. The query
+	 * MUST be pre-prepared via prepare_sql() before being passed here.
+	 *
+	 * @param string $sql A fully-prepared SQL string (output of prepare_sql()).
+	 * @return string|null The first column of the first row, or null.
+	 */
+	public function get_var_raw( string $sql ): ?string {
+		global $wpdb;
+		return $wpdb->get_var( $sql );
+	}
+
+
+	/**
+	 * Delete all transients whose names start with the given prefix.
+	 *
+	 * Removes both the transient value and its corresponding timeout entry
+	 * from the options table in a single query.
+	 *
+	 * @param string $prefix Prefix to match (e.g. 'FLEXI').
+	 * @return void
+	 */
+	public function delete_transients_by_prefix( string $prefix ): void {
+		global $wpdb;
+		$like_value  = $wpdb->esc_like( '_transient_' . $prefix ) . '%';
+		$like_timeout = $wpdb->esc_like( '_transient_timeout_' . $prefix ) . '%';
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+				$like_value,
+				$like_timeout
+			)
+		);
+	}
 }//end class

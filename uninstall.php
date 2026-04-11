@@ -51,15 +51,11 @@ foreach ( $bm_options as $option ) {
 	delete_option( $option );
 }
 
-// Clean up transients matching the plugin prefix.
-global $wpdb;
-$wpdb->query(
-	$wpdb->prepare(
-		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-		$wpdb->esc_like( '_transient_FLEXI' ) . '%',
-		$wpdb->esc_like( '_transient_timeout_FLEXI' ) . '%'
-	)
-);
+// Clean up transients matching the plugin prefix via the DB handler so that
+// $wpdb never appears outside the DB handler class.
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-booking-management-activator.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-booking-management-dbhandler.php';
+( new BM_DBhandler() )->delete_transients_by_prefix( 'FLEXI' );
 
 /**
  * Allow add-ons to perform their own cleanup.

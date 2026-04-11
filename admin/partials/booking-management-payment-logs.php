@@ -96,8 +96,8 @@ class BM_Payment_Logs_Table extends WP_List_Table {
         $current_page = $this->get_pagenum();
         $offset       = ( $current_page - 1 ) * $per_page;
 
-        global $wpdb;
         $bm_activator = new Booking_Management_Activator();
+        $dbhandler    = new BM_DBhandler();
 
         $bookings_table     = esc_sql( $bm_activator->get_db_table_name( 'BOOKING' ) );
         $transactions_table = esc_sql( $bm_activator->get_db_table_name( 'TRANSACTIONS' ) );
@@ -107,20 +107,20 @@ class BM_Payment_Logs_Table extends WP_List_Table {
         // Build WHERE conditions
         $where = array( '1=1' );
         if ( ! empty( $_REQUEST['s'] ) ) {
-            $search  = '%' . $wpdb->esc_like( $_REQUEST['s'] ) . '%';
-            $where[] = $wpdb->prepare( '(b.service_name LIKE %s OR c.customer_email LIKE %s)', $search, $search );
+            $search  = '%' . $dbhandler->esc_like( sanitize_text_field( wp_unslash( $_REQUEST['s'] ) ) ) . '%';
+            $where[] = $dbhandler->prepare_sql( '(b.service_name LIKE %s OR c.customer_email LIKE %s)', $search, $search );
         }
         if ( ! empty( $_REQUEST['booking_id'] ) ) {
-            $where[] = $wpdb->prepare( 'b.id = %d', $_REQUEST['booking_id'] );
+            $where[] = $dbhandler->prepare_sql( 'b.id = %d', intval( $_REQUEST['booking_id'] ) );
         }
         if ( ! empty( $_REQUEST['payment_status'] ) && $_REQUEST['payment_status'] !== 'all' ) {
-            $where[] = $wpdb->prepare( 'payment_status = %s', $_REQUEST['payment_status'] );
+            $where[] = $dbhandler->prepare_sql( 'payment_status = %s', sanitize_text_field( wp_unslash( $_REQUEST['payment_status'] ) ) );
         }
         if ( ! empty( $_REQUEST['m'] ) ) {
             $yearmonth = $_REQUEST['m'];
-            $year      = substr( $yearmonth, 0, 4 );
-            $month     = substr( $yearmonth, 4, 2 );
-            $where[]   = $wpdb->prepare( '(YEAR(created_at) = %d AND MONTH(created_at) = %d)', $year, $month );
+            $year      = absint( substr( $yearmonth, 0, 4 ) );
+            $month     = absint( substr( $yearmonth, 4, 2 ) );
+            $where[]   = $dbhandler->prepare_sql( '(YEAR(created_at) = %d AND MONTH(created_at) = %d)', $year, $month );
         }
 
         $where_sql = implode( ' AND ', $where );
@@ -137,7 +137,7 @@ class BM_Payment_Logs_Table extends WP_List_Table {
             t.payment_method,
             t.transaction_id,
             NULL as refund_status,
-            NULL as error_message,   -- success: no error
+            NULL as error_message,
             'transaction' as source,
             t.transaction_created_at as created_at
         FROM $transactions_table t
@@ -158,7 +158,7 @@ class BM_Payment_Logs_Table extends WP_List_Table {
             NULL as payment_method,
             f.transaction_id,
             f.refund_status,
-            f.error_message,        -- error message from failed table
+            f.error_message,
             'failed' as source,
             f.created_at
         FROM $failed_table f
@@ -167,14 +167,16 @@ class BM_Payment_Logs_Table extends WP_List_Table {
         WHERE $where_sql";
 
         // Combine with UNION
-        $union_sql = $wpdb->prepare( "( $success_sql ) UNION ( $failed_sql ) ORDER BY created_at DESC LIMIT %d OFFSET %d", $per_page, $offset );
+        $union_sql = $dbhandler->prepare_sql( "( $success_sql ) UNION ( $failed_sql ) ORDER BY created_at DESC LIMIT %d OFFSET %d", $per_page, $offset );
 
-        $this->items = $wpdb->get_results( $union_sql );
+        $this->items = $dbhandler->get_results_raw( $union_sql ) ?? array();
 
         // Total count (run without LIMIT)
-        $total_success = $wpdb->get_var( "SELECT COUNT(*) FROM $transactions_table t LEFT JOIN $bookings_table b ON t.booking_id = b.id WHERE $where_sql" );
-        $total_failed  = $wpdb->get_var( "SELECT COUNT(*) FROM $failed_table f LEFT JOIN $bookings_table b ON f.booking_key = b.booking_key WHERE $where_sql" );
-        $total         = $total_success + $total_failed;
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- where_sql is built via prepare_sql() above.
+        $total_success = $dbhandler->get_var_raw( "SELECT COUNT(*) FROM $transactions_table t LEFT JOIN $bookings_table b ON t.booking_id = b.id WHERE $where_sql" );
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- where_sql is built via prepare_sql() above.
+        $total_failed  = $dbhandler->get_var_raw( "SELECT COUNT(*) FROM $failed_table f LEFT JOIN $bookings_table b ON f.booking_key = b.booking_key WHERE $where_sql" );
+        $total         = intval( $total_success ) + intval( $total_failed );
 
         $this->set_pagination_args(
             array(
