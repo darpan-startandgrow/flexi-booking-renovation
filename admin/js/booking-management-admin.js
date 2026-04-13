@@ -13416,7 +13416,7 @@ function closeModal(modalId) {
 }
 
 // ============================================================
-// Global Extras Link / Unlink (Service Extras Tab)
+// Global Extras Link / Unlink (Service Shared Extras Tab)
 // ============================================================
 jQuery(document).on('click', '#bm_link_global_extra_btn', function(e) {
     e.preventDefault();
@@ -13458,6 +13458,162 @@ jQuery(document).on('click', '.bm-unlink-global-extra', function(e) {
             jQuery('#bm-linked-ge-' + globalExtraId).fadeOut(300, function() { jQuery(this).remove(); });
         } else {
             alert('Failed to unlink global extra.');
+        }
+    });
+});
+
+// ============================================================
+// Create New Shared Extra & Auto-Link (Service Shared Extras Tab)
+// ============================================================
+jQuery(document).on('click', '#bm_create_and_link_se_btn', function(e) {
+    e.preventDefault();
+    var btn = jQuery(this);
+    var serviceId = btn.data('service-id');
+    var name = jQuery('#bm_new_se_name').val().trim();
+    if (!name) {
+        alert('Please enter a name for the shared extra.');
+        return;
+    }
+    btn.prop('disabled', true);
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_save_global_extra',
+        global_extra_name: name,
+        global_extra_price: jQuery('#bm_new_se_price').val() || 0,
+        global_extra_max_cap: jQuery('#bm_new_se_max_cap').val() || 1,
+        global_extra_desc: jQuery('#bm_new_se_desc').val() || '',
+        global_extra_duration: 0,
+        global_extra_operation: 0,
+        global_extra_visible: 'on',
+        link_service_ids: serviceId,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        btn.prop('disabled', false);
+        if (res.status) {
+            location.reload();
+        } else {
+            alert('Failed to create and link shared extra: ' + (res.message || 'Unknown error'));
+        }
+    });
+});
+
+// ============================================================
+// Shared Extras Dashboard CRUD (/shared-extras page)
+// ============================================================
+jQuery(document).on('click', '#bm_add_shared_extra_btn', function(e) {
+    e.preventDefault();
+    // Reset form for creation.
+    jQuery('#bm_se_id').val('');
+    jQuery('#bm_se_name').val('');
+    jQuery('#bm_se_description').val('');
+    jQuery('#bm_se_price').val(0);
+    jQuery('#bm_se_duration').val(0);
+    jQuery('#bm_se_operation').val(0);
+    jQuery('#bm_se_max_cap').val(1);
+    jQuery('#bm_se_visible').prop('checked', true);
+    jQuery('#bm_se_wc').prop('checked', false);
+    jQuery('#bm_se_wc_product').val('').hide();
+    jQuery('#bm_shared_extra_form_title').text('Add Shared Extra');
+    jQuery('#bm_shared_extra_form_wrap').slideDown(200);
+});
+
+jQuery(document).on('click', '#bm_se_cancel_btn', function(e) {
+    e.preventDefault();
+    jQuery('#bm_shared_extra_form_wrap').slideUp(200);
+});
+
+// Toggle WC product ID field.
+jQuery(document).on('change', '#bm_se_wc', function() {
+    if (jQuery(this).is(':checked')) {
+        jQuery('#bm_se_wc_product').show();
+    } else {
+        jQuery('#bm_se_wc_product').val('').hide();
+    }
+});
+
+// Edit button on shared extras dashboard.
+jQuery(document).on('click', '.bm-se-edit-btn', function(e) {
+    e.preventDefault();
+    var row = jQuery('#bm-se-row-' + jQuery(this).data('id'));
+    jQuery('#bm_se_id').val(row.data('id'));
+    jQuery('#bm_se_name').val(row.data('name'));
+    jQuery('#bm_se_description').val(row.data('description'));
+    jQuery('#bm_se_price').val(row.data('price'));
+    jQuery('#bm_se_duration').val(row.data('duration'));
+    jQuery('#bm_se_operation').val(row.data('operation'));
+    jQuery('#bm_se_max_cap').val(row.data('max-cap'));
+    jQuery('#bm_se_visible').prop('checked', parseInt(row.data('visible')) === 1);
+    var wcLinked = parseInt(row.data('wc'));
+    jQuery('#bm_se_wc').prop('checked', wcLinked === 1);
+    if (wcLinked === 1) {
+        jQuery('#bm_se_wc_product').val(row.data('wc-product')).show();
+    } else {
+        jQuery('#bm_se_wc_product').val('').hide();
+    }
+    jQuery('#bm_shared_extra_form_title').text('Edit Shared Extra');
+    jQuery('#bm_shared_extra_form_wrap').slideDown(200);
+    jQuery('html, body').animate({ scrollTop: jQuery('#bm_shared_extra_form_wrap').offset().top - 50 }, 300);
+});
+
+// Save (Create / Update) shared extra from dashboard.
+jQuery(document).on('click', '#bm_se_save_btn', function(e) {
+    e.preventDefault();
+    var name = jQuery('#bm_se_name').val().trim();
+    if (!name) {
+        alert('Shared Extra name is required.');
+        return;
+    }
+    var btn = jQuery(this);
+    btn.prop('disabled', true);
+
+    var postData = {
+        action: 'bm_save_global_extra',
+        global_extra_name: name,
+        global_extra_desc: jQuery('#bm_se_description').val(),
+        global_extra_price: jQuery('#bm_se_price').val() || 0,
+        global_extra_duration: jQuery('#bm_se_duration').val() || 0,
+        global_extra_operation: jQuery('#bm_se_operation').val() || 0,
+        global_extra_max_cap: jQuery('#bm_se_max_cap').val() || 1,
+        nonce: bm_ajax_object.nonce
+    };
+    if (jQuery('#bm_se_visible').is(':checked')) {
+        postData.global_extra_visible = 'on';
+    }
+    if (jQuery('#bm_se_wc').is(':checked')) {
+        postData.global_extra_wc = 'on';
+        postData.global_extra_wc_product = jQuery('#bm_se_wc_product').val() || 0;
+    }
+    var existingId = jQuery('#bm_se_id').val();
+    if (existingId) {
+        postData.global_extra_id = existingId;
+    }
+
+    jQuery.post(bm_ajax_object.ajax_url, postData, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        btn.prop('disabled', false);
+        if (res.status) {
+            location.reload();
+        } else {
+            alert('Failed to save shared extra: ' + (res.message || 'Unknown error'));
+        }
+    });
+});
+
+// Delete shared extra from dashboard.
+jQuery(document).on('click', '.bm-se-delete-btn', function(e) {
+    e.preventDefault();
+    if (!confirm('Are you sure you want to delete this shared extra? It will be unlinked from all services.')) return;
+    var id = jQuery(this).data('id');
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_delete_global_extra',
+        id: id,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        if (res.status) {
+            jQuery('#bm-se-row-' + id).fadeOut(300, function() { jQuery(this).remove(); });
+        } else {
+            alert('Failed to delete shared extra: ' + (res.message || 'Unknown error'));
         }
     });
 });
