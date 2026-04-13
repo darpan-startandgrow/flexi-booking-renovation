@@ -509,6 +509,35 @@ class Booking_Management_Activator {
 		)$charset_collate;";
 		dbDelta( $sql );
 
+		$table_name = $this->get_db_table_name( 'GLOBALEXTRA' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`name` varchar(255) NOT NULL,
+			`description` longtext DEFAULT NULL,
+			`price` float(50) DEFAULT NULL,
+			`duration_hours` float(24) DEFAULT NULL,
+			`total_operation_hours` float(24) DEFAULT NULL,
+			`max_capacity` int(100) NOT NULL DEFAULT 1,
+			`is_visible_frontend` int(11) NOT NULL DEFAULT 1,
+			`link_woocommerce` int(11) DEFAULT 0,
+			`wc_product_id` int(11) DEFAULT NULL,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		$table_name = $this->get_db_table_name( 'SERVICEGLOBALEXTRA' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`service_id` int(11) NOT NULL,
+			`global_extra_id` int(11) NOT NULL,
+			PRIMARY KEY (`id`),
+			UNIQUE KEY `unique_service_global` (`service_id`, `global_extra_id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		$this->add_extra_type_column_to_extraslotcount();
 		$this->add_error_column_to_emails();
 		$this->add_error_column_to_failed_transactions();
 		$this->create_default_form_fields();
@@ -599,6 +628,12 @@ class Booking_Management_Activator {
 			case 'STRIPE_EVENTS':
 				$table_name = $plugin_prefix . 'stripe_events';
 				break;
+			case 'GLOBALEXTRA':
+				$table_name = $plugin_prefix . 'global_extras';
+				break;
+			case 'SERVICEGLOBALEXTRA':
+				$table_name = $plugin_prefix . 'service_global_extras';
+				break;
 			default:
 				$classname = "BM_Helper_$identifier";
 				if ( class_exists( $classname ) ) {
@@ -688,6 +723,12 @@ class Booking_Management_Activator {
 				$unique_field_name = 'id';
 				break;
 			case 'STRIPE_EVENTS':
+				$unique_field_name = 'id';
+				break;
+			case 'GLOBALEXTRA':
+				$unique_field_name = 'id';
+				break;
+			case 'SERVICEGLOBALEXTRA':
 				$unique_field_name = 'id';
 				break;
 			default:
@@ -1185,6 +1226,9 @@ class Booking_Management_Activator {
 			case 'cap_left':
 				$format = '%d';
 				break;
+			case 'extra_type':
+				$format = '%s';
+				break;
 			case 'booking_date':
 				$format = '%s';
 				break;
@@ -1200,6 +1244,63 @@ class Booking_Management_Activator {
 
 		return $format;
 	} //end get_field_format_type_EXTRASLOTCOUNT()
+
+
+	public function get_field_format_type_GLOBALEXTRA( $field ) {
+		switch ( $field ) {
+			case 'id':
+				$format = '%d';
+				break;
+			case 'name':
+				$format = '%s';
+				break;
+			case 'description':
+				$format = '%s';
+				break;
+			case 'price':
+				$format = '%f';
+				break;
+			case 'duration_hours':
+				$format = '%f';
+				break;
+			case 'total_operation_hours':
+				$format = '%f';
+				break;
+			case 'max_capacity':
+				$format = '%d';
+				break;
+			case 'is_visible_frontend':
+				$format = '%d';
+				break;
+			case 'link_woocommerce':
+				$format = '%d';
+				break;
+			case 'wc_product_id':
+				$format = '%d';
+				break;
+			default:
+				$format = '%s';
+		}
+		return $format;
+	} //end get_field_format_type_GLOBALEXTRA()
+
+
+	public function get_field_format_type_SERVICEGLOBALEXTRA( $field ) {
+		switch ( $field ) {
+			case 'id':
+				$format = '%d';
+				break;
+			case 'service_id':
+				$format = '%d';
+				break;
+			case 'global_extra_id':
+				$format = '%d';
+				break;
+			default:
+				$format = '%d';
+		}
+		return $format;
+	} //end get_field_format_type_SERVICEGLOBALEXTRA()
 
 
 	public function get_field_format_type_EMAIL_TMPL( $field ) {
@@ -1776,6 +1877,17 @@ class Booking_Management_Activator {
 		if ( empty( $row ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
 			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `error_message` text NULL AFTER `refund_status`" );
+		}
+	}
+
+	private function add_extra_type_column_to_extraslotcount() {
+		global $wpdb;
+		$table_name = esc_sql( $this->get_db_table_name( 'EXTRASLOTCOUNT' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$row        = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'extra_type' ) );
+		if ( empty( $row ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `extra_type` varchar(20) NOT NULL DEFAULT 'local' AFTER `extra_svc_id`" );
 		}
 	}
 
