@@ -6,7 +6,6 @@ $pagenum      = filter_input( INPUT_GET, 'pagenum' );
 $pagenum      = isset( $pagenum ) ? absint( $pagenum ) : 1;
 $limit        = ! empty( $dbhandler->get_global_option_value( 'bm_payment_logs_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_payment_logs_per_page' ) : 20;
 $offset       = ( ( $pagenum - 1 ) * $limit );
-$i            = ( 1 + $offset );
 
 $bookings_table     = esc_sql( $bm_activator->get_db_table_name( 'BOOKING' ) );
 $transactions_table = esc_sql( $bm_activator->get_db_table_name( 'TRANSACTIONS' ) );
@@ -207,7 +206,6 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
                         <td style="text-align:center;"><?php echo esc_html( $log->created_at ?? '' ); ?></td>
                     </tr>
                     <?php
-                    $i++;
                 }
                 ?>
             </tbody>

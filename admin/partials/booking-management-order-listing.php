@@ -253,7 +253,7 @@ unset( $order_statuses['failed'], $payment_statuses['failed'] );
 										}//end if
 										?>
                 </tr>
-             <thead>
+             </thead>
             <tbody class="order_records"></tbody>
         </table>
        </div>

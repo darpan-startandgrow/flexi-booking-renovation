@@ -5,7 +5,6 @@ $pagenum     = filter_input( INPUT_GET, 'pagenum' );
 $pagenum     = isset( $pagenum ) ? absint( $pagenum ) : 1;
 $limit       = ! empty( $dbhandler->get_global_option_value( 'bm_email_logs_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_email_logs_per_page' ) : 20;
 $offset      = ( ( $pagenum - 1 ) * $limit );
-$i           = ( 1 + $offset );
 
 $where      = array();
 $additional = '';
@@ -221,7 +220,6 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
                         <td style="text-align:center;"><?php echo esc_html( $log->created_at ?? '' ); ?></td>
                     </tr>
                     <?php
-                    $i++;
                 }
                 ?>
             </tbody>
