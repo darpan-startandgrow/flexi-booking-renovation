@@ -13489,7 +13489,7 @@ jQuery(document).on('click', '#bm_import_local_apply', function(e) {
     }
 
     // Show the extra form if hidden.
-    if (jQuery('#svc_extra_fields').not(':visible')) {
+    if (!jQuery('#svc_extra_fields').is(':visible')) {
         jQuery('#svc_extra_fields').css('display', 'block');
     }
     jQuery('#if_extra_svc').val('1');
