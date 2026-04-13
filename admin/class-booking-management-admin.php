@@ -445,6 +445,12 @@ class Booking_Management_Admin {
             $normal['customer_data']           = __( 'Customer data', 'service-booking' );
             $normal['copy_to_clipboard']       = __( 'Copy to clipboard', 'service-booking' );
             $normal['copied_to_clipboard']     = __( 'Copied to clipboard', 'service-booking' );
+            $normal['bulk_select_action']      = __( 'Please select a bulk action.', 'service-booking' );
+            $normal['bulk_no_items']           = __( 'No items selected.', 'service-booking' );
+            $normal['bulk_confirm_delete']     = __( 'Are you sure you want to delete %d item(s)? This cannot be undone.', 'service-booking' );
+            $normal['bulk_confirm_action']     = __( 'Are you sure you want to apply this bulk action to %d item(s)?', 'service-booking' );
+            $normal['bulk_failed']             = __( 'Bulk action failed: ', 'service-booking' );
+            $normal['bulk_items_selected']     = __( ' item(s) selected', 'service-booking' );
             $normal['enter_admin_password']    = __( 'Enter admin password', 'service-booking' );
             $normal['username_email']          = __( 'Enter username/email', 'service-booking' );
             $normal['password']                = __( 'Password', 'service-booking' );
@@ -1621,7 +1627,14 @@ class Booking_Management_Admin {
 
 			// Handle service linking if provided.
 			if ( $data['status'] && isset( $_POST['link_service_ids'] ) ) {
-				$service_ids = array_filter( array_map( 'absint', explode( ',', sanitize_text_field( wp_unslash( $_POST['link_service_ids'] ) ) ) ) );
+				$raw_ids     = sanitize_text_field( wp_unslash( $_POST['link_service_ids'] ) );
+				// Validate format: only comma-separated digits allowed.
+				if ( ! preg_match( '/^[0-9,]+$/', $raw_ids ) ) {
+					// Skip linking with invalid input format.
+					echo wp_json_encode( $data );
+					die;
+				}
+				$service_ids = array_filter( array_map( 'absint', explode( ',', $raw_ids ) ) );
 				$ge_id       = $data['id'];
 
 				// On update, sync links: remove unselected, add newly selected.
@@ -2069,6 +2082,13 @@ class Booking_Management_Admin {
 			die;
 		}
 
+		// Validate format: only comma-separated digits allowed.
+		if ( ! preg_match( '/^[0-9,]+$/', $ids_raw ) ) {
+			$data['message'] = esc_html__( 'Invalid IDs format.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
 		$ids = array_filter( array_map( 'absint', explode( ',', $ids_raw ) ) );
 		if ( empty( $ids ) ) {
 			$data['message'] = esc_html__( 'Invalid IDs provided.', 'service-booking' );
@@ -2116,7 +2136,7 @@ class Booking_Management_Admin {
 					$data['message'] = esc_html__( 'Visibility toggle not supported for this table.', 'service-booking' );
 					break;
 				}
-				$visibility = isset( $_POST['visibility'] ) ? absint( $_POST['visibility'] ) : 1;
+				$visibility = isset( $_POST['visibility'] ) ? min( absint( $_POST['visibility'] ), 1 ) : 1;
 				foreach ( $ids as $item_id ) {
 					$dbhandler->update_row( $db_id, 'id', $item_id, array(
 						$config['visibility_col'] => $visibility,
@@ -2136,7 +2156,7 @@ class Booking_Management_Admin {
 					$data['message'] = esc_html__( 'Status toggle not supported for this table.', 'service-booking' );
 					break;
 				}
-				$status = isset( $_POST['status_val'] ) ? absint( $_POST['status_val'] ) : 1;
+				$status = isset( $_POST['status_val'] ) ? min( absint( $_POST['status_val'] ), 1 ) : 1;
 				foreach ( $ids as $item_id ) {
 					$dbhandler->update_row( $db_id, 'id', $item_id, array(
 						$config['status_col'] => $status,

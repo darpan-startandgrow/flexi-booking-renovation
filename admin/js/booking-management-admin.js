@@ -14103,7 +14103,7 @@ jQuery(document).on('click', '.bm-bulk-apply', function(e) {
     var bar = jQuery(this).closest('.bm-bulk-bar');
     var action = bar.find('.bm-bulk-action-select').val();
     if (!action) {
-        alert('Please select a bulk action.');
+        alert(bm_normal_object.bulk_select_action || 'Please select a bulk action.');
         return;
     }
     var ids = [];
@@ -14111,13 +14111,13 @@ jQuery(document).on('click', '.bm-bulk-apply', function(e) {
         ids.push(jQuery(this).val());
     });
     if (ids.length === 0) {
-        alert('No items selected.');
+        alert(bm_normal_object.bulk_no_items || 'No items selected.');
         return;
     }
 
-    var confirmMsg = 'Are you sure you want to apply this bulk action to ' + ids.length + ' item(s)?';
+    var confirmMsg = (bm_normal_object.bulk_confirm_action || 'Are you sure you want to apply this bulk action to %d item(s)?').replace('%d', ids.length);
     if (action === 'bulk_delete') {
-        confirmMsg = 'Are you sure you want to delete ' + ids.length + ' item(s)? This cannot be undone.';
+        confirmMsg = (bm_normal_object.bulk_confirm_delete || 'Are you sure you want to delete %d item(s)? This cannot be undone.').replace('%d', ids.length);
     }
     if (!confirm(confirmMsg)) return;
 
@@ -14145,7 +14145,7 @@ jQuery(document).on('click', '.bm-bulk-apply', function(e) {
             alert(res.message);
             location.reload();
         } else {
-            alert('Bulk action failed: ' + (res.message || 'Unknown error'));
+            alert((bm_normal_object.bulk_failed || 'Bulk action failed: ') + (res.message || 'Unknown error'));
         }
     });
 });
@@ -14157,7 +14157,7 @@ function bm_bulk_update_state(tableId) {
     var action = bar.find('.bm-bulk-action-select').val();
     bar.find('.bm-bulk-apply').prop('disabled', checked === 0 || !action);
     if (checked > 0) {
-        bar.find('.bm-bulk-count').text(checked + ' item(s) selected');
+        bar.find('.bm-bulk-count').text(checked + (bm_normal_object.bulk_items_selected || ' item(s) selected'));
     } else {
         bar.find('.bm-bulk-count').text('');
     }
