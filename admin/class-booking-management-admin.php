@@ -2098,13 +2098,19 @@ class Booking_Management_Admin {
 
 		// Map table_type to DB identifier and columns.
 		$table_config = array(
-			'service'        => array( 'identifier' => 'SERVICE', 'visibility_col' => 'is_service_front' ),
-			'category'       => array( 'identifier' => 'CATEGORY', 'visibility_col' => 'cat_in_front' ),
-			'customer'       => array( 'identifier' => 'CUSTOMERS', 'status_col' => 'is_active' ),
-			'email_template' => array( 'identifier' => 'EMAIL_TMPL', 'status_col' => 'status' ),
-			'order'          => array( 'identifier' => 'BOOKING' ),
-			'coupon'         => array( 'identifier' => 'COUPON' ),
-			'price_module'   => array( 'identifier' => 'EXTERNAL_SERVICE_PRICE_MODULE' ),
+			'service'              => array( 'identifier' => 'SERVICE', 'visibility_col' => 'is_service_front' ),
+			'category'             => array( 'identifier' => 'CATEGORY', 'visibility_col' => 'cat_in_front' ),
+			'customer'             => array( 'identifier' => 'CUSTOMERS', 'status_col' => 'is_active' ),
+			'email_template'       => array( 'identifier' => 'EMAIL_TMPL', 'status_col' => 'status' ),
+			'order'                => array( 'identifier' => 'BOOKING' ),
+			'coupon'               => array( 'identifier' => 'COUPON', 'status_col' => 'is_active' ),
+			'price_module'         => array( 'identifier' => 'EXTERNAL_SERVICE_PRICE_MODULE' ),
+			'notification_process' => array( 'identifier' => 'EVENTNOTIFICATION', 'status_col' => 'status' ),
+			'voucher'              => array( 'identifier' => 'VOUCHERS' ),
+			'checkin'              => array( 'identifier' => 'CHECKINS' ),
+			'email_record'         => array( 'identifier' => 'EMAILS' ),
+			'email_log'            => array( 'identifier' => 'EMAILS' ),
+			'payment_log'          => array( 'identifier' => 'TRANSACTIONS' ),
 		);
 
 		if ( ! isset( $table_config[ $table_type ] ) ) {

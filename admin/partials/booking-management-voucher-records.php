@@ -23,10 +23,20 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
         </div>
     </div>
     <?php if ( isset( $vouchers ) ) { ?>
+        <!-- Bulk Actions Bar -->
+        <div class="bm-bulk-bar" data-table="voucher" style="margin-bottom:10px;padding:8px 12px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select class="bm-bulk-action-select" data-table="voucher" style="min-width:180px;">
+                <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
+                <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+            </select>
+            <button type="button" class="button button-primary bm-bulk-apply" data-table="voucher" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
+            <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+        </div>
         <input type="hidden" name="pagenum" value="<?php echo esc_attr( $pagenum ); ?>" />
         <table class="wp-list-table widefat striped">
             <thead>
                 <tr>
+                    <th style="text-align:center;width:30px;"><input type="checkbox" class="bm-bulk-check-all" data-table="voucher" title="<?php esc_attr_e( 'Select All', 'service-booking' ); ?>"></th>
                     <th width="10%" style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Serial No', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Code', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Booking Info', 'service-booking' ); ?></th>
@@ -44,6 +54,7 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
                     ?>
                     <tr>
                         <form role="form" method="post">
+                            <td style="text-align:center;"><input type="checkbox" class="bm-bulk-row-check voucher-row-check" data-table="voucher" value="<?php echo esc_attr( $voucher->id ); ?>"></td>
                             <td style="text-align: center;"><?php echo esc_attr( $i ); ?></td>
                             <td style="text-align: center;" title="<?php echo isset( $voucher->code ) ? esc_html( $voucher->code ) : ''; ?>"><?php echo isset( $voucher->code ) ? esc_html( mb_strimwidth( $voucher->code, 0, 40, '...' ) ) : ''; ?></td>
                             <td style="text-align: center;">
