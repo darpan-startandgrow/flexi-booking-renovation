@@ -12216,7 +12216,7 @@ class BM_Request {
 
 										do_action( 'bm_before_extra_booking', $booking_id, $extra_service_ids, $extra_slots_booked, $date );
 
-										$extras_overbooking = false;
+										$capacity_exceeded = false;
 										foreach ( $extra_service_ids as $key => $extra_id ) {
 											$slots_booked = $extra_slots_booked[ $key ];
 											$extra_type   = isset( $extra_types_arr[ $key ] ) ? $extra_types_arr[ $key ] : 'local';
@@ -12225,14 +12225,14 @@ class BM_Request {
 												// Global extra: acquire row lock and check pooled capacity atomically.
 												$locked_row = $dbhandler->select_for_update_global_extra( $extra_id );
 												if ( empty( $locked_row ) ) {
-													$extras_overbooking = true;
+													$capacity_exceeded = true;
 													break;
 												}
 												$extra_max_cap = (int) $locked_row->max_capacity;
 												$total_usage   = $dbhandler->get_global_extra_pooled_usage( $extra_id, $date );
 												$cap_left      = $extra_max_cap - ( $total_usage + (int) $slots_booked );
 												if ( $cap_left < 0 ) {
-													$extras_overbooking = true;
+													$capacity_exceeded = true;
 													break;
 												}
 											} else {
@@ -12240,7 +12240,7 @@ class BM_Request {
 												$extra_max_cap = $this->bm_fetch_extra_service_max_cap_by_extra_service_id( $extra_id );
 												$cap_left      = $this->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date( $extra_id, $extra_max_cap, $slots_booked, $date );
 												if ( $cap_left < 0 ) {
-													$extras_overbooking = true;
+													$capacity_exceeded = true;
 													break;
 												}
 											}

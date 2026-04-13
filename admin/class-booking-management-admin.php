@@ -1524,7 +1524,7 @@ class Booking_Management_Admin {
 					$data['status']  = false;
 					$data['message'] = sprintf(
 						/* translators: 1: peak usage count, 2: new capacity */
-						esc_html__( 'Cannot reduce capacity to %2$d. There are %1$d active bookings using this extra on a future date. Reduce bookings first.', 'service-booking' ),
+						esc_html__( 'Cannot reduce capacity to %2$d. Peak usage on a single future date is %1$d. Reduce bookings first.', 'service-booking' ),
 						$peak_usage,
 						$new_max_cap
 					);
@@ -1790,11 +1790,11 @@ class Booking_Management_Admin {
 
 		if ( ! empty( $id ) && $id > 0 ) {
 			$today      = wp_date( 'Y-m-d' );
-			$peak_usage = $dbhandler->get_global_extra_peak_usage( $id, $today );
-			$total_bookings = $dbhandler->get_global_extra_total_bookings( $id );
+			$peak_usage          = $dbhandler->get_global_extra_peak_usage( $id, $today );
+			$total_booking_records = $dbhandler->get_global_extra_total_bookings( $id );
 			$data['status']         = true;
 			$data['peak_usage']     = $peak_usage;
-			$data['total_bookings'] = $total_bookings;
+			$data['total_bookings'] = $total_booking_records;
 		}
 
 		echo wp_json_encode( $data );

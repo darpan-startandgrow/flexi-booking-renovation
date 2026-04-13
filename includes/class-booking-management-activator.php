@@ -1925,12 +1925,13 @@ class Booking_Management_Activator {
 		);
 
 		foreach ( $indexes as $idx_def ) {
-			$table = $idx_def['table'];
+			$table      = $idx_def['table'];
+			$index_name = esc_sql( $idx_def['index'] );
 			if ( empty( $table ) ) {
 				continue;
 			}
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
-			$existing = $wpdb->get_results( "SHOW INDEX FROM `{$table}` WHERE Key_name = '{$idx_def['index']}'" );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table and index names escaped with esc_sql().
+			$existing = $wpdb->get_results( "SHOW INDEX FROM `{$table}` WHERE Key_name = '{$index_name}'" );
 			if ( empty( $existing ) ) {
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
 				$wpdb->query( "ALTER TABLE `{$table}` {$idx_def['sql']}" );
