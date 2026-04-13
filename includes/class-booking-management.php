@@ -285,6 +285,11 @@ class Booking_Management {
 		$this->loader->add_action( 'wp_ajax_bm_fetch_booking_overview', $plugin_admin, 'bm_fetch_booking_overview' );
 		$this->loader->add_action( 'wp_ajax_bm_change_service_visibility', $plugin_admin, 'bm_change_service_visibility' );
 		$this->loader->add_action( 'wp_ajax_bm_change_extra_service_visibility', $plugin_admin, 'bm_change_extra_service_visibility' );
+		$this->loader->add_action( 'wp_ajax_bm_save_global_extra', $plugin_admin, 'bm_save_global_extra' );
+		$this->loader->add_action( 'wp_ajax_bm_delete_global_extra', $plugin_admin, 'bm_delete_global_extra' );
+		$this->loader->add_action( 'wp_ajax_bm_link_global_extra', $plugin_admin, 'bm_link_global_extra' );
+		$this->loader->add_action( 'wp_ajax_bm_unlink_global_extra', $plugin_admin, 'bm_unlink_global_extra' );
+		$this->loader->add_action( 'wp_ajax_bm_get_global_extras_list', $plugin_admin, 'bm_get_global_extras_list' );
 		$this->loader->add_action( 'wp_ajax_bm_change_category_visibility', $plugin_admin, 'bm_change_category_visibility' );
 		$this->loader->add_action( 'wp_ajax_bm_change_customer_visibility', $plugin_admin, 'bm_change_customer_visibility' );
 		$this->loader->add_action( 'wp_ajax_bm_fetch_vocuher_booking_info', $plugin_admin, 'bm_fetch_vocuher_booking_info' );

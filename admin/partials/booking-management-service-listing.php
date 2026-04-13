@@ -11,6 +11,37 @@ $services     = $dbhandler->get_all_result( 'SERVICE', '*', 1, 'results', $offse
 $num_of_pages = ceil( $total / $limit );
 $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequests->bm_get_page_url(), 'list' );
 
+// Batch-fetch global extras for all services on this page (no N+1).
+$service_ids_on_page = array();
+if ( ! empty( $services ) ) {
+    foreach ( $services as $svc ) {
+        $service_ids_on_page[] = (int) $svc->id;
+    }
+}
+$global_extras_by_service = ! empty( $service_ids_on_page )
+    ? $dbhandler->batch_get_global_extras_for_services( $service_ids_on_page )
+    : array();
+
+// Collect all global extra IDs for batch fetching linked services.
+$all_ge_ids = array();
+foreach ( $global_extras_by_service as $ge_list ) {
+    foreach ( $ge_list as $ge ) {
+        $all_ge_ids[] = (int) $ge->id;
+    }
+}
+$all_ge_ids = array_unique( $all_ge_ids );
+$services_for_globals = ! empty( $all_ge_ids )
+    ? $dbhandler->batch_get_services_for_global_extras( $all_ge_ids )
+    : array();
+
+// Allow extensions to filter shared column data.
+$shared_column_data = apply_filters( 'bm_services_shared_column_data', array(
+    'global_extras_by_service' => $global_extras_by_service,
+    'services_for_globals'     => $services_for_globals,
+), $service_ids_on_page );
+$global_extras_by_service = $shared_column_data['global_extras_by_service'];
+$services_for_globals     = $shared_column_data['services_for_globals'];
+
 ?>
 
 <!-- Services -->
@@ -34,6 +65,7 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Name', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Category', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Show in frontend', 'service-booking' ); ?></th>
+                    <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Shared', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Service Shortcodes', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Actions', 'service-booking' ); ?></th>
                 </tr>
@@ -50,6 +82,46 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
                             <td style="text-align: center;" class="bm-checkbox-td">
                                 <input name="bm_show_service_in_front" type="checkbox" id="bm_show_service_in_front_<?php echo esc_attr( $service->id ); ?>" class="regular-text auto-checkbox bm_toggle" <?php checked( esc_attr( $service->is_service_front ), '1' ); ?> onchange="bm_change_service_visibility(this)">
                                 <label for="bm_show_service_in_front_<?php echo esc_attr( $service->id ); ?>"></label>
+                            </td>
+                            <td style="text-align: center;" class="bm-shared-extras-td">
+                                <?php
+                                $svc_id     = (int) $service->id;
+                                $svc_ge_list = isset( $global_extras_by_service[ $svc_id ] ) ? $global_extras_by_service[ $svc_id ] : array();
+                                $seen_ge_ids = array();
+                                if ( ! empty( $svc_ge_list ) ) {
+                                    foreach ( $svc_ge_list as $ge ) {
+                                        $ge_id = (int) $ge->id;
+                                        if ( in_array( $ge_id, $seen_ge_ids, true ) ) {
+                                            continue; // Prevent duplicate badges.
+                                        }
+                                        $seen_ge_ids[] = $ge_id;
+
+                                        // Build tooltip: other services sharing this extra.
+                                        $other_services = array();
+                                        if ( isset( $services_for_globals[ $ge_id ] ) ) {
+                                            foreach ( $services_for_globals[ $ge_id ] as $linked_svc ) {
+                                                if ( (int) $linked_svc->service_id !== $svc_id ) {
+                                                    $other_services[] = esc_html( $linked_svc->service_name );
+                                                }
+                                            }
+                                        }
+                                        $tooltip_parts = array();
+                                        if ( ! empty( $other_services ) ) {
+                                            $tooltip_parts[] = esc_attr__( 'Also shared with: ', 'service-booking' ) . implode( ', ', $other_services );
+                                        }
+                                        $tooltip_parts[] = esc_attr__( 'Price: ', 'service-booking' ) . esc_attr( $ge->price );
+                                        $tooltip_parts[] = esc_attr__( 'Capacity: ', 'service-booking' ) . esc_attr( $ge->max_capacity );
+                                        $tooltip = implode( ' | ', $tooltip_parts );
+                                        ?>
+                                        <span class="bm-shared-badge" title="<?php echo esc_attr( $tooltip ); ?>" style="display:inline-block;background:#f59e0b;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;margin:2px;cursor:help;">
+                                            <span class="dashicons dashicons-share" style="font-size:13px;width:13px;height:13px;vertical-align:middle;margin-right:2px;"></span><?php echo esc_html( $ge->name ); ?>
+                                        </span>
+                                        <?php
+                                    }
+                                } else {
+                                    echo '<span style="color:#999;font-size:11px;">—</span>';
+                                }
+                                ?>
                             </td>
                             <td style="text-align: center;">
                                 <div class="copyMessagetooltip" style="margin-bottom: 5px;">

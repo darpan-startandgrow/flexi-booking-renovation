@@ -1480,6 +1480,192 @@ class Booking_Management_Admin {
 
 
 	/**
+	 * Save (create or update) a global extra.
+	 */
+	public function bm_save_global_extra() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler  = new BM_DBhandler();
+		$bmrequests = new BM_Request();
+		$data       = array( 'status' => false );
+
+		$id = filter_input( INPUT_POST, 'global_extra_id', FILTER_VALIDATE_INT );
+
+		$extra_data = array(
+			'name'                  => isset( $_POST['global_extra_name'] ) ? sanitize_text_field( wp_unslash( $_POST['global_extra_name'] ) ) : '',
+			'description'           => isset( $_POST['global_extra_desc'] ) ? wp_kses_post( wp_unslash( $_POST['global_extra_desc'] ) ) : '',
+			'price'                 => isset( $_POST['global_extra_price'] ) ? floatval( $_POST['global_extra_price'] ) : 0,
+			'duration_hours'        => isset( $_POST['global_extra_duration'] ) ? floatval( $_POST['global_extra_duration'] ) : 0,
+			'total_operation_hours' => isset( $_POST['global_extra_operation'] ) ? floatval( $_POST['global_extra_operation'] ) : 0,
+			'max_capacity'          => ! empty( $_POST['global_extra_max_cap'] ) ? absint( $_POST['global_extra_max_cap'] ) : 1,
+			'is_visible_frontend'   => isset( $_POST['global_extra_visible'] ) ? 1 : 0,
+			'link_woocommerce'      => isset( $_POST['global_extra_wc'] ) ? 1 : 0,
+			'wc_product_id'         => isset( $_POST['global_extra_wc'] ) && ! empty( $_POST['global_extra_wc_product'] ) ? absint( $_POST['global_extra_wc_product'] ) : 0,
+		);
+
+		$sanitized = $bmrequests->sanitize_request( $extra_data, 'GLOBALEXTRA' );
+
+		if ( $sanitized != false ) {
+			if ( ! empty( $id ) && $id > 0 ) {
+				$sanitized['updated_at'] = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
+				$result                  = $dbhandler->update_row( 'GLOBALEXTRA', 'id', $id, $sanitized );
+				if ( $result !== false ) {
+					$data['status'] = true;
+					$data['id']     = $id;
+				}
+			} else {
+				$sanitized['created_at'] = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
+				$insert_id               = $dbhandler->insert_row( 'GLOBALEXTRA', $sanitized );
+				if ( $insert_id ) {
+					$data['status'] = true;
+					$data['id']     = $insert_id;
+				}
+			}
+
+			// Handle service linking if provided.
+			if ( $data['status'] && isset( $_POST['link_service_ids'] ) ) {
+				$service_ids = array_map( 'absint', explode( ',', sanitize_text_field( wp_unslash( $_POST['link_service_ids'] ) ) ) );
+				$ge_id       = $data['id'];
+				foreach ( $service_ids as $sid ) {
+					if ( $sid > 0 ) {
+						$dbhandler->insert_if_not_exists(
+							'SERVICEGLOBALEXTRA',
+							array( 'service_id' => $sid, 'global_extra_id' => $ge_id ),
+							array( 'service_id' => $sid, 'global_extra_id' => $ge_id )
+						);
+					}
+				}
+			}
+		}
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_save_global_extra()
+
+
+	/**
+	 * Delete a global extra and all its service mappings.
+	 */
+	public function bm_delete_global_extra() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler = new BM_DBhandler();
+		$data      = array( 'status' => false );
+		$id        = filter_input( INPUT_POST, 'id', FILTER_VALIDATE_INT );
+
+		if ( ! empty( $id ) && $id > 0 ) {
+			// Remove all service mappings first.
+			$mappings = $dbhandler->get_all_result( 'SERVICEGLOBALEXTRA', '*', array( 'global_extra_id' => $id ), 'results' );
+			if ( ! empty( $mappings ) ) {
+				foreach ( $mappings as $m ) {
+					$dbhandler->remove_row( 'SERVICEGLOBALEXTRA', 'id', $m->id, '%d' );
+				}
+			}
+
+			// Remove the global extra.
+			$result = $dbhandler->remove_row( 'GLOBALEXTRA', 'id', $id, '%d' );
+			if ( $result !== false ) {
+				$data['status'] = true;
+			}
+		}
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_delete_global_extra()
+
+
+	/**
+	 * Link a global extra to a service.
+	 */
+	public function bm_link_global_extra() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler      = new BM_DBhandler();
+		$data           = array( 'status' => false );
+		$service_id     = filter_input( INPUT_POST, 'service_id', FILTER_VALIDATE_INT );
+		$global_extra_id = filter_input( INPUT_POST, 'global_extra_id', FILTER_VALIDATE_INT );
+
+		if ( ! empty( $service_id ) && ! empty( $global_extra_id ) ) {
+			$insert_id = $dbhandler->insert_if_not_exists(
+				'SERVICEGLOBALEXTRA',
+				array( 'service_id' => $service_id, 'global_extra_id' => $global_extra_id ),
+				array( 'service_id' => $service_id, 'global_extra_id' => $global_extra_id )
+			);
+			$data['status'] = true;
+			$data['id']     = $insert_id;
+		}
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_link_global_extra()
+
+
+	/**
+	 * Unlink a global extra from a service.
+	 */
+	public function bm_unlink_global_extra() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler       = new BM_DBhandler();
+		$data            = array( 'status' => false );
+		$service_id      = filter_input( INPUT_POST, 'service_id', FILTER_VALIDATE_INT );
+		$global_extra_id = filter_input( INPUT_POST, 'global_extra_id', FILTER_VALIDATE_INT );
+
+		if ( ! empty( $service_id ) && ! empty( $global_extra_id ) ) {
+			// Find and remove the specific mapping.
+			$mappings = $dbhandler->get_all_result(
+				'SERVICEGLOBALEXTRA',
+				'*',
+				array( 'service_id' => $service_id, 'global_extra_id' => $global_extra_id ),
+				'results'
+			);
+			if ( ! empty( $mappings ) ) {
+				foreach ( $mappings as $m ) {
+					$dbhandler->remove_row( 'SERVICEGLOBALEXTRA', 'id', $m->id, '%d' );
+				}
+				$data['status'] = true;
+			}
+		}
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_unlink_global_extra()
+
+
+	/**
+	 * Get all global extras (for admin dropdown/listing).
+	 */
+	public function bm_get_global_extras_list() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler     = new BM_DBhandler();
+		$global_extras = $dbhandler->get_all_result( 'GLOBALEXTRA', '*', 1, 'results' );
+		$data          = array(
+			'status' => true,
+			'data'   => ! empty( $global_extras ) ? $global_extras : array(),
+		);
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_get_global_extras_list()
+
+
+	/**
 	 * Remove a service
 	 *
 	 * @author Darpan
