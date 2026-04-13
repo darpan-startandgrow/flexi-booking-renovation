@@ -1949,6 +1949,54 @@ class Booking_Management_Admin {
 
 
 	/**
+	 * Get local extras for a given service (AJAX).
+	 *
+	 * Returns the list of local extras (is_global=0) for a specific service.
+	 * Used by the "Import from Existing Service" feature in the Extra tab.
+	 */
+	public function bm_get_service_local_extras() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler = new BM_DBhandler();
+		$data      = array( 'status' => false );
+
+		$service_id = filter_input( INPUT_POST, 'service_id', FILTER_VALIDATE_INT );
+		if ( empty( $service_id ) || $service_id <= 0 ) {
+			$data['message'] = esc_html__( 'Invalid service ID.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
+		$extras = $dbhandler->get_all_result( 'EXTRA', '*', array( 'service_id' => $service_id, 'is_global' => 0 ), 'results' );
+		$extras_out = array();
+
+		if ( ! empty( $extras ) ) {
+			foreach ( $extras as $ex ) {
+				$extras_out[] = array(
+					'id'                     => (int) $ex->id,
+					'extra_name'             => isset( $ex->extra_name ) ? $ex->extra_name : '',
+					'extra_desc'             => isset( $ex->extra_desc ) ? $ex->extra_desc : '',
+					'extra_price'            => isset( $ex->extra_price ) ? $ex->extra_price : 0,
+					'extra_duration'         => isset( $ex->extra_duration ) ? $ex->extra_duration : '',
+					'extra_operation'        => isset( $ex->extra_operation ) ? $ex->extra_operation : '',
+					'extra_max_cap'          => isset( $ex->extra_max_cap ) ? (int) $ex->extra_max_cap : 1,
+					'is_extra_service_front' => isset( $ex->is_extra_service_front ) ? (int) $ex->is_extra_service_front : 1,
+				);
+			}
+		}
+
+		$data['status'] = true;
+		$data['extras'] = $extras_out;
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_get_service_local_extras()
+
+
+	/**
 	 * Get all services with their link status to a given global extra.
 	 */
 	public function bm_get_services_for_linking() {

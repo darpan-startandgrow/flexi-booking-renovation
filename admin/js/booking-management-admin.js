@@ -13416,6 +13416,128 @@ function closeModal(modalId) {
 }
 
 // ============================================================
+// Import from Existing Service (Local Extras Tab)
+// ============================================================
+
+// Toggle the import from existing service form.
+jQuery(document).on('click', '#bm_import_local_extra_btn', function(e) {
+    e.preventDefault();
+    jQuery('#bm_import_local_extra_wrap').slideToggle(200);
+});
+
+// Cancel the import form.
+jQuery(document).on('click', '#bm_import_local_cancel', function(e) {
+    e.preventDefault();
+    jQuery('#bm_import_local_extra_wrap').slideUp(200);
+    jQuery('#bm_import_local_service').val('');
+    jQuery('#bm_import_local_extras_row').hide();
+    jQuery('#bm_import_local_extra_select').html('<option value="">— Select an Extra —</option>');
+});
+
+// When a service is selected, fetch its extras via AJAX.
+jQuery(document).on('change', '#bm_import_local_service', function() {
+    var serviceId = jQuery(this).val();
+    var extrasRow = jQuery('#bm_import_local_extras_row');
+    var extrasSelect = jQuery('#bm_import_local_extra_select');
+    var loading = jQuery('#bm_import_local_loading');
+
+    extrasSelect.html('<option value="">— Select an Extra —</option>');
+
+    if (!serviceId) {
+        extrasRow.hide();
+        return;
+    }
+
+    loading.show();
+    extrasRow.show();
+
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_get_service_local_extras',
+        service_id: serviceId,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        loading.hide();
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        if (res.status && res.extras && res.extras.length > 0) {
+            jQuery.each(res.extras, function(i, ex) {
+                extrasSelect.append(
+                    jQuery('<option></option>')
+                        .val(ex.id)
+                        .text(ex.extra_name + (ex.extra_price ? ' (' + ex.extra_price + ')' : ''))
+                        .data('name', ex.extra_name)
+                        .data('desc', ex.extra_desc)
+                        .data('price', ex.extra_price)
+                        .data('duration', ex.extra_duration)
+                        .data('operation', ex.extra_operation)
+                        .data('max-cap', ex.extra_max_cap)
+                        .data('front', ex.is_extra_service_front)
+                );
+            });
+        } else {
+            extrasSelect.append('<option value="" disabled>No extras found for this service</option>');
+        }
+    });
+});
+
+// Pre-fill the extra form with data from the selected extra.
+jQuery(document).on('click', '#bm_import_local_apply', function(e) {
+    e.preventDefault();
+    var opt = jQuery('#bm_import_local_extra_select').find(':selected');
+    if (!opt.val()) {
+        alert('Please select an extra to import.');
+        return;
+    }
+
+    // Show the extra form if hidden.
+    if (!jQuery('#svc_extra_fields').is(':visible')) {
+        jQuery('#svc_extra_fields').css('display', 'block');
+    }
+    jQuery('#if_extra_svc').val('1');
+    if (jQuery('#extraTitle').is(':visible')) {
+        jQuery('#extraTitle').css('display', 'none');
+    }
+
+    // Pre-fill all fields.
+    jQuery('#svc_extra_name').val(opt.data('name') || '');
+    jQuery('#svc_extra_price').val(opt.data('price') || '');
+    jQuery('#svc_extra_max_cap').val(opt.data('max-cap') || '');
+
+    // Set duration dropdown.
+    var duration = opt.data('duration');
+    if (duration) {
+        jQuery('#svc_extra_duration').val(String(duration));
+    }
+
+    // Set operation dropdown.
+    var operation = opt.data('operation');
+    if (operation) {
+        jQuery('#svc_extra_operation').val(String(operation));
+    }
+
+    // Set frontend visibility checkbox.
+    var frontVisible = parseInt(opt.data('front'));
+    if (frontVisible === 1) {
+        jQuery('#is_extra_service_front').prop('checked', true);
+    } else {
+        jQuery('#is_extra_service_front').prop('checked', false);
+    }
+
+    // Set description if TinyMCE is available, otherwise try textarea.
+    var desc = opt.data('desc') || '';
+    if (typeof tinyMCE !== 'undefined' && tinyMCE.get('svc_extra_desc')) {
+        tinyMCE.get('svc_extra_desc').setContent(desc);
+    } else {
+        jQuery('#svc_extra_desc').val(desc);
+    }
+
+    // Hide the import form.
+    jQuery('#bm_import_local_extra_wrap').slideUp(200);
+
+    // Scroll to the form.
+    jQuery('html, body').animate({ scrollTop: jQuery('#svc_extra_fields').offset().top - 50 }, 300);
+});
+
+// ============================================================
 // Global Extras Link / Unlink (Service Shared Extras Tab)
 // ============================================================
 jQuery(document).on('click', '#bm_link_global_extra_btn', function(e) {
@@ -13455,7 +13577,7 @@ jQuery(document).on('click', '.bm-unlink-global-extra', function(e) {
     }, function(response) {
         var res = typeof response === 'string' ? JSON.parse(response) : response;
         if (res.status) {
-            jQuery('#bm-linked-ge-' + globalExtraId).fadeOut(300, function() { jQuery(this).remove(); });
+            location.reload();
         } else {
             alert('Failed to unlink global extra.');
         }
@@ -13520,7 +13642,21 @@ jQuery(document).on('click', '#bm_add_shared_extra_btn', function(e) {
 jQuery(document).on('click', '#bm_se_cancel_btn', function(e) {
     e.preventDefault();
     jQuery('#bm_shared_extra_form_wrap').slideUp(200);
+    // If redirected from a service page, go back on cancel.
+    var urlParams = new URLSearchParams(window.location.search);
+    var returnService = urlParams.get('return_service');
+    if (returnService) {
+        window.location.href = 'admin.php?page=bm_add_service&id=' + returnService;
+    }
 });
+
+// Auto-open the "Add Shared Extra" form when redirected from add-service page.
+(function() {
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('open_add') === '1' && jQuery('#bm_add_shared_extra_btn').length) {
+        jQuery('#bm_add_shared_extra_btn').trigger('click');
+    }
+})();
 
 // Toggle WC product ID field.
 jQuery(document).on('change', '#bm_se_wc', function() {
@@ -13592,7 +13728,22 @@ jQuery(document).on('click', '#bm_se_save_btn', function(e) {
         var res = typeof response === 'string' ? JSON.parse(response) : response;
         btn.prop('disabled', false);
         if (res.status) {
-            location.reload();
+            // If we came from a service page, link and redirect back.
+            var urlParams = new URLSearchParams(window.location.search);
+            var returnService = urlParams.get('return_service');
+            if (returnService && res.id && !existingId) {
+                // Auto-link the new shared extra to the source service.
+                jQuery.post(bm_ajax_object.ajax_url, {
+                    action: 'bm_link_global_extra',
+                    service_id: returnService,
+                    global_extra_id: res.id,
+                    nonce: bm_ajax_object.nonce
+                }, function() {
+                    window.location.href = 'admin.php?page=bm_add_service&id=' + returnService;
+                });
+            } else {
+                location.reload();
+            }
         } else {
             alert('Failed to save shared extra: ' + (res.message || 'Unknown error'));
         }
