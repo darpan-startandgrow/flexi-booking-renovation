@@ -854,20 +854,19 @@ class Booking_API
         $service_id = $params['service_id'];
         $all = isset($params['all']) && $params['all'] == 'true';
 
-        $global_extras = $dbhandler->get_all_result('EXTRA', '*', array('is_global' => 1), 'results');
-        $extra_rows = $dbhandler->get_all_result('EXTRA', '*', array('service_id' => $service_id), 'results');
-
-        $all_extras = array_merge(
-            !empty($global_extras) ? $global_extras : [],
-            !empty($extra_rows) ? $extra_rows : []
-        );
+        $all_extras = $bmrequests->bm_get_unified_extras_for_service( $service_id, false );
 
         $has_extra = false;
         if ($all && ! empty($all_extras)) {
             $has_extra = true;
         } else {
             foreach ($all_extras as $extra_service) {
-                $cap_left = $bmrequests->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date($extra_service->id, $extra_service->extra_max_cap, 0, $date);
+                $extra_type = isset( $extra_service->extra_type ) ? $extra_service->extra_type : 'local';
+                if ( $extra_type === 'global' && isset( $extra_service->global_extra_id ) ) {
+                    $cap_left = $bmrequests->bm_get_global_extra_capacity_left( $extra_service->global_extra_id, $date, 0 );
+                } else {
+                    $cap_left = $bmrequests->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date($extra_service->id, $extra_service->extra_max_cap, 0, $date);
+                }
                 if ($cap_left > 0) {
                     $has_extra = true;
                     break;
@@ -891,19 +890,19 @@ class Booking_API
         $service_id = $params['service_id'];
         $all = isset($params['all']) && $params['all'] == 'true';
 
-        $global_extras = $dbhandler->get_all_result('EXTRA', '*', array('is_global' => 1), 'results');
-        $extra_rows = $dbhandler->get_all_result('EXTRA', '*', array('service_id' => $service_id), 'results');
-
-        $total_extra_rows = array_merge(
-            ! empty($global_extras) ? $global_extras : [],
-            ! empty($extra_rows) ? $extra_rows : []
-        );
+        $total_extra_rows = $bmrequests->bm_get_unified_extras_for_service( $service_id, false );
 
         if (! empty($total_extra_rows)) {
             foreach ($total_extra_rows as $key => $extra_service) {
-                $cap_left = $bmrequests->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date($extra_service->id, $extra_service->extra_max_cap, 0, $date);
+                $extra_type = isset( $extra_service->extra_type ) ? $extra_service->extra_type : 'local';
+                if ( $extra_type === 'global' && isset( $extra_service->global_extra_id ) ) {
+                    $cap_left = $bmrequests->bm_get_global_extra_capacity_left( $extra_service->global_extra_id, $date, 0 );
+                } else {
+                    $cap_left = $bmrequests->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date($extra_service->id, $extra_service->extra_max_cap, 0, $date);
+                }
                 $total_extra_rows[$key]->cap_left = $cap_left;
                 $total_extra_rows[$key]->price = $bmrequests->bm_add_price_character(intval($extra_service->extra_price));
+                $total_extra_rows[$key]->type = $extra_type;
             }
         }
 

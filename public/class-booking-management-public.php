@@ -2255,34 +2255,7 @@ class Booking_Management_Public {
 							$svc_button_colour  = $dbhandler->get_global_option_value( 'bm_frontend_book_button_color', $primary_color );
 							$svc_btn_txt_colour = $dbhandler->get_global_option_value( 'bm_frontend_book_button_txt_color', $contrast );
 
-							$total_extra_rows = array();
-							$global_extras    = $dbhandler->get_all_result(
-								'EXTRA',
-								'*',
-								array(
-									'is_global' => 1,
-									'is_extra_service_front' => 1,
-								),
-								'results'
-							);
-							$extra_rows       = $dbhandler->get_all_result(
-								'EXTRA',
-								'*',
-								array(
-									'is_global'  => 0,
-									'service_id' => $id,
-									'is_extra_service_front' => 1,
-								),
-								'results'
-							);
-
-							if ( ! empty( $extra_rows ) && ! empty( $global_extras ) ) {
-								$total_extra_rows = array_merge( $global_extras, $extra_rows );
-							} elseif ( empty( $extra_rows ) && ! empty( $global_extras ) ) {
-								$total_extra_rows = $global_extras;
-							} elseif ( ! empty( $extra_rows ) && empty( $global_extras ) ) {
-								$total_extra_rows = $extra_rows;
-							}
+							$total_extra_rows = $bmrequests->bm_get_unified_extras_for_service( $id, true );
 
 							if ( ! empty( $total_extra_rows ) ) {
 								if ( $type == 'service_by_category' || $type == 'service_by_category2' ) {
@@ -3911,17 +3884,8 @@ class Booking_Management_Public {
 			$counter_html .= '<button class="timeslot-counter-btn plus" type="button">+</button>';
 		}
 
-		$total_extra_rows = $dbhandler->get_all_result(
-			'EXTRA',
-			'*',
-			1,
-			'results',
-			0,
-			false,
-			null,
-			false,
-			"is_global = 1 OR service_id = $service_id"
-		);
+		$bmrequests = new BM_Request();
+		$total_extra_rows = $bmrequests->bm_get_unified_extras_for_service( $service_id, true );
 
 		$link_class = '';
 		if ( ! empty( $total_extra_rows ) ) {
