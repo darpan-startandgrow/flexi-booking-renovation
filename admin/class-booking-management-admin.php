@@ -1803,6 +1803,184 @@ class Booking_Management_Admin {
 
 
 	/**
+	 * Bulk actions for shared extras.
+	 *
+	 * Supports: bulk_delete, bulk_link, bulk_unlink, bulk_toggle_visibility.
+	 */
+	public function bm_bulk_shared_extras_action() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler  = new BM_DBhandler();
+		$bmrequests = new BM_Request();
+		$data       = array( 'status' => false, 'message' => '' );
+
+		$action_type = isset( $_POST['bulk_action'] ) ? sanitize_text_field( wp_unslash( $_POST['bulk_action'] ) ) : '';
+		$ids_raw     = isset( $_POST['ids'] ) ? sanitize_text_field( wp_unslash( $_POST['ids'] ) ) : '';
+
+		if ( empty( $action_type ) || empty( $ids_raw ) ) {
+			$data['message'] = esc_html__( 'No action or items selected.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
+		$ids = array_filter( array_map( 'absint', explode( ',', $ids_raw ) ) );
+		if ( empty( $ids ) ) {
+			$data['message'] = esc_html__( 'Invalid IDs provided.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
+		$processed = 0;
+		$skipped   = 0;
+
+		switch ( $action_type ) {
+			case 'bulk_delete':
+				$today = wp_date( 'Y-m-d' );
+				foreach ( $ids as $ge_id ) {
+					$peak = $dbhandler->get_global_extra_peak_usage( $ge_id, $today );
+					if ( $peak > 0 ) {
+						$skipped++;
+						continue;
+					}
+					// Remove service mappings.
+					$mappings = $dbhandler->get_all_result( 'SERVICEGLOBALEXTRA', '*', array( 'global_extra_id' => $ge_id ), 'results' );
+					if ( ! empty( $mappings ) ) {
+						foreach ( $mappings as $m ) {
+							$dbhandler->remove_row( 'SERVICEGLOBALEXTRA', 'id', $m->id, '%d' );
+						}
+					}
+					$dbhandler->remove_row( 'GLOBALEXTRA', 'id', $ge_id, '%d' );
+					$processed++;
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: 1: processed count, 2: skipped count */
+					esc_html__( '%1$d deleted, %2$d skipped (active bookings).', 'service-booking' ),
+					$processed,
+					$skipped
+				);
+				break;
+
+			case 'bulk_link':
+				$service_ids_raw = isset( $_POST['service_ids'] ) ? sanitize_text_field( wp_unslash( $_POST['service_ids'] ) ) : '';
+				$service_ids     = array_filter( array_map( 'absint', explode( ',', $service_ids_raw ) ) );
+				if ( empty( $service_ids ) ) {
+					$data['message'] = esc_html__( 'No services selected for linking.', 'service-booking' );
+					echo wp_json_encode( $data );
+					die;
+				}
+				foreach ( $ids as $ge_id ) {
+					foreach ( $service_ids as $sid ) {
+						$dbhandler->insert_if_not_exists(
+							'SERVICEGLOBALEXTRA',
+							array( 'service_id' => $sid, 'global_extra_id' => $ge_id ),
+							array( 'service_id' => $sid, 'global_extra_id' => $ge_id )
+						);
+						$processed++;
+					}
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of links created */
+					esc_html__( '%d link(s) created or already existed.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			case 'bulk_unlink':
+				$service_ids_raw = isset( $_POST['service_ids'] ) ? sanitize_text_field( wp_unslash( $_POST['service_ids'] ) ) : '';
+				$service_ids     = array_filter( array_map( 'absint', explode( ',', $service_ids_raw ) ) );
+				if ( empty( $service_ids ) ) {
+					$data['message'] = esc_html__( 'No services selected for unlinking.', 'service-booking' );
+					echo wp_json_encode( $data );
+					die;
+				}
+				foreach ( $ids as $ge_id ) {
+					foreach ( $service_ids as $sid ) {
+						$existing = $dbhandler->get_all_result(
+							'SERVICEGLOBALEXTRA',
+							'*',
+							array( 'service_id' => $sid, 'global_extra_id' => $ge_id ),
+							'results'
+						);
+						if ( ! empty( $existing ) ) {
+							foreach ( $existing as $row ) {
+								$dbhandler->remove_row( 'SERVICEGLOBALEXTRA', 'id', $row->id, '%d' );
+								$processed++;
+							}
+						}
+					}
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of links removed */
+					esc_html__( '%d link(s) removed.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			case 'bulk_toggle_visibility':
+				$visibility = isset( $_POST['visibility'] ) ? absint( $_POST['visibility'] ) : 1;
+				foreach ( $ids as $ge_id ) {
+					$dbhandler->update_row( 'GLOBALEXTRA', 'id', $ge_id, array(
+						'is_visible_frontend' => $visibility,
+						'updated_at'          => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
+					) );
+					$processed++;
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of extras updated */
+					esc_html__( '%d extra(s) visibility updated.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			default:
+				$data['message'] = esc_html__( 'Unknown bulk action.', 'service-booking' );
+		}
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_bulk_shared_extras_action()
+
+
+	/**
+	 * Get all services with their link status to a given global extra.
+	 */
+	public function bm_get_services_for_linking() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler = new BM_DBhandler();
+		$data      = array( 'status' => false );
+
+		$all_services = $dbhandler->get_all_result( 'SERVICE', '*', 1, 'results' );
+		$services_out = array();
+
+		if ( ! empty( $all_services ) ) {
+			foreach ( $all_services as $svc ) {
+				$services_out[] = array(
+					'id'   => (int) $svc->id,
+					'name' => isset( $svc->service_name ) ? $svc->service_name : '',
+				);
+			}
+		}
+
+		$data['status']   = true;
+		$data['services'] = $services_out;
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_get_services_for_linking()
+
+
+	/**
 	 * Remove a service
 	 *
 	 * @author Darpan
