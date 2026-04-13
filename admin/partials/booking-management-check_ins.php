@@ -132,9 +132,19 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
     if ( isset( $checkins ) && !empty( $checkins ) ) {
 		;
 		?>
+        <!-- Bulk Actions Bar -->
+        <div class="bm-bulk-bar" data-table="checkin" style="margin-bottom:10px;padding:8px 12px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select class="bm-bulk-action-select" data-table="checkin" style="min-width:180px;">
+                <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
+                <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+            </select>
+            <button type="button" class="button button-primary bm-bulk-apply" data-table="checkin" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
+            <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+        </div>
         <table class="wp-list-table widefat striped" id="checkin_listing">
             <thead>
                 <tr>
+                    <th style="text-align:center;width:30px;"><input type="checkbox" class="bm-bulk-check-all" data-table="checkin" title="<?php esc_attr_e( 'Select All', 'service-booking' ); ?>"></th>
                     <?php
                     if ( !empty( $column_values ) ) {
                         foreach ( $column_values as $key => $column ) {

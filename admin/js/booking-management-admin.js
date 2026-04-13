@@ -9844,6 +9844,7 @@ function bm_search_order_data(type = '') {
 				if (bookings != null && bookings.length != 0) {
 					for (var i = 0; i < bookings.length; i++) {
 						orderListing += "<tr><form role='form' method='post'>";
+						orderListing += "<td style='text-align:center;'><input type='checkbox' class='bm-bulk-row-check order-row-check' data-table='order' value='" + bookings[i].id + "'></td>";
 						for (var j = 0; j < column_values.length; j++) {
 							if (active_columns != null && jQuery.inArray(column_value_keys[j], active_columns) == -1) {
 								continue;
@@ -10097,6 +10098,7 @@ function bm_fetch_archived_order_as_per_search(type = '') {
 				if (bookings != null && bookings.length != 0) {
 					for (var i = 0; i < bookings.length; i++) {
 						orderListing += "<tr><form role='form' method='post'>";
+						orderListing += "<td style='text-align:center;'><input type='checkbox' class='bm-bulk-row-check order-row-check' data-table='order' value='" + bookings[i].id + "'></td>";
 						for (var j = 0; j < column_values.length; j++) {
 							if (active_columns != null && jQuery.inArray(column_value_keys[j], active_columns) == -1) {
 								continue;
@@ -10316,6 +10318,7 @@ function bm_search_checkin_data(type = '') {
 				if (checkins != null && checkins.length > 0) {
 					for (var i = 0; i < checkins.length; i++) {
 						checkinListing += "<tr><form role='form' method='post'>";
+						checkinListing += "<td style='text-align:center;'><input type='checkbox' class='bm-bulk-row-check checkin-row-check' data-table='checkin' value='" + (checkins[i].checkin_id || checkins[i].id || i) + "'></td>";
 						for (var j = 0; j < column_values.length; j++) {
 							if (active_columns != null && jQuery.inArray(column_value_keys[j], active_columns) == -1) {
 								continue;
@@ -10500,6 +10503,7 @@ function bm_fetch_failed_order_as_per_search(type = '') {
 
 					for (var i = 0; i < bookings.length; i++) {
 						orderListing += "<tr><form role='form' method='post'>";
+						orderListing += "<td style='text-align:center;'><input type='checkbox' class='bm-bulk-row-check order-row-check' data-table='order' value='" + bookings[i].id + "'></td>";
 						for (var j = 0; j < column_values.length; j++) {
 							if (active_columns != null && jQuery.inArray(column_value_keys[j], active_columns) == -1) {
 								continue;

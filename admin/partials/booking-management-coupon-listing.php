@@ -26,7 +26,14 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
                 <select class="bm-bulk-action-select" data-table="coupon" style="min-width:180px;">
                     <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
                     <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+                    <option value="bulk_toggle_status"><?php esc_html_e( 'Toggle Status', 'service-booking' ); ?></option>
                 </select>
+                <span class="bm-bulk-status-wrap" style="display:none;">
+                    <select class="bm-bulk-status-val">
+                        <option value="1"><?php esc_html_e( 'Active', 'service-booking' ); ?></option>
+                        <option value="0"><?php esc_html_e( 'Inactive', 'service-booking' ); ?></option>
+                    </select>
+                </span>
                 <button type="button" class="button button-primary bm-bulk-apply" data-table="coupon" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
                 <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
             </div>

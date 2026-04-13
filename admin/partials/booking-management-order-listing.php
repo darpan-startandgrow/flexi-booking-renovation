@@ -199,6 +199,7 @@ unset( $order_statuses['failed'], $payment_statuses['failed'] );
         <table class="wp-list-table widefat striped booking-table" id="order_listing">
             <thead>
                 <tr>
+                    <th style="text-align:center;width:30px;"><input type="checkbox" class="bm-bulk-check-all" data-table="order" title="<?php esc_attr_e( 'Select All', 'service-booking' ); ?>"></th>
 										<?php
 										if ( !empty( $column_values ) ) {
 											foreach ( $column_values as $key => $column ) {

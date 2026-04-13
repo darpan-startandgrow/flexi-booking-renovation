@@ -43,10 +43,20 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
         </div>
     </div>
     <?php if ( isset( $email_records ) && !empty( $email_records ) ) { ?>
+        <!-- Bulk Actions Bar -->
+        <div class="bm-bulk-bar" data-table="email_record" style="margin-bottom:10px;padding:8px 12px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select class="bm-bulk-action-select" data-table="email_record" style="min-width:180px;">
+                <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
+                <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+            </select>
+            <button type="button" class="button button-primary bm-bulk-apply" data-table="email_record" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
+            <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+        </div>
         <input type="hidden" name="pagenum" value="<?php echo esc_attr( $pagenum ); ?>" />
         <table class="wp-list-table widefat striped">
             <thead>
                 <tr>
+                    <th style="text-align:center;width:30px;"><input type="checkbox" class="bm-bulk-check-all" data-table="email_record" title="<?php esc_attr_e( 'Select All', 'service-booking' ); ?>"></th>
                     <th width="10%" style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Serial No', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'type', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Order details', 'service-booking' ); ?></th>
@@ -68,6 +78,7 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
                             <input type="hidden" id="mail_type_<?php echo esc_attr( $key ); ?>" value="<?php echo isset( $email->mail_type ) ? esc_html( $email->mail_type ) : 0; ?>" />
                             <input type="hidden" id="template_id_<?php echo esc_attr( $key ); ?>" value="<?php echo isset( $email->template_id ) ? esc_attr( $email->template_id ) : 0; ?>" />
                             <input type="hidden" id="process_id_<?php echo esc_attr( $key ); ?>" value="<?php echo isset( $email->process_id ) ? esc_attr( $email->process_id ) : 0; ?>" />
+                            <td style="text-align:center;"><input type="checkbox" class="bm-bulk-row-check email_record-row-check" data-table="email_record" value="<?php echo isset( $email->id ) ? esc_attr( $email->id ) : 0; ?>"></td>
                             <td style="text-align: center;"><?php echo esc_attr( $i ); ?></td>
                             <td style="text-align: center;width:15%;" title="<?php echo isset( $email->mail_type ) ? esc_html( $bmrequests->bm_fetch_email_type( $email->mail_type ) ) : ''; ?>"><?php echo isset( $email->mail_type ) ? esc_html( mb_strimwidth( $bmrequests->bm_fetch_email_type( $email->mail_type ), 0, 40, '...' ) ) : ''; ?></td>
                             <td style="text-align: center;">
