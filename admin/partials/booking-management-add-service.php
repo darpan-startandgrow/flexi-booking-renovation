@@ -1283,7 +1283,7 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                                 <th><?php esc_html_e( 'Name', 'service-booking' ); ?></th>
                                 <th><?php esc_html_e( 'Price', 'service-booking' ); ?></th>
                                 <th><?php esc_html_e( 'Capacity (Shared Pool)', 'service-booking' ); ?></th>
-                                <th><?php esc_html_e( 'Services Using', 'service-booking' ); ?></th>
+                                <th><?php esc_html_e( 'Linked Services', 'service-booking' ); ?></th>
                                 <th><?php esc_html_e( 'Action', 'service-booking' ); ?></th>
                             </tr>
                         </thead>

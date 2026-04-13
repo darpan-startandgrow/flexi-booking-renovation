@@ -13492,7 +13492,7 @@ jQuery(document).on('click', '#bm_create_and_link_se_btn', function(e) {
         if (res.status) {
             location.reload();
         } else {
-            alert('Failed to create and link shared extra.');
+            alert('Failed to create and link shared extra: ' + (res.message || 'Unknown error'));
         }
     });
 });
@@ -13560,7 +13560,7 @@ jQuery(document).on('click', '#bm_se_save_btn', function(e) {
     e.preventDefault();
     var name = jQuery('#bm_se_name').val().trim();
     if (!name) {
-        alert('Name is required.');
+        alert('Shared Extra name is required.');
         return;
     }
     var btn = jQuery(this);
@@ -13594,7 +13594,7 @@ jQuery(document).on('click', '#bm_se_save_btn', function(e) {
         if (res.status) {
             location.reload();
         } else {
-            alert('Failed to save shared extra.');
+            alert('Failed to save shared extra: ' + (res.message || 'Unknown error'));
         }
     });
 });
@@ -13613,7 +13613,7 @@ jQuery(document).on('click', '.bm-se-delete-btn', function(e) {
         if (res.status) {
             jQuery('#bm-se-row-' + id).fadeOut(300, function() { jQuery(this).remove(); });
         } else {
-            alert('Failed to delete shared extra.');
+            alert('Failed to delete shared extra: ' + (res.message || 'Unknown error'));
         }
     });
 });
