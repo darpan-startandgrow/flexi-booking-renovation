@@ -13618,3 +13618,62 @@ jQuery(document).on('click', '.bm-se-delete-btn', function(e) {
     });
 });
 
+// Import from Service: toggle form.
+jQuery(document).on('click', '#bm_import_extra_btn', function(e) {
+    e.preventDefault();
+    jQuery('#bm_shared_extra_form_wrap').slideUp(200);
+    jQuery('#bm_import_extra_form_wrap').slideToggle(200);
+});
+jQuery(document).on('click', '#bm_import_extra_cancel', function(e) {
+    e.preventDefault();
+    jQuery('#bm_import_extra_form_wrap').slideUp(200);
+});
+
+// Import from Service: submit.
+jQuery(document).on('click', '#bm_import_extra_submit', function(e) {
+    e.preventDefault();
+    var extraId = jQuery('#bm_import_extra_select').val();
+    if (!extraId) {
+        alert('Please select an extra to import.');
+        return;
+    }
+    var btn = jQuery(this);
+    btn.prop('disabled', true);
+    var serviceId = jQuery('#bm_import_link_service').val() || 0;
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_import_extra_to_global',
+        extra_id: extraId,
+        service_id: serviceId,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        btn.prop('disabled', false);
+        if (res.status) {
+            location.reload();
+        } else {
+            alert('Failed to import extra: ' + (res.message || 'Unknown error'));
+        }
+    });
+});
+
+// Usage stats: click to load.
+jQuery(document).on('click', '.bm-usage-badge', function(e) {
+    e.preventDefault();
+    var badge = jQuery(this);
+    var id = badge.data('id');
+    badge.find('.bm-usage-val').text('...');
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_get_global_extra_usage',
+        id: id,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        if (res.status) {
+            badge.find('.bm-usage-val').text(res.peak_usage + ' peak / ' + res.total_bookings + ' total');
+            badge.attr('title', 'Peak usage on any future date: ' + res.peak_usage + ', Total booking records: ' + res.total_bookings);
+        } else {
+            badge.find('.bm-usage-val').text('N/A');
+        }
+    });
+});
+

@@ -20,6 +20,9 @@ $services_for_globals = ! empty( $ge_ids )
     : array();
 
 $currency_symbol = $bmrequests->bm_get_currency_symbol( $dbhandler->get_global_option_value( 'bm_booking_currency', 'EUR' ) );
+
+// Fetch all local extras for the import dropdown.
+$local_extras = $dbhandler->get_all_result( 'EXTRA', '*', array( 'is_global' => 0 ), 'results' );
 ?>
 
 <div class="sg-admin-main-box">
@@ -30,10 +33,56 @@ $currency_symbol = $bmrequests->bm_get_currency_symbol( $dbhandler->get_global_o
             <p class="description"><?php esc_html_e( 'Global extras share capacity across all linked services. Manage them centrally here.', 'service-booking' ); ?></p>
         </span>
         <span style="display: inline-block;width:49%;text-align:right;">
+            <button type="button" class="button" id="bm_import_extra_btn" style="margin-bottom:10px;margin-right:5px;">
+                <?php esc_html_e( 'Import from Service', 'service-booking' ); ?>&nbsp;<i class="fa fa-download" aria-hidden="true"></i>
+            </button>
             <button type="button" class="button button-primary" id="bm_add_shared_extra_btn" style="margin-bottom:10px;">
                 <?php esc_html_e( 'Add Shared Extra', 'service-booking' ); ?>&nbsp;<i class="fa fa-plus" aria-hidden="true"></i>
             </button>
         </span>
+    </div>
+
+    <!-- Import from Service Form (hidden by default) -->
+    <div id="bm_import_extra_form_wrap" style="display:none; background:#fff3cd; border:1px solid #ffc107; padding:15px; margin-bottom:20px; border-radius:4px;">
+        <h3><?php esc_html_e( 'Import Local Extra as Shared Extra', 'service-booking' ); ?></h3>
+        <p class="description"><?php esc_html_e( 'Select a service-specific extra to clone into a new shared (global) extra. The original local extra remains unchanged.', 'service-booking' ); ?></p>
+        <table class="form-table" role="presentation">
+            <tr>
+                <th scope="row"><label for="bm_import_extra_select"><?php esc_html_e( 'Select Extra', 'service-booking' ); ?></label></th>
+                <td>
+                    <select id="bm_import_extra_select" class="regular-text">
+                        <option value=""><?php esc_html_e( '— Select a local extra —', 'service-booking' ); ?></option>
+                        <?php if ( ! empty( $local_extras ) ) : ?>
+                            <?php foreach ( $local_extras as $le ) : ?>
+                                <option value="<?php echo esc_attr( $le->id ); ?>" data-service="<?php echo esc_attr( $le->service_id ); ?>">
+                                    <?php echo esc_html( $le->extra_name ); ?>
+                                    <?php if ( ! empty( $le->service_id ) ) : ?>
+                                        (<?php echo esc_html__( 'Service', 'service-booking' ) . ' #' . esc_html( $le->service_id ); ?>)
+                                    <?php endif; ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="bm_import_link_service"><?php esc_html_e( 'Link to Service (optional)', 'service-booking' ); ?></label></th>
+                <td>
+                    <select id="bm_import_link_service" class="regular-text">
+                        <option value=""><?php esc_html_e( '— None —', 'service-booking' ); ?></option>
+                        <?php if ( ! empty( $all_services ) ) : ?>
+                            <?php foreach ( $all_services as $svc ) : ?>
+                                <option value="<?php echo esc_attr( $svc->id ); ?>"><?php echo esc_html( $svc->service_name ); ?></option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <p>
+            <button type="button" class="button button-primary" id="bm_import_extra_submit"><?php esc_html_e( 'Import', 'service-booking' ); ?></button>
+            <button type="button" class="button" id="bm_import_extra_cancel"><?php esc_html_e( 'Cancel', 'service-booking' ); ?></button>
+        </p>
     </div>
 
     <!-- Create / Edit Form (hidden by default) -->
@@ -93,6 +142,7 @@ $currency_symbol = $bmrequests->bm_get_currency_symbol( $dbhandler->get_global_o
                 <th style="text-align:center;font-weight:600;"><?php esc_html_e( 'Description', 'service-booking' ); ?></th>
                 <th style="text-align:center;font-weight:600;"><?php esc_html_e( 'Price', 'service-booking' ); ?></th>
                 <th style="text-align:center;font-weight:600;"><?php esc_html_e( 'Max Capacity', 'service-booking' ); ?></th>
+                <th style="text-align:center;font-weight:600;"><?php esc_html_e( 'Usage', 'service-booking' ); ?></th>
                 <th style="text-align:center;font-weight:600;"><?php esc_html_e( 'Linked Services', 'service-booking' ); ?></th>
                 <th style="text-align:center;font-weight:600;"><?php esc_html_e( 'Frontend', 'service-booking' ); ?></th>
                 <th style="text-align:center;font-weight:600;"><?php esc_html_e( 'Created', 'service-booking' ); ?></th>
@@ -128,6 +178,11 @@ $currency_symbol = $bmrequests->bm_get_currency_symbol( $dbhandler->get_global_o
                 <td style="text-align:center;" title="<?php echo esc_attr( $ge->description ); ?>"><?php echo esc_html( mb_strimwidth( wp_strip_all_tags( $ge->description ), 0, 50, '...' ) ); ?></td>
                 <td style="text-align:center;"><?php echo esc_html( $currency_symbol . number_format( (float) $ge->price, 2 ) ); ?></td>
                 <td style="text-align:center;"><?php echo esc_html( $ge->max_capacity ); ?></td>
+                <td style="text-align:center;">
+                    <span class="bm-usage-badge" data-id="<?php echo esc_attr( $ge_id ); ?>" style="display:inline-block;background:#6366f1;color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;cursor:pointer;" title="<?php esc_attr_e( 'Click to load usage stats', 'service-booking' ); ?>">
+                        <span class="dashicons dashicons-chart-bar" style="font-size:13px;width:13px;height:13px;vertical-align:middle;margin-right:2px;"></span><span class="bm-usage-val">—</span>
+                    </span>
+                </td>
                 <td style="text-align:center;">
                     <span class="bm-shared-badge" title="<?php echo esc_attr( $svc_tooltip ); ?>" style="display:inline-block;background:#f59e0b;color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;cursor:help;">
                         <span class="dashicons dashicons-share" style="font-size:13px;width:13px;height:13px;vertical-align:middle;margin-right:2px;"></span><?php echo esc_html( $svc_count ); ?>

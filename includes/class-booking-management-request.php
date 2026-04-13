@@ -12216,19 +12216,33 @@ class BM_Request {
 
 										do_action( 'bm_before_extra_booking', $booking_id, $extra_service_ids, $extra_slots_booked, $date );
 
+										$extras_overbooking = false;
 										foreach ( $extra_service_ids as $key => $extra_id ) {
 											$slots_booked = $extra_slots_booked[ $key ];
 											$extra_type   = isset( $extra_types_arr[ $key ] ) ? $extra_types_arr[ $key ] : 'local';
 
 											if ( $extra_type === 'global' ) {
-												// Global extra: use pooled capacity.
-												$global_extra = $dbhandler->get_row( 'GLOBALEXTRA', $extra_id, 'id' );
-												$extra_max_cap = ! empty( $global_extra ) ? (int) $global_extra->max_capacity : 0;
-												$cap_left      = $this->bm_get_global_extra_capacity_left( $extra_id, $date, (int) $slots_booked );
+												// Global extra: acquire row lock and check pooled capacity atomically.
+												$locked_row = $dbhandler->select_for_update_global_extra( $extra_id );
+												if ( empty( $locked_row ) ) {
+													$extras_overbooking = true;
+													break;
+												}
+												$extra_max_cap = (int) $locked_row->max_capacity;
+												$total_usage   = $dbhandler->get_global_extra_pooled_usage( $extra_id, $date );
+												$cap_left      = $extra_max_cap - ( $total_usage + (int) $slots_booked );
+												if ( $cap_left < 0 ) {
+													$extras_overbooking = true;
+													break;
+												}
 											} else {
 												// Local extra: use existing per-service capacity logic.
 												$extra_max_cap = $this->bm_fetch_extra_service_max_cap_by_extra_service_id( $extra_id );
 												$cap_left      = $this->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date( $extra_id, $extra_max_cap, $slots_booked, $date );
+												if ( $cap_left < 0 ) {
+													$extras_overbooking = true;
+													break;
+												}
 											}
 
 											$extra_svc_count_data = array(
@@ -17470,19 +17484,15 @@ class BM_Request {
 			return $result;
 		}
 
-		$mappings = $dbhandler->get_all_result( 'SERVICEGLOBALEXTRA', '*', array( 'service_id' => $service_id ), 'results' );
+		// Use batch query to avoid N+1: fetches all global extras for this service in one JOIN.
+		$batch = $dbhandler->batch_get_global_extras_for_services( array( (int) $service_id ) );
+		$global_extras = isset( $batch[ (int) $service_id ] ) ? $batch[ (int) $service_id ] : array();
 
-		if ( empty( $mappings ) ) {
+		if ( empty( $global_extras ) ) {
 			return $result;
 		}
 
-		foreach ( $mappings as $mapping ) {
-			$global_extra = $dbhandler->get_row( 'GLOBALEXTRA', $mapping->global_extra_id, 'id' );
-
-			if ( empty( $global_extra ) ) {
-				continue;
-			}
-
+		foreach ( $global_extras as $global_extra ) {
 			if ( $frontend_only && empty( $global_extra->is_visible_frontend ) ) {
 				continue;
 			}
@@ -17493,7 +17503,7 @@ class BM_Request {
 			$normalized->service_id             = 0; // Global, not service-specific.
 			$normalized->is_global              = 1;
 			$normalized->exclude_from           = '';
-			$normalized->extra_name             = $global_extra->name;
+			$normalized->extra_name             = isset( $global_extra->name ) ? $global_extra->name : '';
 			$normalized->extra_duration         = isset( $global_extra->duration_hours ) ? $global_extra->duration_hours : 0;
 			$normalized->extra_operation        = isset( $global_extra->total_operation_hours ) ? $global_extra->total_operation_hours : 0;
 			$normalized->extra_price            = isset( $global_extra->price ) ? $global_extra->price : 0;
