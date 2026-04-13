@@ -19,6 +19,7 @@ $woocommerceservice = new WooCommerceService();
 $categories         = $dbhandler->get_all_result( $cat_identifier, '*', 1, 'results' );
 $global_extras      = $dbhandler->get_all_result( $extra_identifier, '*', array( 'is_global' => 1 ), 'results' );
 $new_global_extras  = $dbhandler->get_all_result( 'GLOBALEXTRA', '*', 1, 'results' );
+$all_services_list  = $dbhandler->get_all_result( 'SERVICE', array( 'id', 'service_name' ), 1, 'results' );
 $id                 = filter_input( INPUT_GET, 'id', FILTER_VALIDATE_INT );
 $service_extra_id   = filter_input( INPUT_POST, 'svc_extra_id', FILTER_VALIDATE_INT );
 $extra_id           = filter_input( INPUT_GET, 'extra_id', FILTER_VALIDATE_INT );
@@ -988,6 +989,46 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                         <th scope="row"><label for="service_image"><?php esc_html_e( 'Add Extra', 'service-booking' ); ?></label></th>
                         <td>
                             <button type="button" id="add_extra" class="button button-secondary"><?php esc_attr_e( 'Add Extra', 'service-booking' ); ?>&nbsp;<i class="fa fa-plus" aria-hidden="true"></i></button>
+                            <?php if ( $id > 0 ) : ?>
+                            <button type="button" id="bm_import_local_extra_btn" class="button button-secondary" style="margin-left: 5px;"><?php esc_attr_e( 'Import from Existing Service', 'service-booking' ); ?>&nbsp;<i class="fa fa-download" aria-hidden="true"></i></button>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <!-- Import from Existing Service (hidden by default) -->
+                    <tr id="bm_import_local_extra_wrap" style="display:none;">
+                        <td colspan="2" style="padding: 0;">
+                            <div style="background:#fff3cd; border:1px solid #ffc107; padding:15px; border-radius:4px; margin: 10px 0;">
+                                <h4 style="margin-top:0;"><?php esc_html_e( 'Import from Existing Service', 'service-booking' ); ?></h4>
+                                <p class="description"><?php esc_html_e( 'Select a service and pick one of its extras to pre-fill the form below. You can modify fields before saving.', 'service-booking' ); ?></p>
+                                <table class="form-table" role="presentation">
+                                    <tr>
+                                        <th scope="row"><label for="bm_import_local_service"><?php esc_html_e( 'Select Service', 'service-booking' ); ?></label></th>
+                                        <td>
+                                            <select id="bm_import_local_service" class="regular-text">
+                                                <option value=""><?php esc_html_e( '— Select a Service —', 'service-booking' ); ?></option>
+                                                <?php if ( ! empty( $all_services_list ) ) : ?>
+                                                    <?php foreach ( $all_services_list as $svc_item ) : ?>
+                                                        <option value="<?php echo esc_attr( $svc_item->id ); ?>"><?php echo esc_html( $svc_item->service_name ); ?></option>
+                                                    <?php endforeach; ?>
+                                                <?php endif; ?>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr id="bm_import_local_extras_row" style="display:none;">
+                                        <th scope="row"><label for="bm_import_local_extra_select"><?php esc_html_e( 'Select Extra', 'service-booking' ); ?></label></th>
+                                        <td>
+                                            <select id="bm_import_local_extra_select" class="regular-text">
+                                                <option value=""><?php esc_html_e( '— Select an Extra —', 'service-booking' ); ?></option>
+                                            </select>
+                                            <span id="bm_import_local_loading" style="display:none; color:#666; margin-left:5px;"><?php esc_html_e( 'Loading...', 'service-booking' ); ?></span>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <p>
+                                    <button type="button" class="button button-primary" id="bm_import_local_apply"><?php esc_html_e( 'Pre-fill Form', 'service-booking' ); ?></button>
+                                    <button type="button" class="button" id="bm_import_local_cancel"><?php esc_html_e( 'Cancel', 'service-booking' ); ?></button>
+                                </p>
+                            </div>
                         </td>
                     </tr>
                     <table class="form-table" id="svc_extra_fields" role="presentation" style="<?php echo esc_attr( $extra_id ) != 0 ? 'display: block' : 'display: none'; ?>">
@@ -1254,7 +1295,7 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                                                 <td style="text-align: center;">
                                                     <input type="hidden" name="svc_extra_id" value="<?php echo isset( $extra_field->id ) ? esc_attr( $extra_field->id ) : ''; ?>">
                                                     <button type="submit" name="editsvc_extra" class="edit-button" id="editsvc_extra" value="<?php esc_html_e( 'Edit', 'service-booking' ); ?>"><i class="fa fa-pencil" aria-hidden="true"></i></button>
-                                                    <button type="submit" name="delsvc_extra" class="delete-button" id="delsvc_extra" onclick="extraUpdate()" value="<?php esc_html_e( 'Delete', 'service-booking' ); ?>"><i class="fa fa-trash" aria-hidden="true" style="color:red"></i></button>
+                                                    <button type="submit" name="delsvc_extra" class="delete-button" id="delsvc_extra" onclick="extraUpdate(); return confirm('<?php echo esc_js( __( 'Are you sure you want to delete this extra?', 'service-booking' ) ); ?>');" value="<?php esc_html_e( 'Delete', 'service-booking' ); ?>"><i class="fa fa-trash" aria-hidden="true" style="color:red"></i></button>
                                                 </td>
                                             </tr>
                                         </form>
@@ -1345,28 +1386,13 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                         <button type="button" id="bm_link_global_extra_btn" class="button button-primary" data-service-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Link', 'service-booking' ); ?></button>
                     </div>
 
-                    <!-- Create new shared extra and auto-link -->
+                    <!-- Create new shared extra — redirect to Shared Extras page -->
                     <div style="margin-top: 15px; padding: 15px; background: #f0f6ff; border: 1px solid #c3dafe; border-radius: 4px;">
-                        <h4 style="margin-top:0;"><?php esc_html_e( 'Create New Shared Extra & Auto-Link', 'service-booking' ); ?></h4>
-                        <table class="form-table" role="presentation">
-                            <tr>
-                                <th scope="row"><label for="bm_new_se_name"><?php esc_html_e( 'Name', 'service-booking' ); ?> <span style="color:red;">*</span></label></th>
-                                <td><input type="text" id="bm_new_se_name" class="regular-text"></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="bm_new_se_price"><?php esc_html_e( 'Price', 'service-booking' ); ?></label></th>
-                                <td><input type="number" id="bm_new_se_price" class="regular-text" step="0.01" min="0" value="0"></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="bm_new_se_max_cap"><?php esc_html_e( 'Max Capacity', 'service-booking' ); ?></label></th>
-                                <td><input type="number" id="bm_new_se_max_cap" class="regular-text" step="1" min="1" value="1"></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><label for="bm_new_se_desc"><?php esc_html_e( 'Description', 'service-booking' ); ?></label></th>
-                                <td><textarea id="bm_new_se_desc" class="regular-text" rows="2"></textarea></td>
-                            </tr>
-                        </table>
-                        <button type="button" id="bm_create_and_link_se_btn" class="button button-primary" data-service-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Create & Link', 'service-booking' ); ?></button>
+                        <h4 style="margin-top:0;"><?php esc_html_e( 'Need a New Shared Extra?', 'service-booking' ); ?></h4>
+                        <p class="description"><?php esc_html_e( 'Create shared extras from the dedicated Shared Extras page, then return here to link them.', 'service-booking' ); ?></p>
+                        <a href="<?php echo esc_url( admin_url( 'admin.php?page=bm_shared_extras&open_add=1&return_service=' . intval( $id ) ) ); ?>" class="button button-primary">
+                            <?php esc_html_e( 'Go to Shared Extras Page', 'service-booking' ); ?>&nbsp;<i class="fa fa-external-link" aria-hidden="true"></i>
+                        </a>
                     </div>
 
                     <?php else : ?>

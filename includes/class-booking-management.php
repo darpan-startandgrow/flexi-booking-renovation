@@ -294,6 +294,7 @@ class Booking_Management {
 		$this->loader->add_action( 'wp_ajax_bm_get_global_extra_usage', $plugin_admin, 'bm_get_global_extra_usage' );
 		$this->loader->add_action( 'wp_ajax_bm_bulk_shared_extras_action', $plugin_admin, 'bm_bulk_shared_extras_action' );
 		$this->loader->add_action( 'wp_ajax_bm_get_services_for_linking', $plugin_admin, 'bm_get_services_for_linking' );
+		$this->loader->add_action( 'wp_ajax_bm_get_service_local_extras', $plugin_admin, 'bm_get_service_local_extras' );
 		$this->loader->add_action( 'wp_ajax_bm_change_category_visibility', $plugin_admin, 'bm_change_category_visibility' );
 		$this->loader->add_action( 'wp_ajax_bm_change_customer_visibility', $plugin_admin, 'bm_change_customer_visibility' );
 		$this->loader->add_action( 'wp_ajax_bm_fetch_vocuher_booking_info', $plugin_admin, 'bm_fetch_vocuher_booking_info' );
