@@ -1,9 +1,18 @@
 <?php
 $dbhandler   = new BM_DBhandler();
 $bmrequests  = new BM_Request();
+$pagenum     = filter_input( INPUT_GET, 'pagenum' );
+$pagenum     = isset( $pagenum ) ? absint( $pagenum ) : 1;
+$limit_opt   = $dbhandler->get_global_option_value( 'bm_shared_extras_per_page' );
+$limit       = ! empty( $limit_opt ) ? (int) $limit_opt : 10;
+$offset      = ( ( $pagenum - 1 ) * $limit );
+$idx_start   = ( 1 + $offset );
+$total       = $dbhandler->bm_count( 'GLOBALEXTRA' );
+$num_of_pages = ceil( $total / $limit );
+$pagination  = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequests->bm_get_page_url(), 'list' );
 
-// Fetch all global extras.
-$global_extras = $dbhandler->get_all_result( 'GLOBALEXTRA', '*', 1, 'results' );
+// Fetch paginated global extras.
+$global_extras = $dbhandler->get_all_result( 'GLOBALEXTRA', '*', 1, 'results', $offset, $limit, 'id', 'DESC' );
 
 // Fetch all services for linking.
 $all_services = $dbhandler->get_all_result( 'SERVICE', '*', 1, 'results' );
@@ -167,6 +176,19 @@ if ( ! empty( $all_services ) ) {
                     <input type="number" id="bm_se_wc_product" class="regular-text" placeholder="<?php esc_attr_e( 'WC Product ID', 'service-booking' ); ?>" style="display:none;margin-left:10px;" min="0">
                 </td>
             </tr>
+            <tr>
+                <th scope="row"><label for="bm_se_link_services"><?php esc_html_e( 'Link to Services (optional)', 'service-booking' ); ?></label></th>
+                <td>
+                    <select id="bm_se_link_services" multiple style="min-width:300px;height:auto;max-height:120px;">
+                        <?php if ( ! empty( $all_services ) ) : ?>
+                            <?php foreach ( $all_services as $svc ) : ?>
+                                <option value="<?php echo esc_attr( $svc->id ); ?>"><?php echo esc_html( $svc->service_name ); ?></option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                    <p class="description"><?php esc_html_e( 'Hold Ctrl/Cmd to select multiple services. The shared extra will be linked to selected services upon saving.', 'service-booking' ); ?></p>
+                </td>
+            </tr>
         </table>
         <p>
             <button type="button" class="button button-primary" id="bm_se_save_btn"><?php esc_html_e( 'Save', 'service-booking' ); ?></button>
@@ -223,7 +245,7 @@ if ( ! empty( $all_services ) ) {
         </thead>
         <tbody>
             <?php
-            $idx = 1;
+            $idx = $idx_start;
             foreach ( $global_extras as $ge ) :
                 $ge_id        = (int) $ge->id;
                 $linked_svcs  = isset( $services_for_globals[ $ge_id ] ) ? $services_for_globals[ $ge_id ] : array();
@@ -264,8 +286,8 @@ if ( ! empty( $all_services ) ) {
                 <td style="text-align:center;"><?php echo $ge->is_visible_frontend ? '<span style="color:green;">&#10003;</span>' : '<span style="color:#999;">&#10007;</span>'; ?></td>
                 <td style="text-align:center;"><?php echo ! empty( $ge->created_at ) ? esc_html( wp_date( get_option( 'date_format' ), strtotime( $ge->created_at ) ) ) : '—'; ?></td>
                 <td style="text-align:center;">
-                    <button type="button" class="button bm-se-edit-btn" title="<?php esc_attr_e( 'Edit', 'service-booking' ); ?>" data-id="<?php echo esc_attr( $ge_id ); ?>"><i class="fa fa-edit" aria-hidden="true"></i></button>
-                    <button type="button" class="button bm-se-delete-btn" title="<?php esc_attr_e( 'Delete', 'service-booking' ); ?>" data-id="<?php echo esc_attr( $ge_id ); ?>"><i class="fa fa-trash" aria-hidden="true" style="color:red;"></i></button>
+                    <button type="button" class="button bm-se-edit-btn" title="<?php esc_attr_e( 'Edit', 'service-booking' ); ?>" data-id="<?php echo esc_attr( $ge_id ); ?>"><i class="fa fa-edit" aria-hidden="true"></i> <?php esc_html_e( 'Edit', 'service-booking' ); ?></button>
+                    <button type="button" class="button bm-se-delete-btn" title="<?php esc_attr_e( 'Delete', 'service-booking' ); ?>" data-id="<?php echo esc_attr( $ge_id ); ?>"><i class="fa fa-trash" aria-hidden="true" style="color:red;"></i> <?php esc_html_e( 'Delete', 'service-booking' ); ?></button>
                 </td>
             </tr>
             <?php
@@ -274,6 +296,7 @@ if ( ! empty( $all_services ) ) {
             ?>
         </tbody>
     </table>
+    <div class="shared_extras_pagination"><?php echo wp_kses_post( $pagination ?? '' ); ?></div>
     <?php else : ?>
         <p style="padding:20px;text-align:center;color:#666;"><?php esc_html_e( 'No shared extras found. Click "Add Shared Extra" to create one.', 'service-booking' ); ?></p>
     <?php endif; ?>

@@ -39,10 +39,27 @@ $cat_ids      = !empty( $cat_ids ) && is_array( $cat_ids ) ? implode( ',', ( arr
         <?php } ?>
     </div>
     <?php if ( isset( $categories ) && !empty( $categories ) ) { ?>
+        <!-- Bulk Actions Bar -->
+        <div class="bm-bulk-bar" data-table="category" style="margin-bottom:10px;padding:8px 12px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select class="bm-bulk-action-select" data-table="category" style="min-width:180px;">
+                <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
+                <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+                <option value="bulk_toggle_visibility"><?php esc_html_e( 'Toggle Visibility', 'service-booking' ); ?></option>
+            </select>
+            <span class="bm-bulk-visibility-wrap" style="display:none;">
+                <select class="bm-bulk-visibility-val">
+                    <option value="1"><?php esc_html_e( 'Visible', 'service-booking' ); ?></option>
+                    <option value="0"><?php esc_html_e( 'Hidden', 'service-booking' ); ?></option>
+                </select>
+            </span>
+            <button type="button" class="button button-primary bm-bulk-apply" data-table="category" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
+            <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+        </div>
         <input type="hidden" name="pagenum" value="<?php echo esc_attr( $pagenum ); ?>" />
         <table class="wp-list-table widefat striped">
             <thead>
                 <tr>
+                    <th style="text-align:center;width:30px;"><input type="checkbox" class="bm-bulk-check-all" data-table="category" title="<?php esc_attr_e( 'Select All', 'service-booking' ); ?>"></th>
                     <th width="10%" style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Serial No', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Name', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Show in Frontend', 'service-booking' ); ?></th>
@@ -56,6 +73,7 @@ $cat_ids      = !empty( $cat_ids ) && is_array( $cat_ids ) ? implode( ',', ( arr
                     ?>
                     <tr class="single_category_record">
                         <form role="form" method="post">
+                            <td style="text-align:center;"><input type="checkbox" class="bm-bulk-row-check category-row-check" data-table="category" value="<?php echo esc_attr( $category->id ); ?>"></td>
                             <td style="text-align: center;cursor:move;" data-id="<?php echo esc_attr( $category->id ); ?>" data-order="<?php echo esc_attr( $i ); ?>" class="category_listing_number"><?php echo esc_attr( $i ); ?></td>
                             <td style="text-align: center;cursor:move;" title="<?php echo isset( $category->cat_name ) ? esc_html( $category->cat_name ) : ''; ?> "><?php echo isset( $category->cat_name ) ? esc_html( mb_strimwidth( $category->cat_name, 0, 40, '...' ) ) : ''; ?></td>
                             <td style="text-align: center;" class="bm-checkbox-td">

@@ -17,7 +17,7 @@ $dbhandler          = new BM_DBhandler();
 $bmrequests         = new BM_Request();
 $woocommerceservice = new WooCommerceService();
 $categories         = $dbhandler->get_all_result( $cat_identifier, '*', 1, 'results' );
-$global_extras      = $dbhandler->get_all_result( $extra_identifier, '*', array( 'is_global' => 1 ), 'results' );
+// Old-style global extras are no longer shown in the Extras tab; use the Shared Extras tab instead.
 $new_global_extras  = $dbhandler->get_all_result( 'GLOBALEXTRA', '*', 1, 'results' );
 $all_services_list  = $dbhandler->get_all_result( 'SERVICE', array( 'id', 'service_name' ), 1, 'results' );
 $id                 = filter_input( INPUT_GET, 'id', FILTER_VALIDATE_INT );
@@ -120,16 +120,13 @@ if ( $id > 0 ) {
         $svc_img            = $bmrequests->bm_fetch_image_url_or_guid( $id, $svc_identifier, 'url' );
         $svc_unavailability = isset( $svc_row->service_unavailability ) ? maybe_unserialize( $svc_row->service_unavailability ) : array();
     }
-    $extra_rows = $dbhandler->get_all_result( $extra_identifier, '*', array( 'service_id' => $id ), 'results' );
+    $extra_rows = $dbhandler->get_all_result( $extra_identifier, '*', array( 'service_id' => $id, 'is_global' => 0 ), 'results' );
     $time_row   = $dbhandler->get_row( $time_identifier, $id );
     if ( isset( $time_row ) ) {
         $time_options = isset( $time_row->time_options ) ? maybe_unserialize( $time_row->time_options ) : array();
     }
-    if ( !empty( $extra_rows ) && !empty( $global_extras ) ) {
-        $total_extra_rows = array_merge( $global_extras, $extra_rows );
-    } elseif ( empty( $extra_rows ) && !empty( $global_extras ) ) {
-        $total_extra_rows = $global_extras;
-    } elseif ( !empty( $extra_rows ) && empty( $global_extras ) ) {
+    // Extras tab shows only local (service-specific) extras.
+    if ( ! empty( $extra_rows ) ) {
         $total_extra_rows = $extra_rows;
     }
     // Fetch new-style global extras linked to this service.

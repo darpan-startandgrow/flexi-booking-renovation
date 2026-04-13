@@ -24,10 +24,27 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
         </span>
     </div>
     <?php if ( isset( $customers ) && !empty( $customers ) ) { ?>
+        <!-- Bulk Actions Bar -->
+        <div class="bm-bulk-bar" data-table="customer" style="margin-bottom:10px;padding:8px 12px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select class="bm-bulk-action-select" data-table="customer" style="min-width:180px;">
+                <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
+                <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+                <option value="bulk_toggle_status"><?php esc_html_e( 'Toggle Status', 'service-booking' ); ?></option>
+            </select>
+            <span class="bm-bulk-status-wrap" style="display:none;">
+                <select class="bm-bulk-status-val">
+                    <option value="1"><?php esc_html_e( 'Active', 'service-booking' ); ?></option>
+                    <option value="0"><?php esc_html_e( 'Inactive', 'service-booking' ); ?></option>
+                </select>
+            </span>
+            <button type="button" class="button button-primary bm-bulk-apply" data-table="customer" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
+            <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+        </div>
         <input type="hidden" name="pagenum" value="<?php echo esc_attr( $pagenum ); ?>" />
         <table class="wp-list-table widefat striped">
             <thead>
                 <tr>
+                    <th style="text-align:center;width:30px;"><input type="checkbox" class="bm-bulk-check-all" data-table="customer" title="<?php esc_attr_e( 'Select All', 'service-booking' ); ?>"></th>
                     <th width="10%" style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Serial No', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Name', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Email', 'service-booking' ); ?></th>
@@ -43,6 +60,7 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
                     ?>
                     <tr class="single_customer_record">
                         <form role="form" method="post">
+                            <td style="text-align:center;"><input type="checkbox" class="bm-bulk-row-check customer-row-check" data-table="customer" value="<?php echo esc_attr( $customer->id ); ?>"></td>
                             <td style="text-align: center;"><?php echo esc_attr( $i ); ?></td>
                             <td style="text-align: center;" title="<?php echo isset( $customer->customer_name ) ? esc_html( $customer->customer_name ) : ''; ?> "><?php echo isset( $customer->customer_name ) ? esc_html( mb_strimwidth( $customer->customer_name, 0, 60, '...' ) ) : ''; ?></td>
                             <td style="text-align: center;" title="<?php echo isset( $customer->customer_email ) ? esc_html( $customer->customer_email ) : ''; ?> "><?php echo isset( $customer->customer_email ) ? esc_html( mb_strimwidth( $customer->customer_email, 0, 60, '...' ) ) : ''; ?></td>

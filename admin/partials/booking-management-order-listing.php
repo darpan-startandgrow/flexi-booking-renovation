@@ -186,6 +186,15 @@ unset( $order_statuses['failed'], $payment_statuses['failed'] );
     </div>
 
 									<?php if ( isset( $booking_data ) && !empty( $booking_data ) ) { ?>
+        <!-- Bulk Actions Bar -->
+        <div class="bm-bulk-bar" data-table="order" style="margin-bottom:10px;padding:8px 12px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select class="bm-bulk-action-select" data-table="order" style="min-width:180px;">
+                <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
+                <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+            </select>
+            <button type="button" class="button button-primary bm-bulk-apply" data-table="order" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
+            <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+        </div>
         <div class="order_listing-details table-wrapper">
         <table class="wp-list-table widefat striped booking-table" id="order_listing">
             <thead>

@@ -57,10 +57,27 @@ $services_for_globals     = $shared_column_data['services_for_globals'];
         <!-- <a href="admin.php?page=bm_add_service" class="button button-primary" style="margin-bottom:10px;" title="<?php esc_html_e( 'Add Service', 'service-booking' ); ?>"><?php esc_html_e( 'Add Service', 'service-booking' ); ?>&nbsp;<i class="fa fa-plus" aria-hidden="true"></i></a> -->
     </div>
     <?php if ( isset( $services ) && !empty( $services ) ) { ?>
+        <!-- Bulk Actions Bar -->
+        <div class="bm-bulk-bar" data-table="service" style="margin-bottom:10px;padding:8px 12px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select class="bm-bulk-action-select" data-table="service" style="min-width:180px;">
+                <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
+                <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+                <option value="bulk_toggle_visibility"><?php esc_html_e( 'Toggle Visibility', 'service-booking' ); ?></option>
+            </select>
+            <span class="bm-bulk-visibility-wrap" style="display:none;">
+                <select class="bm-bulk-visibility-val">
+                    <option value="1"><?php esc_html_e( 'Visible', 'service-booking' ); ?></option>
+                    <option value="0"><?php esc_html_e( 'Hidden', 'service-booking' ); ?></option>
+                </select>
+            </span>
+            <button type="button" class="button button-primary bm-bulk-apply" data-table="service" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
+            <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+        </div>
         <input type="hidden" name="pagenum" value="<?php echo esc_attr( $pagenum ); ?>" />
         <table class="wp-list-table widefat striped">
             <thead>
                 <tr>
+                    <th style="text-align:center;width:30px;"><input type="checkbox" class="bm-bulk-check-all" data-table="service" title="<?php esc_attr_e( 'Select All', 'service-booking' ); ?>"></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Serial No', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Name', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Category', 'service-booking' ); ?></th>
@@ -76,6 +93,7 @@ $services_for_globals     = $shared_column_data['services_for_globals'];
                     ?>
                     <tr class="single_service_record">
                         <form role="form" method="post">
+                            <td style="text-align:center;"><input type="checkbox" class="bm-bulk-row-check service-row-check" data-table="service" value="<?php echo esc_attr( $service->id ); ?>"></td>
                             <td style="text-align: center;cursor:move;" data-id="<?php echo esc_attr( $service->id ); ?>" data-order="<?php echo esc_attr( $i ); ?>" class="service_listing_number"><?php echo esc_attr( $i ); ?></td>
                             <td style="text-align: center;cursor:move;" title="<?php echo isset( $service->service_name ) ? esc_html( $service->service_name ) : ''; ?>"><?php echo isset( $service->service_name ) ? esc_html( mb_strimwidth( $service->service_name, 0, 40, '...' ) ) : ''; ?></td>
                             <td style="text-align: center;" title="<?php echo esc_html( $bmrequests->bm_fetch_category_name_by_service_id( $service->id ) ); ?>"><?php echo esc_html( mb_strimwidth( $bmrequests->bm_fetch_category_name_by_service_id( $service->id ), 0, 40, '...' ) ); ?></td>

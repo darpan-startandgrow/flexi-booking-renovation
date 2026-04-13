@@ -24,10 +24,20 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
         </div>
     </div>
     <?php if ( !empty( $price_modules ) ) { ?>
+        <!-- Bulk Actions Bar -->
+        <div class="bm-bulk-bar" data-table="price_module" style="margin-bottom:10px;padding:8px 12px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select class="bm-bulk-action-select" data-table="price_module" style="min-width:180px;">
+                <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
+                <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+            </select>
+            <button type="button" class="button button-primary bm-bulk-apply" data-table="price_module" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
+            <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+        </div>
         <input type="hidden" name="pagenum" value="<?php echo esc_attr( $pagenum ); ?>" />
         <table class="wp-list-table widefat striped">
             <thead>
                 <tr>
+                    <th style="text-align:center;width:30px;"><input type="checkbox" class="bm-bulk-check-all" data-table="price_module" title="<?php esc_attr_e( 'Select All', 'service-booking' ); ?>"></th>
                     <th width="10%" style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Serial No', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Name', 'service-booking' ); ?></th>
                     <th width="25%" style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Actions', 'service-booking' ); ?></th>
@@ -39,6 +49,7 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
                     ?>
                     <tr class="single_price_module_record">
                         <form role="form" method="post">
+                            <td style="text-align:center;"><input type="checkbox" class="bm-bulk-row-check price_module-row-check" data-table="price_module" value="<?php echo esc_attr( $price_module->id ); ?>"></td>
                             <td style="text-align: center;"><?php echo esc_attr( $i ); ?></td>
                             <td style="text-align: center;" title="<?php echo isset( $price_module->module_name ) ? esc_html( $price_module->module_name ) : ''; ?>"><?php echo isset( $price_module->module_name ) ? esc_html( mb_strimwidth( $price_module->module_name, 0, 40, '...' ) ) : ''; ?></td>
                             <td style="text-align: center;">
