@@ -11286,39 +11286,8 @@ function checkServiceAgeValue($this) {
 
 jQuery(document).ready(function ($) {
 	var current_screen = bm_normal_object.current_screen;
-	var screenMap = {
-		'flexibooking_page_bm_booking_analytics': 2,
-		'admin_page_bm_add_order': 3,
-		'admin_page_bm_single_order':3,
-		'flexibooking_page_bm_service_booking_planner': 4,
-		'flexibooking_page_bm_single_service_booking_planner': 5,
-		'admin_page_bm_add_customer': 6,
-		'admin_page_bm_customer_profile': 6,
-		'admin_page_bm_add_service': 7,
-		'admin_page_bm_add_category': 8,
-		'admin_page_bm_add_template': 9,
-		'admin_page_bm_add_external_service_price': 11,
-		'admin_page_bm_add_notification_process': 12,
-		'flexibooking_page_bm_email_records': 13,
-		'flexibooking_page_bm_voucher_records': 14,
-		'flexibooking_page_bm_check_ins':15,
-		'flexibooking_page_bm_pdf_customization':16,
-		'flexibooking_page_bm_email_logs': 17,
-		'flexibooking_page_bm_payment_logs': 18,
-		'admin_page_bm_add_coupon': 19,
-		'admin_page_bm_global_general_settings': 20,
-		'admin_page_bm_global_email_settings': 20,
-		'admin_page_bm_global_payment_settings': 20,
-		'admin_page_bm_svc_booking_settings': 20,
-		'admin_page_bm_global_css_settings': 20,
-		'admin_page_bm_global_timezone_country_settings': 20,
-		'admin_page_bm_pagination_settings': 20,
-		'admin_page_bm_upload_settings': 20,
-		'admin_page_bm_global_language_settings': 20,
-		'admin_page_bm_global_format_settings': 20,
-		'admin_page_bm_global_integration_settings': 20,
-		'admin_page_bm_global_coupon_settings': 20
-	};
+	// Dynamic screen map built from PHP — auto-detects visible submenu pages.
+	var screenMap = bm_normal_object.submenu_highlight_map || {};
 
 	if (screenMap.hasOwnProperty(current_screen)) {
 		var index = screenMap[current_screen];

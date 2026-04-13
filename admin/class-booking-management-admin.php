@@ -426,6 +426,7 @@ class Booking_Management_Admin {
             $normal['page_slug']               = isset( $post_id ) && isset( $post ) ? $post->post_name : basename( get_permalink() );
             $normal['dashboard_global_search'] = $dbhandler->get_global_option_value( 'bm_backend_dashboard_global_search_field' );
             $normal['current_screen']          = isset( $screen->base ) ? $screen->base : '';
+            $normal['submenu_highlight_map']   = $this->bm_get_submenu_highlight_map();
             $normal['insert_value']            = __( 'insert value', 'service-booking' );
             $normal['insert_key']              = __( 'insert key', 'service-booking' );
             $normal['age_price_settings']      = __( 'Age Wise Price Settings', 'service-booking' );
@@ -717,6 +718,77 @@ class Booking_Management_Admin {
         add_submenu_page( '', __( 'Integration Settings', 'service-booking' ), __( 'Integration Settings', 'service-booking' ), 'manage_options', 'bm_global_integration_settings', array( $this, 'bm_global_integration_settings' ) );
         add_submenu_page( '', __( 'Coupon Settings', 'service-booking' ), __( 'Coupon Settings', 'service-booking' ), 'manage_options', 'bm_global_coupon_settings', array( $this, 'bm_global_coupon_settings' ) );
     } //end booking_admin_menu()
+
+
+    /**
+     * Build the submenu highlight map dynamically.
+     *
+     * Visible submenus are auto-detected from the WordPress $submenu global.
+     * Hidden pages (registered with empty parent) are mapped to their related
+     * visible parent via a filterable array, so extensions can add entries without
+     * editing the JS screenMap.
+     *
+     * @return array Map of screen base => submenu index.
+     */
+    public function bm_get_submenu_highlight_map() {
+        global $submenu;
+
+        // Map hidden page slugs to their visible parent slug.
+        $hidden_to_parent = apply_filters( 'bm_hidden_page_parent_map', array(
+            'bm_add_order'                        => 'bm_all_orders',
+            'bm_single_order'                     => 'bm_all_orders',
+            'bm_add_customer'                     => 'bm_all_customers',
+            'bm_customer_profile'                 => 'bm_all_customers',
+            'bm_add_service'                      => 'bm_all_services',
+            'bm_add_category'                     => 'bm_all_categories',
+            'bm_add_template'                     => 'bm_email_templates',
+            'bm_add_external_service_price'       => 'bm_all_external_service_prices',
+            'bm_add_notification_process'         => 'bm_all_notification_processes',
+            'bm_add_coupon'                       => 'bm_all_coupons',
+            'bm_global_general_settings'          => 'bm_global',
+            'bm_global_email_settings'            => 'bm_global',
+            'bm_global_payment_settings'          => 'bm_global',
+            'bm_svc_booking_settings'             => 'bm_global',
+            'bm_global_css_settings'              => 'bm_global',
+            'bm_global_timezone_country_settings' => 'bm_global',
+            'bm_pagination_settings'              => 'bm_global',
+            'bm_upload_settings'                  => 'bm_global',
+            'bm_global_language_settings'         => 'bm_global',
+            'bm_global_format_settings'           => 'bm_global',
+            'bm_global_integration_settings'      => 'bm_global',
+            'bm_global_coupon_settings'           => 'bm_global',
+        ) );
+
+        // Build slug -> index from visible submenu items.
+        $slug_to_index = array();
+        if ( isset( $submenu['bm_home'] ) ) {
+            $idx = 0;
+            foreach ( $submenu['bm_home'] as $item ) {
+                $slug = isset( $item[2] ) ? $item[2] : '';
+                if ( ! empty( $slug ) ) {
+                    $slug_to_index[ $slug ] = $idx;
+                }
+                $idx++;
+            }
+        }
+
+        // Build screen -> index map for visible submenu pages.
+        $screen_map = array();
+        foreach ( $slug_to_index as $slug => $idx ) {
+            $screen_key = 'flexibooking_page_' . $slug;
+            $screen_map[ $screen_key ] = $idx;
+        }
+
+        // Map hidden pages to their parent's index.
+        foreach ( $hidden_to_parent as $hidden_slug => $parent_slug ) {
+            if ( isset( $slug_to_index[ $parent_slug ] ) ) {
+                $screen_key = 'admin_page_' . $hidden_slug;
+                $screen_map[ $screen_key ] = $slug_to_index[ $parent_slug ];
+            }
+        }
+
+        return $screen_map;
+    }//end bm_get_submenu_highlight_map()
 
 
 	public function bm_home() {
