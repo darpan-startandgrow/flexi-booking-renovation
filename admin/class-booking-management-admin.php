@@ -1515,7 +1515,23 @@ class Booking_Management_Admin {
 		$sanitized = $bmrequests->sanitize_request( $extra_data, 'GLOBALEXTRA' );
 
 		if ( $sanitized != false ) {
+			// On update, validate that new max_capacity is not below current pooled usage.
 			if ( ! empty( $id ) && $id > 0 ) {
+				$new_max_cap = isset( $sanitized['max_capacity'] ) ? (int) $sanitized['max_capacity'] : 1;
+				$today       = wp_date( 'Y-m-d' );
+				$peak_usage  = $dbhandler->get_global_extra_peak_usage( $id, $today );
+				if ( $peak_usage > $new_max_cap ) {
+					$data['status']  = false;
+					$data['message'] = sprintf(
+						/* translators: 1: peak usage count, 2: new capacity */
+						esc_html__( 'Cannot reduce capacity to %2$d. Peak usage on a single future date is %1$d. Reduce bookings first.', 'service-booking' ),
+						$peak_usage,
+						$new_max_cap
+					);
+					echo wp_json_encode( $data );
+					die;
+				}
+
 				$sanitized['updated_at'] = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
 				$result                  = $dbhandler->update_row( 'GLOBALEXTRA', 'id', $id, $sanitized );
 				if ( $result !== false ) {
@@ -1554,6 +1570,9 @@ class Booking_Management_Admin {
 
 	/**
 	 * Delete a global extra and all its service mappings.
+	 *
+	 * Prevents deletion if there are active bookings using this extra
+	 * on today or future dates.
 	 */
 	public function bm_delete_global_extra() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
@@ -1566,6 +1585,20 @@ class Booking_Management_Admin {
 		$id        = filter_input( INPUT_POST, 'id', FILTER_VALIDATE_INT );
 
 		if ( ! empty( $id ) && $id > 0 ) {
+			// Check for active bookings on today or future dates.
+			$today       = wp_date( 'Y-m-d' );
+			$peak_usage  = $dbhandler->get_global_extra_peak_usage( $id, $today );
+			if ( $peak_usage > 0 ) {
+				$data['status']  = false;
+				$data['message'] = sprintf(
+					/* translators: %d: number of active bookings */
+					esc_html__( 'Cannot delete: %d active booking(s) exist for this extra on upcoming dates. Cancel those bookings first.', 'service-booking' ),
+					$peak_usage
+				);
+				echo wp_json_encode( $data );
+				die;
+			}
+
 			// Remove all service mappings first.
 			$mappings = $dbhandler->get_all_result( 'SERVICEGLOBALEXTRA', '*', array( 'global_extra_id' => $id ), 'results' );
 			if ( ! empty( $mappings ) ) {
@@ -1669,6 +1702,282 @@ class Booking_Management_Admin {
 		echo wp_json_encode( $data );
 		die;
 	}//end bm_get_global_extras_list()
+
+
+	/**
+	 * Import a local (service-specific) extra as a new global shared extra.
+	 *
+	 * Creates a new GLOBALEXTRA from an existing EXTRA row and optionally
+	 * links it to a target service.
+	 */
+	public function bm_import_extra_to_global() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler  = new BM_DBhandler();
+		$bmrequests = new BM_Request();
+		$data       = array( 'status' => false );
+
+		$extra_id   = filter_input( INPUT_POST, 'extra_id', FILTER_VALIDATE_INT );
+		$service_id = filter_input( INPUT_POST, 'service_id', FILTER_VALIDATE_INT );
+
+		if ( empty( $extra_id ) || $extra_id <= 0 ) {
+			$data['message'] = esc_html__( 'Invalid extra ID.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
+		$local_extra = $dbhandler->get_row( 'EXTRA', $extra_id, 'id' );
+		if ( empty( $local_extra ) ) {
+			$data['message'] = esc_html__( 'Source extra not found.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
+		$global_data = array(
+			'name'                  => isset( $local_extra->extra_name ) ? $local_extra->extra_name : '',
+			'description'           => isset( $local_extra->extra_desc ) ? $local_extra->extra_desc : '',
+			'price'                 => isset( $local_extra->extra_price ) ? $local_extra->extra_price : 0,
+			'duration_hours'        => isset( $local_extra->extra_duration ) ? $local_extra->extra_duration : 0,
+			'total_operation_hours' => isset( $local_extra->extra_operation ) ? $local_extra->extra_operation : 0,
+			'max_capacity'          => isset( $local_extra->extra_max_cap ) ? (int) $local_extra->extra_max_cap : 1,
+			'is_visible_frontend'   => isset( $local_extra->is_extra_service_front ) ? (int) $local_extra->is_extra_service_front : 1,
+			'link_woocommerce'      => isset( $local_extra->is_linked_wc_extrasvc ) ? (int) $local_extra->is_linked_wc_extrasvc : 0,
+			'wc_product_id'         => isset( $local_extra->svcextra_wc_product ) ? (int) $local_extra->svcextra_wc_product : 0,
+			'created_at'            => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
+		);
+
+		$sanitized = $bmrequests->sanitize_request( $global_data, 'GLOBALEXTRA' );
+
+		if ( $sanitized != false ) {
+			$insert_id = $dbhandler->insert_row( 'GLOBALEXTRA', $sanitized );
+			if ( $insert_id ) {
+				$data['status'] = true;
+				$data['id']     = $insert_id;
+
+				// Link to specified service if provided.
+				if ( ! empty( $service_id ) && $service_id > 0 ) {
+					$dbhandler->insert_if_not_exists(
+						'SERVICEGLOBALEXTRA',
+						array( 'service_id' => $service_id, 'global_extra_id' => $insert_id ),
+						array( 'service_id' => $service_id, 'global_extra_id' => $insert_id )
+					);
+				}
+			}
+		}
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_import_extra_to_global()
+
+
+	/**
+	 * Get usage statistics for a global extra.
+	 *
+	 * Returns the peak pooled usage (today and future) and total bookings count.
+	 */
+	public function bm_get_global_extra_usage() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler = new BM_DBhandler();
+		$data      = array( 'status' => false );
+		$id        = filter_input( INPUT_POST, 'id', FILTER_VALIDATE_INT );
+
+		if ( ! empty( $id ) && $id > 0 ) {
+			$today                 = wp_date( 'Y-m-d' );
+			$peak_usage            = $dbhandler->get_global_extra_peak_usage( $id, $today );
+			$total_booking_records = $dbhandler->get_global_extra_total_bookings( $id );
+			$data['status']        = true;
+			$data['peak_usage']    = $peak_usage;
+			$data['total_bookings'] = $total_booking_records;
+		}
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_get_global_extra_usage()
+
+
+	/**
+	 * Bulk actions for shared extras.
+	 *
+	 * Supports: bulk_delete, bulk_link, bulk_unlink, bulk_toggle_visibility.
+	 */
+	public function bm_bulk_shared_extras_action() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler  = new BM_DBhandler();
+		$bmrequests = new BM_Request();
+		$data       = array( 'status' => false, 'message' => '' );
+
+		$action_type = isset( $_POST['bulk_action'] ) ? sanitize_text_field( wp_unslash( $_POST['bulk_action'] ) ) : '';
+		$ids_raw     = isset( $_POST['ids'] ) ? sanitize_text_field( wp_unslash( $_POST['ids'] ) ) : '';
+
+		if ( empty( $action_type ) || empty( $ids_raw ) ) {
+			$data['message'] = esc_html__( 'No action or items selected.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
+		$ids = array_filter( array_map( 'absint', explode( ',', $ids_raw ) ) );
+		if ( empty( $ids ) ) {
+			$data['message'] = esc_html__( 'Invalid IDs provided.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
+		$processed = 0;
+		$skipped   = 0;
+
+		switch ( $action_type ) {
+			case 'bulk_delete':
+				$today = wp_date( 'Y-m-d' );
+				foreach ( $ids as $ge_id ) {
+					$peak = $dbhandler->get_global_extra_peak_usage( $ge_id, $today );
+					if ( $peak > 0 ) {
+						$skipped++;
+						continue;
+					}
+					// Remove service mappings.
+					$mappings = $dbhandler->get_all_result( 'SERVICEGLOBALEXTRA', '*', array( 'global_extra_id' => $ge_id ), 'results' );
+					if ( ! empty( $mappings ) ) {
+						foreach ( $mappings as $m ) {
+							$dbhandler->remove_row( 'SERVICEGLOBALEXTRA', 'id', $m->id, '%d' );
+						}
+					}
+					$dbhandler->remove_row( 'GLOBALEXTRA', 'id', $ge_id, '%d' );
+					$processed++;
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: 1: processed count, 2: skipped count */
+					esc_html__( '%1$d deleted, %2$d skipped (active bookings).', 'service-booking' ),
+					$processed,
+					$skipped
+				);
+				break;
+
+			case 'bulk_link':
+				$service_ids_raw = isset( $_POST['service_ids'] ) ? sanitize_text_field( wp_unslash( $_POST['service_ids'] ) ) : '';
+				$service_ids     = array_filter( array_map( 'absint', explode( ',', $service_ids_raw ) ) );
+				if ( empty( $service_ids ) ) {
+					$data['message'] = esc_html__( 'No services selected for linking.', 'service-booking' );
+					echo wp_json_encode( $data );
+					die;
+				}
+				foreach ( $ids as $ge_id ) {
+					foreach ( $service_ids as $sid ) {
+						$dbhandler->insert_if_not_exists(
+							'SERVICEGLOBALEXTRA',
+							array( 'service_id' => $sid, 'global_extra_id' => $ge_id ),
+							array( 'service_id' => $sid, 'global_extra_id' => $ge_id )
+						);
+						$processed++;
+					}
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of links created */
+					esc_html__( '%d link(s) created or already existed.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			case 'bulk_unlink':
+				$service_ids_raw = isset( $_POST['service_ids'] ) ? sanitize_text_field( wp_unslash( $_POST['service_ids'] ) ) : '';
+				$service_ids     = array_filter( array_map( 'absint', explode( ',', $service_ids_raw ) ) );
+				if ( empty( $service_ids ) ) {
+					$data['message'] = esc_html__( 'No services selected for unlinking.', 'service-booking' );
+					echo wp_json_encode( $data );
+					die;
+				}
+				foreach ( $ids as $ge_id ) {
+					foreach ( $service_ids as $sid ) {
+						$existing = $dbhandler->get_all_result(
+							'SERVICEGLOBALEXTRA',
+							'*',
+							array( 'service_id' => $sid, 'global_extra_id' => $ge_id ),
+							'results'
+						);
+						if ( ! empty( $existing ) ) {
+							foreach ( $existing as $row ) {
+								$dbhandler->remove_row( 'SERVICEGLOBALEXTRA', 'id', $row->id, '%d' );
+								$processed++;
+							}
+						}
+					}
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of links removed */
+					esc_html__( '%d link(s) removed.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			case 'bulk_toggle_visibility':
+				$visibility = isset( $_POST['visibility'] ) ? absint( $_POST['visibility'] ) : 1;
+				foreach ( $ids as $ge_id ) {
+					$dbhandler->update_row( 'GLOBALEXTRA', 'id', $ge_id, array(
+						'is_visible_frontend' => $visibility,
+						'updated_at'          => $bmrequests->bm_fetch_current_wordpress_datetime_stamp(),
+					) );
+					$processed++;
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of extras updated */
+					esc_html__( '%d extra(s) visibility updated.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			default:
+				$data['message'] = esc_html__( 'Unknown bulk action.', 'service-booking' );
+		}
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_bulk_shared_extras_action()
+
+
+	/**
+	 * Get all services with their link status to a given global extra.
+	 */
+	public function bm_get_services_for_linking() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler = new BM_DBhandler();
+		$data      = array( 'status' => false );
+
+		$all_services = $dbhandler->get_all_result( 'SERVICE', '*', 1, 'results' );
+		$services_out = array();
+
+		if ( ! empty( $all_services ) ) {
+			foreach ( $all_services as $svc ) {
+				$services_out[] = array(
+					'id'   => (int) $svc->id,
+					'name' => isset( $svc->service_name ) ? $svc->service_name : '',
+				);
+			}
+		}
+
+		$data['status']   = true;
+		$data['services'] = $services_out;
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_get_services_for_linking()
 
 
 	/**

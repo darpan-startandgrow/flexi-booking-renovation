@@ -13618,3 +13618,313 @@ jQuery(document).on('click', '.bm-se-delete-btn', function(e) {
     });
 });
 
+// Import from Service: toggle form.
+jQuery(document).on('click', '#bm_import_extra_btn', function(e) {
+    e.preventDefault();
+    jQuery('#bm_shared_extra_form_wrap').slideUp(200);
+    jQuery('#bm_import_extra_form_wrap').slideToggle(200);
+});
+jQuery(document).on('click', '#bm_import_extra_cancel', function(e) {
+    e.preventDefault();
+    jQuery('#bm_import_extra_form_wrap').slideUp(200);
+});
+
+// Import from Service: filter extras dropdown by selected service.
+jQuery(document).on('change', '#bm_import_service_filter', function() {
+    var filterSvc = jQuery(this).val();
+    jQuery('#bm_import_extra_select option').each(function() {
+        var optSvc = jQuery(this).data('service');
+        if (!filterSvc || !jQuery(this).val() || String(optSvc) === String(filterSvc)) {
+            jQuery(this).show();
+        } else {
+            jQuery(this).hide();
+        }
+    });
+    jQuery('#bm_import_extra_select').val('');
+    jQuery('#bm_import_preview_row').hide();
+});
+
+// Import from Service: show preview on selection.
+jQuery(document).on('change', '#bm_import_extra_select', function() {
+    var opt = jQuery(this).find(':selected');
+    if (!opt.val()) {
+        jQuery('#bm_import_preview_row').hide();
+        return;
+    }
+    jQuery('#bm_import_preview_name').text(opt.data('name') || '');
+    var details = [];
+    if (opt.data('price')) details.push('Price: ' + opt.data('price'));
+    if (opt.data('duration')) details.push('Duration: ' + opt.data('duration') + 'h');
+    if (opt.data('max-cap')) details.push('Capacity: ' + opt.data('max-cap'));
+    jQuery('#bm_import_preview_details').text(details.join(' | '));
+    jQuery('#bm_import_preview_row').show();
+});
+
+// Import from Service: submit.
+jQuery(document).on('click', '#bm_import_extra_submit', function(e) {
+    e.preventDefault();
+    var extraId = jQuery('#bm_import_extra_select').val();
+    if (!extraId) {
+        alert('Please select an extra to import.');
+        return;
+    }
+    var btn = jQuery(this);
+    btn.prop('disabled', true);
+    var serviceId = jQuery('#bm_import_link_service').val() || 0;
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_import_extra_to_global',
+        extra_id: extraId,
+        service_id: serviceId,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        btn.prop('disabled', false);
+        if (res.status) {
+            location.reload();
+        } else {
+            alert('Failed to import extra: ' + (res.message || 'Unknown error'));
+        }
+    });
+});
+
+// Usage stats: click to load.
+jQuery(document).on('click', '.bm-usage-badge', function(e) {
+    e.preventDefault();
+    var badge = jQuery(this);
+    var id = badge.data('id');
+    badge.find('.bm-usage-val').text('...');
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_get_global_extra_usage',
+        id: id,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        if (res.status) {
+            badge.find('.bm-usage-val').text(res.peak_usage + ' peak / ' + res.total_bookings + ' total');
+            badge.attr('title', 'Peak usage on any future date: ' + res.peak_usage + ', Total booking records: ' + res.total_bookings);
+        } else {
+            badge.find('.bm-usage-val').text('N/A');
+        }
+    });
+});
+
+// ===== BULK OPERATIONS =====
+
+// Select All checkbox.
+jQuery(document).on('change', '#bm_se_check_all', function() {
+    jQuery('.bm-se-row-check').prop('checked', jQuery(this).is(':checked'));
+    bm_se_update_bulk_state();
+});
+
+// Individual row checkbox.
+jQuery(document).on('change', '.bm-se-row-check', function() {
+    var total = jQuery('.bm-se-row-check').length;
+    var checked = jQuery('.bm-se-row-check:checked').length;
+    jQuery('#bm_se_check_all').prop('checked', total === checked && total > 0);
+    bm_se_update_bulk_state();
+});
+
+// Bulk action dropdown change: show/hide service selector or visibility selector.
+jQuery(document).on('change', '#bm_se_bulk_action', function() {
+    var action = jQuery(this).val();
+    if (action === 'bulk_link' || action === 'bulk_unlink') {
+        jQuery('#bm_se_bulk_service_wrap').show();
+        jQuery('#bm_se_bulk_visibility_wrap').hide();
+    } else if (action === 'bulk_toggle_visibility') {
+        jQuery('#bm_se_bulk_service_wrap').hide();
+        jQuery('#bm_se_bulk_visibility_wrap').show();
+    } else {
+        jQuery('#bm_se_bulk_service_wrap').hide();
+        jQuery('#bm_se_bulk_visibility_wrap').hide();
+    }
+    bm_se_update_bulk_state();
+});
+
+// Apply bulk action.
+jQuery(document).on('click', '#bm_se_bulk_apply', function(e) {
+    e.preventDefault();
+    var action = jQuery('#bm_se_bulk_action').val();
+    if (!action) {
+        alert('Please select a bulk action.');
+        return;
+    }
+    var ids = [];
+    jQuery('.bm-se-row-check:checked').each(function() {
+        ids.push(jQuery(this).val());
+    });
+    if (ids.length === 0) {
+        alert('No items selected.');
+        return;
+    }
+
+    var confirmMsg = '';
+    switch (action) {
+        case 'bulk_delete':
+            confirmMsg = 'Are you sure you want to delete ' + ids.length + ' shared extra(s)? Extras with active bookings will be skipped.';
+            break;
+        case 'bulk_link':
+            confirmMsg = 'Link ' + ids.length + ' extra(s) to selected services?';
+            break;
+        case 'bulk_unlink':
+            confirmMsg = 'Unlink ' + ids.length + ' extra(s) from selected services?';
+            break;
+        case 'bulk_toggle_visibility':
+            confirmMsg = 'Update visibility for ' + ids.length + ' extra(s)?';
+            break;
+    }
+    if (!confirm(confirmMsg)) return;
+
+    var postData = {
+        action: 'bm_bulk_shared_extras_action',
+        bulk_action: action,
+        ids: ids.join(','),
+        nonce: bm_ajax_object.nonce
+    };
+
+    if (action === 'bulk_link' || action === 'bulk_unlink') {
+        var serviceIds = jQuery('#bm_se_bulk_service_select').val();
+        if (!serviceIds || serviceIds.length === 0) {
+            alert('Please select at least one service.');
+            return;
+        }
+        postData.service_ids = serviceIds.join(',');
+    }
+    if (action === 'bulk_toggle_visibility') {
+        postData.visibility = jQuery('#bm_se_bulk_visibility_val').val();
+    }
+
+    var btn = jQuery(this);
+    btn.prop('disabled', true).text('Processing...');
+    jQuery.post(bm_ajax_object.ajax_url, postData, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        btn.prop('disabled', false).text('Apply');
+        if (res.status) {
+            alert(res.message);
+            location.reload();
+        } else {
+            alert('Bulk action failed: ' + (res.message || 'Unknown error'));
+        }
+    });
+});
+
+// Helper: update bulk action button state and selected count.
+function bm_se_update_bulk_state() {
+    var checked = jQuery('.bm-se-row-check:checked').length;
+    var action = jQuery('#bm_se_bulk_action').val();
+    jQuery('#bm_se_bulk_apply').prop('disabled', checked === 0 || !action);
+    if (checked > 0) {
+        jQuery('#bm_se_bulk_count').text(checked + ' item(s) selected');
+    } else {
+        jQuery('#bm_se_bulk_count').text('');
+    }
+}
+
+// ===== SERVICE LINK MANAGEMENT MODAL =====
+
+// Open link management modal.
+jQuery(document).on('click', '.bm-se-manage-links', function(e) {
+    e.preventDefault();
+    var geId = jQuery(this).data('id');
+    var geName = jQuery('#bm-se-row-' + geId).data('name');
+    jQuery('#bm_se_link_modal_ge_id').val(geId);
+    jQuery('#bm_se_link_modal_name').text(geName || 'Shared Extra #' + geId);
+    jQuery('#bm_se_link_modal_services').html('<p style="color:#666;text-align:center;">Loading...</p>');
+    jQuery('#bm_se_link_modal').show();
+
+    // Load all services with their link status.
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_get_services_for_linking',
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        if (!res.status || !res.services) {
+            jQuery('#bm_se_link_modal_services').html('<p style="color:red;">Failed to load services.</p>');
+            return;
+        }
+
+        // Get currently linked service IDs from the badge tooltip text.
+        var html = '';
+        if (res.services.length === 0) {
+            html = '<p style="color:#666;">No services found.</p>';
+        } else {
+            html = '<table style="width:100%;border-collapse:collapse;">';
+            html += '<tr style="border-bottom:1px solid #eee;"><th style="text-align:left;padding:6px;">Service</th><th style="text-align:center;padding:6px;width:100px;">Action</th></tr>';
+            for (var i = 0; i < res.services.length; i++) {
+                var svc = res.services[i];
+                var safeName = String(svc.name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                html += '<tr style="border-bottom:1px solid #f0f0f0;" data-sid="' + svc.id + '">';
+                html += '<td style="padding:6px;">' + safeName + '</td>';
+                html += '<td style="text-align:center;padding:6px;">';
+                html += '<button type="button" class="button bm-se-link-toggle" data-sid="' + svc.id + '" data-geid="' + geId + '" style="min-width:70px;">Link</button>';
+                html += '</td></tr>';
+            }
+            html += '</table>';
+        }
+        jQuery('#bm_se_link_modal_services').html(html);
+
+        // Now check which services are currently linked via existing badge data.
+        // Re-fetch to get up-to-date link status.
+        jQuery.post(bm_ajax_object.ajax_url, {
+            action: 'bm_get_global_extras_list',
+            nonce: bm_ajax_object.nonce
+        }, function(listResp) {
+            // We also need link data - use batch approach.
+            // For simplicity, just reload with the global extra's linked services.
+            var badge = jQuery('#bm-se-row-' + geId).find('.bm-se-manage-links');
+            var tooltip = badge.attr('title') || '';
+            var linkedNames = tooltip.split(', ');
+
+            jQuery('#bm_se_link_modal_services .bm-se-link-toggle').each(function() {
+                var btn = jQuery(this);
+                var row = btn.closest('tr');
+                var svcName = row.find('td:first').text().trim();
+                var isLinked = linkedNames.indexOf(svcName) >= 0;
+                if (isLinked) {
+                    btn.text('Unlink').addClass('bm-linked').css({'background':'#dc3545','color':'#fff','border-color':'#dc3545'});
+                } else {
+                    btn.text('Link').removeClass('bm-linked').css({'background':'','color':'','border-color':''});
+                }
+            });
+        });
+    });
+});
+
+// Close link modal.
+jQuery(document).on('click', '#bm_se_link_modal_close, #bm_se_link_modal_close_btn', function(e) {
+    e.preventDefault();
+    jQuery('#bm_se_link_modal').hide();
+});
+jQuery(document).on('click', '#bm_se_link_modal', function(e) {
+    if (e.target === this) jQuery('#bm_se_link_modal').hide();
+});
+
+// Toggle link/unlink in modal.
+jQuery(document).on('click', '.bm-se-link-toggle', function(e) {
+    e.preventDefault();
+    var btn = jQuery(this);
+    var sid = btn.data('sid');
+    var geId = btn.data('geid');
+    var isLinked = btn.hasClass('bm-linked');
+    var ajaxAction = isLinked ? 'bm_unlink_global_extra' : 'bm_link_global_extra';
+
+    btn.prop('disabled', true);
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: ajaxAction,
+        service_id: sid,
+        global_extra_id: geId,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        btn.prop('disabled', false);
+        if (res.status) {
+            if (isLinked) {
+                btn.text('Link').removeClass('bm-linked').css({'background':'','color':'','border-color':''});
+            } else {
+                btn.text('Unlink').addClass('bm-linked').css({'background':'#dc3545','color':'#fff','border-color':'#dc3545'});
+            }
+        } else {
+            alert('Action failed: ' + (res.message || 'Unknown error'));
+        }
+    });
+});
+

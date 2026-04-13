@@ -538,6 +538,7 @@ class Booking_Management_Activator {
 		dbDelta( $sql );
 
 		$this->add_extra_type_column_to_extraslotcount();
+		$this->add_extras_indexes();
 		$this->add_error_column_to_emails();
 		$this->add_error_column_to_failed_transactions();
 		$this->create_default_form_fields();
@@ -1888,6 +1889,53 @@ class Booking_Management_Activator {
 		if ( empty( $row ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
 			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `extra_type` varchar(20) NOT NULL DEFAULT 'local' AFTER `extra_svc_id`" );
+		}
+	}
+
+
+	/**
+	 * Add performance indexes to extras-related tables.
+	 *
+	 * Idempotent: checks for existing indexes before creating.
+	 */
+	private function add_extras_indexes() {
+		global $wpdb;
+
+		$indexes = array(
+			array(
+				'table' => esc_sql( $this->get_db_table_name( 'EXTRA' ) ),
+				'index' => 'idx_extra_service_id',
+				'sql'   => 'ADD INDEX `idx_extra_service_id` (`service_id`)',
+			),
+			array(
+				'table' => esc_sql( $this->get_db_table_name( 'EXTRA' ) ),
+				'index' => 'idx_extra_is_global',
+				'sql'   => 'ADD INDEX `idx_extra_is_global` (`is_global`)',
+			),
+			array(
+				'table' => esc_sql( $this->get_db_table_name( 'EXTRASLOTCOUNT' ) ),
+				'index' => 'idx_esc_extra_date_type',
+				'sql'   => 'ADD INDEX `idx_esc_extra_date_type` (`extra_svc_id`, `booking_date`, `extra_type`)',
+			),
+			array(
+				'table' => esc_sql( $this->get_db_table_name( 'EXTRASLOTCOUNT' ) ),
+				'index' => 'idx_esc_booking_id',
+				'sql'   => 'ADD INDEX `idx_esc_booking_id` (`booking_id`)',
+			),
+		);
+
+		foreach ( $indexes as $idx_def ) {
+			$table      = $idx_def['table'];
+			$index_name = esc_sql( $idx_def['index'] );
+			if ( empty( $table ) ) {
+				continue;
+			}
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table and index names escaped with esc_sql().
+			$existing = $wpdb->get_results( "SHOW INDEX FROM `{$table}` WHERE Key_name = '{$index_name}'" );
+			if ( empty( $existing ) ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+				$wpdb->query( "ALTER TABLE `{$table}` {$idx_def['sql']}" );
+			}
 		}
 	}
 

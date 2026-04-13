@@ -1489,4 +1489,70 @@ class BM_DBhandler {
 		$val    = $wpdb->get_var( $sql );
 		return $val !== null ? (string) $val : null;
 	}
+
+
+	/**
+	 * Get the peak pooled usage of a global extra on any single date from a given start date onward.
+	 *
+	 * Returns the maximum SUM(slots_booked) across all future dates for this global extra.
+	 * Used to prevent reducing max_capacity below active usage.
+	 *
+	 * @since 1.0.0
+	 * @param int    $global_extra_id The global extra ID.
+	 * @param string $from_date       The start date (Y-m-d), typically today.
+	 * @return int Peak usage on any single future date.
+	 */
+	public function get_global_extra_peak_usage( int $global_extra_id, string $from_date ): int {
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( 'EXTRASLOTCOUNT' );
+
+		if ( ! $table || empty( $global_extra_id ) || empty( $from_date ) ) {
+			return 0;
+		}
+
+		$sql = $wpdb->prepare(
+			"SELECT COALESCE(MAX(daily_usage), 0)
+			 FROM (
+			     SELECT SUM(`slots_booked`) AS daily_usage
+			     FROM `$table`
+			     WHERE `extra_svc_id` = %d
+			       AND `extra_type` = %s
+			       AND `booking_date` >= %s
+			       AND `is_active` = 1
+			     GROUP BY `booking_date`
+			 ) AS usage_by_date",
+			$global_extra_id,
+			'global',
+			$from_date
+		);
+
+		return (int) $wpdb->get_var( $sql );
+	}
+
+
+	/**
+	 * Get total number of active booking records for a global extra.
+	 *
+	 * @since 1.0.0
+	 * @param int $global_extra_id The global extra ID.
+	 * @return int Total active booking count rows.
+	 */
+	public function get_global_extra_total_bookings( int $global_extra_id ): int {
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( 'EXTRASLOTCOUNT' );
+
+		if ( ! $table || empty( $global_extra_id ) ) {
+			return 0;
+		}
+
+		$sql = $wpdb->prepare(
+			"SELECT COUNT(*) FROM `$table` WHERE `extra_svc_id` = %d AND `extra_type` = %s AND `is_active` = 1",
+			$global_extra_id,
+			'global'
+		);
+
+		return (int) $wpdb->get_var( $sql );
+	}
 }//end class
