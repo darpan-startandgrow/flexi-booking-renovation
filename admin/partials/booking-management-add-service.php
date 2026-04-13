@@ -18,6 +18,7 @@ $bmrequests         = new BM_Request();
 $woocommerceservice = new WooCommerceService();
 $categories         = $dbhandler->get_all_result( $cat_identifier, '*', 1, 'results' );
 $global_extras      = $dbhandler->get_all_result( $extra_identifier, '*', array( 'is_global' => 1 ), 'results' );
+$new_global_extras  = $dbhandler->get_all_result( 'GLOBALEXTRA', '*', 1, 'results' );
 $id                 = filter_input( INPUT_GET, 'id', FILTER_VALIDATE_INT );
 $service_extra_id   = filter_input( INPUT_POST, 'svc_extra_id', FILTER_VALIDATE_INT );
 $extra_id           = filter_input( INPUT_GET, 'extra_id', FILTER_VALIDATE_INT );
@@ -129,6 +130,18 @@ if ( $id > 0 ) {
         $total_extra_rows = $global_extras;
     } elseif ( !empty( $extra_rows ) && empty( $global_extras ) ) {
         $total_extra_rows = $extra_rows;
+    }
+    // Fetch new-style global extras linked to this service.
+    $linked_new_globals = $bmrequests->bm_get_new_global_extras_for_service( $id, false );
+    $linked_new_global_ids = array();
+    if ( ! empty( $linked_new_globals ) ) {
+        foreach ( $linked_new_globals as $lng ) {
+            $linked_new_global_ids[] = (int) $lng->global_extra_id;
+        }
+        if ( ! isset( $total_extra_rows ) ) {
+            $total_extra_rows = array();
+        }
+        $total_extra_rows = array_merge( $total_extra_rows, $linked_new_globals );
     }
     $svc_gallery_images = $dbhandler->get_all_result(
         $gallery_identifier,
@@ -1253,6 +1266,57 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                         <?php } ?>
 
                     </table>
+
+                    <!-- Global Extras Linking Section -->
+                    <?php if ( $id > 0 ) : ?>
+                    <hr style="margin: 20px 0;">
+                    <h3 style="margin-bottom: 10px;"><?php esc_html_e( 'Linked Global Extras', 'service-booking' ); ?></h3>
+                    <p class="description"><?php esc_html_e( 'Global extras share capacity across all linked services.', 'service-booking' ); ?></p>
+
+                    <?php if ( ! empty( $linked_new_globals ) ) : ?>
+                    <table class="wp-list-table widefat striped" style="margin-top: 10px; margin-bottom: 15px;">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e( 'Name', 'service-booking' ); ?></th>
+                                <th><?php esc_html_e( 'Price', 'service-booking' ); ?></th>
+                                <th><?php esc_html_e( 'Capacity', 'service-booking' ); ?></th>
+                                <th><?php esc_html_e( 'Action', 'service-booking' ); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $linked_new_globals as $lng ) : ?>
+                            <tr id="bm-linked-ge-<?php echo esc_attr( $lng->global_extra_id ); ?>">
+                                <td><?php echo esc_html( $lng->extra_name ); ?></td>
+                                <td><?php echo esc_html( $lng->extra_price ); ?></td>
+                                <td><?php echo esc_html( $lng->extra_max_cap ); ?></td>
+                                <td>
+                                    <button type="button" class="button bm-unlink-global-extra" data-service-id="<?php echo esc_attr( $id ); ?>" data-global-extra-id="<?php echo esc_attr( $lng->global_extra_id ); ?>" title="<?php esc_attr_e( 'Unlink', 'service-booking' ); ?>"><i class="fa fa-unlink" aria-hidden="true" style="color:red;"></i> <?php esc_html_e( 'Unlink', 'service-booking' ); ?></button>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    <?php endif; ?>
+
+                    <div style="margin-top: 10px;">
+                        <label for="bm_link_global_extra_select"><?php esc_html_e( 'Link Existing Global Extra:', 'service-booking' ); ?></label>
+                        <select id="bm_link_global_extra_select" style="min-width: 200px;">
+                            <option value=""><?php esc_html_e( '— Select —', 'service-booking' ); ?></option>
+                            <?php
+                            if ( ! empty( $new_global_extras ) ) {
+                                foreach ( $new_global_extras as $nge ) {
+                                    $already_linked = isset( $linked_new_global_ids ) && in_array( (int) $nge->id, $linked_new_global_ids, true );
+                                    if ( ! $already_linked ) {
+                                        echo '<option value="' . esc_attr( $nge->id ) . '">' . esc_html( $nge->name ) . ' (' . esc_html( $nge->price ) . ' / cap: ' . esc_html( $nge->max_capacity ) . ')</option>';
+                                    }
+                                }
+                            }
+                            ?>
+                        </select>
+                        <button type="button" id="bm_link_global_extra_btn" class="button button-primary" data-service-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Link', 'service-booking' ); ?></button>
+                    </div>
+                    <?php endif; ?>
+
                 </div>
 
                 <input type="hidden" id="has_variable_price_module" value="0">

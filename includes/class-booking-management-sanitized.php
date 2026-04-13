@@ -492,6 +492,9 @@ class BM_Sanitizer {
 			case 'cap_left':
 				$value = sanitize_text_field( $value );
 				break;
+			case 'extra_type':
+				$value = sanitize_text_field( $value );
+				break;
 			case 'booking_date':
 				$value = sanitize_text_field( $value );
 				break;
@@ -504,6 +507,63 @@ class BM_Sanitizer {
 
 		return $value;
 	} //end get_sanitized_extraslotcount_field()
+
+
+	public function get_sanitized_globalextra_field( $field, $value ) {
+		switch ( $field ) {
+			case 'id':
+				$value = absint( $value );
+				break;
+			case 'name':
+				$value = sanitize_text_field( $value );
+				break;
+			case 'description':
+				$value = wp_kses_post( $value );
+				break;
+			case 'price':
+				$value = sanitize_text_field( $value );
+				break;
+			case 'duration_hours':
+				$value = sanitize_text_field( $value );
+				break;
+			case 'total_operation_hours':
+				$value = sanitize_text_field( $value );
+				break;
+			case 'max_capacity':
+				$value = absint( $value );
+				break;
+			case 'is_visible_frontend':
+				$value = absint( $value );
+				break;
+			case 'link_woocommerce':
+				$value = absint( $value );
+				break;
+			case 'wc_product_id':
+				$value = absint( $value );
+				break;
+			default:
+				$value = sanitize_text_field( $value );
+		}
+		return $value;
+	} //end get_sanitized_globalextra_field()
+
+
+	public function get_sanitized_serviceglobalextra_field( $field, $value ) {
+		switch ( $field ) {
+			case 'id':
+				$value = absint( $value );
+				break;
+			case 'service_id':
+				$value = absint( $value );
+				break;
+			case 'global_extra_id':
+				$value = absint( $value );
+				break;
+			default:
+				$value = absint( $value );
+		}
+		return $value;
+	} //end get_sanitized_serviceglobalextra_field()
 
 
 	public function get_sanitized_frontend_field( $type, $value ) {

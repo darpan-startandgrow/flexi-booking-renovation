@@ -13415,3 +13415,50 @@ function closeModal(modalId) {
     jQuery('.pdf-sample-container').html('');
 }
 
+// ============================================================
+// Global Extras Link / Unlink (Service Extras Tab)
+// ============================================================
+jQuery(document).on('click', '#bm_link_global_extra_btn', function(e) {
+    e.preventDefault();
+    var serviceId = jQuery(this).data('service-id');
+    var globalExtraId = jQuery('#bm_link_global_extra_select').val();
+    if (!globalExtraId) {
+        alert('Please select a global extra to link.');
+        return;
+    }
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_link_global_extra',
+        service_id: serviceId,
+        global_extra_id: globalExtraId,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        if (res.status) {
+            location.reload();
+        } else {
+            alert('Failed to link global extra.');
+        }
+    });
+});
+
+jQuery(document).on('click', '.bm-unlink-global-extra', function(e) {
+    e.preventDefault();
+    if (!confirm('Are you sure you want to unlink this global extra?')) return;
+    var btn = jQuery(this);
+    var serviceId = btn.data('service-id');
+    var globalExtraId = btn.data('global-extra-id');
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_unlink_global_extra',
+        service_id: serviceId,
+        global_extra_id: globalExtraId,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        if (res.status) {
+            jQuery('#bm-linked-ge-' + globalExtraId).fadeOut(300, function() { jQuery(this).remove(); });
+        } else {
+            alert('Failed to unlink global extra.');
+        }
+    });
+});
+

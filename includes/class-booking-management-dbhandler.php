@@ -1255,4 +1255,238 @@ class BM_DBhandler {
 		}
 		return false;
 	}
+
+
+	/**
+	 * Get the total pooled usage of a global extra across ALL services for a given date.
+	 *
+	 * Sums the `slots_booked` column from EXTRASLOTCOUNT where the extra_type is 'global'
+	 * and the extra_svc_id matches the provided global_extra_id.
+	 *
+	 * @since 1.0.0
+	 * @param int    $global_extra_id The global extra ID.
+	 * @param string $date            The booking date (Y-m-d).
+	 * @return int Total slots booked across all services.
+	 */
+	public function get_global_extra_pooled_usage( int $global_extra_id, string $date ): int {
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( 'EXTRASLOTCOUNT' );
+
+		if ( ! $table || empty( $global_extra_id ) || empty( $date ) ) {
+			return 0;
+		}
+
+		$sql = $wpdb->prepare(
+			"SELECT COALESCE(SUM(`slots_booked`), 0) FROM `$table` WHERE `extra_svc_id` = %d AND `extra_type` = %s AND `booking_date` = %s AND `is_active` = 1",
+			$global_extra_id,
+			'global',
+			$date
+		);
+
+		return (int) $wpdb->get_var( $sql );
+	}
+
+
+	/**
+	 * SELECT ... FOR UPDATE on the global_extras table for atomic capacity checks.
+	 *
+	 * Must be called within an active transaction.
+	 *
+	 * @since 1.0.0
+	 * @param int $global_extra_id The global extra ID to lock.
+	 * @return object|null The locked row or null.
+	 */
+	public function select_for_update_global_extra( int $global_extra_id ) {
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( 'GLOBALEXTRA' );
+
+		if ( ! $table || empty( $global_extra_id ) ) {
+			return null;
+		}
+
+		$sql    = $wpdb->prepare( "SELECT * FROM `$table` WHERE `id` = %d FOR UPDATE", $global_extra_id );
+		$result = $wpdb->get_row( $sql );
+		return ! empty( $result ) ? $result : null;
+	}
+
+
+	/**
+	 * Batch-fetch global extras linked to multiple services.
+	 *
+	 * Returns an associative array keyed by service_id, each containing
+	 * an array of global extra objects.
+	 *
+	 * @since 1.0.0
+	 * @param array $service_ids Array of service IDs.
+	 * @return array Associative array: service_id => array of global extra objects.
+	 */
+	public function batch_get_global_extras_for_services( array $service_ids ): array {
+		global $wpdb;
+		$bm_activator  = $this->get_activator();
+		$mapping_table = $bm_activator->get_db_table_name( 'SERVICEGLOBALEXTRA' );
+		$extras_table  = $bm_activator->get_db_table_name( 'GLOBALEXTRA' );
+		$result        = array();
+
+		if ( ! $mapping_table || ! $extras_table || empty( $service_ids ) ) {
+			return $result;
+		}
+
+		// Sanitize IDs to integers only.
+		$service_ids = array_map( 'absint', $service_ids );
+		$service_ids = array_filter( $service_ids );
+
+		if ( empty( $service_ids ) ) {
+			return $result;
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $service_ids ), '%d' ) );
+		$sql          = $wpdb->prepare(
+			"SELECT sge.`service_id`, ge.* FROM `$mapping_table` AS sge
+			 INNER JOIN `$extras_table` AS ge ON sge.`global_extra_id` = ge.`id`
+			 WHERE sge.`service_id` IN ($placeholders)",
+			...$service_ids
+		);
+
+		$rows = $wpdb->get_results( $sql );
+
+		if ( ! empty( $rows ) ) {
+			foreach ( $rows as $row ) {
+				$sid = (int) $row->service_id;
+				if ( ! isset( $result[ $sid ] ) ) {
+					$result[ $sid ] = array();
+				}
+				$result[ $sid ][] = $row;
+			}
+		}
+
+		return $result;
+	}
+
+
+	/**
+	 * Batch-fetch all services linked to each global extra in one query.
+	 *
+	 * Returns an associative array keyed by global_extra_id, each containing
+	 * an array of objects with service_id and service_name.
+	 *
+	 * @since 1.0.0
+	 * @param array $global_extra_ids Array of global extra IDs.
+	 * @return array Associative array: global_extra_id => array of {service_id, service_name}.
+	 */
+	public function batch_get_services_for_global_extras( array $global_extra_ids ): array {
+		global $wpdb;
+		$bm_activator   = $this->get_activator();
+		$mapping_table  = $bm_activator->get_db_table_name( 'SERVICEGLOBALEXTRA' );
+		$services_table = $bm_activator->get_db_table_name( 'SERVICE' );
+		$result         = array();
+
+		if ( ! $mapping_table || ! $services_table || empty( $global_extra_ids ) ) {
+			return $result;
+		}
+
+		$global_extra_ids = array_map( 'absint', $global_extra_ids );
+		$global_extra_ids = array_filter( $global_extra_ids );
+
+		if ( empty( $global_extra_ids ) ) {
+			return $result;
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $global_extra_ids ), '%d' ) );
+		$sql          = $wpdb->prepare(
+			"SELECT sge.`global_extra_id`, s.`id` AS service_id, s.`service_name`
+			 FROM `$mapping_table` AS sge
+			 INNER JOIN `$services_table` AS s ON sge.`service_id` = s.`id`
+			 WHERE sge.`global_extra_id` IN ($placeholders)",
+			...$global_extra_ids
+		);
+
+		$rows = $wpdb->get_results( $sql );
+
+		if ( ! empty( $rows ) ) {
+			foreach ( $rows as $row ) {
+				$geid = (int) $row->global_extra_id;
+				if ( ! isset( $result[ $geid ] ) ) {
+					$result[ $geid ] = array();
+				}
+				$result[ $geid ][] = $row;
+			}
+		}
+
+		return $result;
+	}
+
+
+	/**
+	 * Update a row only if the current state matches the expected state.
+	 *
+	 * Prevents invalid state transitions (e.g. confirmed → failed).
+	 *
+	 * @since 1.0.0
+	 * @param string $identifier         Table identifier.
+	 * @param string $unique_field       Field to identify the row.
+	 * @param mixed  $unique_field_value Value of the unique field.
+	 * @param string $state_field        The column holding the state.
+	 * @param string $expected_state     The state that must currently be set.
+	 * @param array  $data               Column => value pairs to update.
+	 * @return int|false Number of rows updated or false on failure.
+	 */
+	public function update_if_state_matches( string $identifier, string $unique_field, $unique_field_value, string $state_field, string $expected_state, array $data ) {
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( $identifier );
+
+		if ( ! $table ) {
+			return false;
+		}
+
+		// Sanitize column names.
+		$unique_field = preg_replace( '/[^a-zA-Z0-9_]/', '', $unique_field );
+		$state_field  = preg_replace( '/[^a-zA-Z0-9_]/', '', $state_field );
+
+		if ( empty( $unique_field ) || empty( $state_field ) ) {
+			return false;
+		}
+
+		$where = array(
+			$unique_field => $unique_field_value,
+			$state_field  => $expected_state,
+		);
+
+		return $wpdb->update( $table, $data, $where );
+	}
+
+
+	/**
+	 * Get the current value of a specific field for a row.
+	 *
+	 * @since 1.0.0
+	 * @param string $identifier  Table identifier.
+	 * @param string $field       The column to retrieve.
+	 * @param mixed  $id_value    The value of the primary key or unique field.
+	 * @param string $id_field    The column to match against (default: 'id').
+	 * @return string|null The field value or null.
+	 */
+	public function get_current_state( string $identifier, string $field, $id_value, string $id_field = 'id' ): ?string {
+		global $wpdb;
+		$bm_activator = $this->get_activator();
+		$table        = $bm_activator->get_db_table_name( $identifier );
+
+		if ( ! $table ) {
+			return null;
+		}
+
+		$field    = preg_replace( '/[^a-zA-Z0-9_]/', '', $field );
+		$id_field = preg_replace( '/[^a-zA-Z0-9_]/', '', $id_field );
+
+		if ( empty( $field ) || empty( $id_field ) ) {
+			return null;
+		}
+
+		$format = is_numeric( $id_value ) ? '%d' : '%s';
+		$sql    = $wpdb->prepare( "SELECT `$field` FROM `$table` WHERE `$id_field` = $format LIMIT 1", $id_value );
+		$val    = $wpdb->get_var( $sql );
+		return $val !== null ? (string) $val : null;
+	}
 }//end class
