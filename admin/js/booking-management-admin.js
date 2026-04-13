@@ -11305,8 +11305,6 @@ jQuery(document).ready(function ($) {
 		$menu.find(`ul.wp-submenu li:eq(${index})`).addClass('current')
 			.find('a').attr('aria-current', 'page');
 	}
-
-	console.log(current_screen);
 });
 
 

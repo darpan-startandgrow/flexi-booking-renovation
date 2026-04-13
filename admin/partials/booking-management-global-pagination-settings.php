@@ -133,6 +133,42 @@ if ( filter_input( INPUT_POST, 'save_pagination' ) || filter_input( INPUT_POST, 
                         <?php esc_html_e( 'Specify how many coupon records to be shown in a single page, Maximum-100', 'service-booking' ); ?>
                     </td>
                 </tr>
+                <tr>
+                    <th scope="row"><label for="bm_customers_per_page"><?php esc_html_e( 'Customers per page', 'service-booking' ); ?></label></th>
+                    <td>
+                        <input name="bm_customers_per_page" type="number" step="1" min="1" max="100" id="bm_customers_per_page" class="regular-text" value="<?php echo esc_attr( !empty( $dbhandler->get_global_option_value( 'bm_customers_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_customers_per_page' ) : 10 ); ?>">
+                    </td>
+                    <td>
+                        <?php esc_html_e( 'Specify how many customers to be shown in a single page, Maximum-100', 'service-booking' ); ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="bm_checkins_per_page"><?php esc_html_e( 'Check-ins per page', 'service-booking' ); ?></label></th>
+                    <td>
+                        <input name="bm_checkins_per_page" type="number" step="1" min="1" max="100" id="bm_checkins_per_page" class="regular-text" value="<?php echo esc_attr( !empty( $dbhandler->get_global_option_value( 'bm_checkins_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_checkins_per_page' ) : 10 ); ?>">
+                    </td>
+                    <td>
+                        <?php esc_html_e( 'Specify how many check-in records to be shown in a single page, Maximum-100', 'service-booking' ); ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="bm_email_logs_per_page"><?php esc_html_e( 'Email logs per page', 'service-booking' ); ?></label></th>
+                    <td>
+                        <input name="bm_email_logs_per_page" type="number" step="1" min="1" max="100" id="bm_email_logs_per_page" class="regular-text" value="<?php echo esc_attr( !empty( $dbhandler->get_global_option_value( 'bm_email_logs_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_email_logs_per_page' ) : 20 ); ?>">
+                    </td>
+                    <td>
+                        <?php esc_html_e( 'Specify how many email logs to be shown in a single page, Maximum-100', 'service-booking' ); ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="bm_payment_logs_per_page"><?php esc_html_e( 'Payment logs per page', 'service-booking' ); ?></label></th>
+                    <td>
+                        <input name="bm_payment_logs_per_page" type="number" step="1" min="1" max="100" id="bm_payment_logs_per_page" class="regular-text" value="<?php echo esc_attr( !empty( $dbhandler->get_global_option_value( 'bm_payment_logs_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_payment_logs_per_page' ) : 20 ); ?>">
+                    </td>
+                    <td>
+                        <?php esc_html_e( 'Specify how many payment logs to be shown in a single page, Maximum-100', 'service-booking' ); ?>
+                    </td>
+                </tr>
             </table>
             <div class="row">
                 <p class="submit">
