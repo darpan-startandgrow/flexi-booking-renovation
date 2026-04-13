@@ -1549,8 +1549,31 @@ class Booking_Management_Admin {
 
 			// Handle service linking if provided.
 			if ( $data['status'] && isset( $_POST['link_service_ids'] ) ) {
-				$service_ids = array_map( 'absint', explode( ',', sanitize_text_field( wp_unslash( $_POST['link_service_ids'] ) ) ) );
+				$service_ids = array_filter( array_map( 'absint', explode( ',', sanitize_text_field( wp_unslash( $_POST['link_service_ids'] ) ) ) ) );
 				$ge_id       = $data['id'];
+
+				// On update, sync links: remove unselected, add newly selected.
+				if ( ! empty( $id ) && $id > 0 ) {
+					$existing = $dbhandler->get_all_result( 'SERVICEGLOBALEXTRA', '*', array( 'global_extra_id' => $ge_id ), 'results' );
+					$existing_ids = array();
+					if ( ! empty( $existing ) ) {
+						foreach ( $existing as $row ) {
+							$existing_ids[] = (int) $row->service_id;
+						}
+					}
+					// Remove links no longer selected.
+					$to_remove = array_diff( $existing_ids, $service_ids );
+					foreach ( $to_remove as $sid ) {
+						$rows = $dbhandler->get_all_result( 'SERVICEGLOBALEXTRA', '*', array( 'service_id' => $sid, 'global_extra_id' => $ge_id ), 'results' );
+						if ( ! empty( $rows ) ) {
+							foreach ( $rows as $r ) {
+								$dbhandler->remove_row( 'SERVICEGLOBALEXTRA', 'id', $r->id, '%d' );
+							}
+						}
+					}
+				}
+
+				// Add new links.
 				foreach ( $service_ids as $sid ) {
 					if ( $sid > 0 ) {
 						$dbhandler->insert_if_not_exists(
@@ -2022,6 +2045,19 @@ class Booking_Management_Admin {
 
 		$data['status']   = true;
 		$data['services'] = $services_out;
+
+		// If a global_extra_id is provided, also return linked service IDs.
+		$ge_id = isset( $_POST['global_extra_id'] ) ? absint( $_POST['global_extra_id'] ) : 0;
+		if ( $ge_id > 0 ) {
+			$linked = $dbhandler->get_all_result( 'SERVICEGLOBALEXTRA', '*', array( 'global_extra_id' => $ge_id ), 'results' );
+			$linked_ids = array();
+			if ( ! empty( $linked ) ) {
+				foreach ( $linked as $row ) {
+					$linked_ids[] = (int) $row->service_id;
+				}
+			}
+			$data['service_ids'] = $linked_ids;
+		}
 
 		echo wp_json_encode( $data );
 		die;

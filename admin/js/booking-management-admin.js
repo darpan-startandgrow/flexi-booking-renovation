@@ -13635,6 +13635,7 @@ jQuery(document).on('click', '#bm_add_shared_extra_btn', function(e) {
     jQuery('#bm_se_visible').prop('checked', true);
     jQuery('#bm_se_wc').prop('checked', false);
     jQuery('#bm_se_wc_product').val('').hide();
+    jQuery('#bm_se_link_services').val([]);
     jQuery('#bm_shared_extra_form_title').text('Add Shared Extra');
     jQuery('#bm_shared_extra_form_wrap').slideDown(200);
 });
@@ -13686,6 +13687,19 @@ jQuery(document).on('click', '.bm-se-edit-btn', function(e) {
     } else {
         jQuery('#bm_se_wc_product').val('').hide();
     }
+    // Load linked services for this extra.
+    var geId = row.data('id');
+    jQuery('#bm_se_link_services').val([]);
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_get_services_for_linking',
+        global_extra_id: geId,
+        nonce: bm_ajax_object.nonce
+    }, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        if (res.status && res.service_ids) {
+            jQuery('#bm_se_link_services').val(res.service_ids.map(String));
+        }
+    });
     jQuery('#bm_shared_extra_form_title').text('Edit Shared Extra');
     jQuery('#bm_shared_extra_form_wrap').slideDown(200);
     jQuery('html, body').animate({ scrollTop: jQuery('#bm_shared_extra_form_wrap').offset().top - 50 }, 300);
@@ -13718,6 +13732,10 @@ jQuery(document).on('click', '#bm_se_save_btn', function(e) {
     if (jQuery('#bm_se_wc').is(':checked')) {
         postData.global_extra_wc = 'on';
         postData.global_extra_wc_product = jQuery('#bm_se_wc_product').val() || 0;
+    }
+    var linkedServices = jQuery('#bm_se_link_services').val();
+    if (linkedServices && linkedServices.length > 0) {
+        postData.link_service_ids = linkedServices.join(',');
     }
     var existingId = jQuery('#bm_se_id').val();
     if (existingId) {
