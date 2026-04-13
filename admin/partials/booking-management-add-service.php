@@ -533,6 +533,7 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                 <button type="button" class="tablinks <?php echo esc_attr( $extra_id ) == 0 ? 'active' : ''; ?>" onclick="openSection(event, 'service_details')"><?php esc_html_e( 'Service Details', 'service-booking' ); ?></button>
                 <button type="button" class="tablinks" id="gallery_button" onclick="openSection(event, 'service_gallery')"><?php esc_html_e( 'Gallery', 'service-booking' ); ?></button>
                 <button type="button" class="tablinks <?php echo esc_attr( $extra_id ) != 0 ? 'active' : ''; ?>" id="extra_button" onclick="openSection(event, 'service_extra')"><?php esc_html_e( 'Extra', 'service-booking' ); ?></button>
+                <button type="button" class="tablinks" id="shared_extras_button" onclick="openSection(event, 'shared_extras_section')"><?php esc_html_e( 'Shared Extras', 'service-booking' ); ?></button>
                 <button type="button" class="tablinks" id="price_calendar_button" onclick="openSection(event, 'price_calendar')"><?php esc_html_e( 'Prices', 'service-booking' ); ?></button>
                 <button type="button" class="tablinks" id="stopsales_calendar_button" onclick="openSection(event, 'stopsales_calendar')"><?php esc_html_e( 'Stopsales', 'service-booking' ); ?></button>
                 <button type="button" class="tablinks" id="saleswitch_calendar_button" onclick="openSection(event, 'saleswitch_calendar')"><?php esc_html_e( 'Saleswitch', 'service-booking' ); ?></button>
@@ -1267,11 +1268,13 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
 
                     </table>
 
-                    <!-- Global Extras Linking Section -->
+                </div>
+
+                <!-- Shared Extras Tab -->
+                <div id="shared_extras_section" class="tabcontent">
                     <?php if ( $id > 0 ) : ?>
-                    <hr style="margin: 20px 0;">
-                    <h3 style="margin-bottom: 10px;"><?php esc_html_e( 'Linked Global Extras', 'service-booking' ); ?></h3>
-                    <p class="description"><?php esc_html_e( 'Global extras share capacity across all linked services.', 'service-booking' ); ?></p>
+                    <h3 style="margin-bottom: 10px;"><?php esc_html_e( 'Linked Shared Extras', 'service-booking' ); ?></h3>
+                    <p class="description"><?php esc_html_e( 'Shared extras have a pooled capacity across all linked services.', 'service-booking' ); ?></p>
 
                     <?php if ( ! empty( $linked_new_globals ) ) : ?>
                     <table class="wp-list-table widefat striped" style="margin-top: 10px; margin-bottom: 15px;">
@@ -1279,18 +1282,43 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                             <tr>
                                 <th><?php esc_html_e( 'Name', 'service-booking' ); ?></th>
                                 <th><?php esc_html_e( 'Price', 'service-booking' ); ?></th>
-                                <th><?php esc_html_e( 'Capacity', 'service-booking' ); ?></th>
+                                <th><?php esc_html_e( 'Capacity (Shared Pool)', 'service-booking' ); ?></th>
+                                <th><?php esc_html_e( 'Services Using', 'service-booking' ); ?></th>
                                 <th><?php esc_html_e( 'Action', 'service-booking' ); ?></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ( $linked_new_globals as $lng ) : ?>
-                            <tr id="bm-linked-ge-<?php echo esc_attr( $lng->global_extra_id ); ?>">
+                            <?php
+                            // Batch-fetch service counts for linked globals.
+                            $linked_ge_ids_for_count = array();
+                            foreach ( $linked_new_globals as $lng ) {
+                                $linked_ge_ids_for_count[] = (int) $lng->global_extra_id;
+                            }
+                            $svc_for_linked = ! empty( $linked_ge_ids_for_count )
+                                ? $dbhandler->batch_get_services_for_global_extras( $linked_ge_ids_for_count )
+                                : array();
+                            ?>
+                            <?php foreach ( $linked_new_globals as $lng ) :
+                                $lng_ge_id   = (int) $lng->global_extra_id;
+                                $linked_list = isset( $svc_for_linked[ $lng_ge_id ] ) ? $svc_for_linked[ $lng_ge_id ] : array();
+                                $svc_count   = count( $linked_list );
+                                $svc_names   = array();
+                                foreach ( $linked_list as $ls ) {
+                                    $svc_names[] = esc_html( $ls->service_name );
+                                }
+                                $svc_tooltip = ! empty( $svc_names ) ? implode( ', ', $svc_names ) : '';
+                            ?>
+                            <tr id="bm-linked-ge-<?php echo esc_attr( $lng_ge_id ); ?>">
                                 <td><?php echo esc_html( $lng->extra_name ); ?></td>
                                 <td><?php echo esc_html( $lng->extra_price ); ?></td>
                                 <td><?php echo esc_html( $lng->extra_max_cap ); ?></td>
                                 <td>
-                                    <button type="button" class="button bm-unlink-global-extra" data-service-id="<?php echo esc_attr( $id ); ?>" data-global-extra-id="<?php echo esc_attr( $lng->global_extra_id ); ?>" title="<?php esc_attr_e( 'Unlink', 'service-booking' ); ?>"><i class="fa fa-unlink" aria-hidden="true" style="color:red;"></i> <?php esc_html_e( 'Unlink', 'service-booking' ); ?></button>
+                                    <span class="bm-shared-badge" title="<?php echo esc_attr( $svc_tooltip ); ?>" style="display:inline-block;background:#f59e0b;color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;cursor:help;">
+                                        <span class="dashicons dashicons-share" style="font-size:13px;width:13px;height:13px;vertical-align:middle;margin-right:2px;"></span><?php echo esc_html( $svc_count ); ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <button type="button" class="button bm-unlink-global-extra" data-service-id="<?php echo esc_attr( $id ); ?>" data-global-extra-id="<?php echo esc_attr( $lng_ge_id ); ?>" title="<?php esc_attr_e( 'Unlink', 'service-booking' ); ?>"><i class="fa fa-unlink" aria-hidden="true" style="color:red;"></i> <?php esc_html_e( 'Unlink', 'service-booking' ); ?></button>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -1298,8 +1326,9 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                     </table>
                     <?php endif; ?>
 
-                    <div style="margin-top: 10px;">
-                        <label for="bm_link_global_extra_select"><?php esc_html_e( 'Link Existing Global Extra:', 'service-booking' ); ?></label>
+                    <!-- Link existing global extra -->
+                    <div style="margin-top: 15px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
+                        <h4 style="margin-top:0;"><?php esc_html_e( 'Link Existing Shared Extra', 'service-booking' ); ?></h4>
                         <select id="bm_link_global_extra_select" style="min-width: 200px;">
                             <option value=""><?php esc_html_e( '— Select —', 'service-booking' ); ?></option>
                             <?php
@@ -1315,8 +1344,34 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                         </select>
                         <button type="button" id="bm_link_global_extra_btn" class="button button-primary" data-service-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Link', 'service-booking' ); ?></button>
                     </div>
-                    <?php endif; ?>
 
+                    <!-- Create new shared extra and auto-link -->
+                    <div style="margin-top: 15px; padding: 15px; background: #f0f6ff; border: 1px solid #c3dafe; border-radius: 4px;">
+                        <h4 style="margin-top:0;"><?php esc_html_e( 'Create New Shared Extra & Auto-Link', 'service-booking' ); ?></h4>
+                        <table class="form-table" role="presentation">
+                            <tr>
+                                <th scope="row"><label for="bm_new_se_name"><?php esc_html_e( 'Name', 'service-booking' ); ?> <span style="color:red;">*</span></label></th>
+                                <td><input type="text" id="bm_new_se_name" class="regular-text"></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="bm_new_se_price"><?php esc_html_e( 'Price', 'service-booking' ); ?></label></th>
+                                <td><input type="number" id="bm_new_se_price" class="regular-text" step="0.01" min="0" value="0"></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="bm_new_se_max_cap"><?php esc_html_e( 'Max Capacity', 'service-booking' ); ?></label></th>
+                                <td><input type="number" id="bm_new_se_max_cap" class="regular-text" step="1" min="1" value="1"></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><label for="bm_new_se_desc"><?php esc_html_e( 'Description', 'service-booking' ); ?></label></th>
+                                <td><textarea id="bm_new_se_desc" class="regular-text" rows="2"></textarea></td>
+                            </tr>
+                        </table>
+                        <button type="button" id="bm_create_and_link_se_btn" class="button button-primary" data-service-id="<?php echo esc_attr( $id ); ?>"><?php esc_html_e( 'Create & Link', 'service-booking' ); ?></button>
+                    </div>
+
+                    <?php else : ?>
+                    <p class="description" style="padding:20px;"><?php esc_html_e( 'Please save the service first before linking shared extras.', 'service-booking' ); ?></p>
+                    <?php endif; ?>
                 </div>
 
                 <input type="hidden" id="has_variable_price_module" value="0">
