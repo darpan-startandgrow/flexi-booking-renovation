@@ -13851,8 +13851,9 @@ jQuery(document).on('click', '.bm-se-manage-links', function(e) {
             html += '<tr style="border-bottom:1px solid #eee;"><th style="text-align:left;padding:6px;">Service</th><th style="text-align:center;padding:6px;width:100px;">Action</th></tr>';
             for (var i = 0; i < res.services.length; i++) {
                 var svc = res.services[i];
+                var safeName = String(svc.name).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
                 html += '<tr style="border-bottom:1px solid #f0f0f0;" data-sid="' + svc.id + '">';
-                html += '<td style="padding:6px;">' + jQuery('<span>').text(svc.name).html() + '</td>';
+                html += '<td style="padding:6px;">' + safeName + '</td>';
                 html += '<td style="text-align:center;padding:6px;">';
                 html += '<button type="button" class="button bm-se-link-toggle" data-sid="' + svc.id + '" data-geid="' + geId + '" style="min-width:70px;">Link</button>';
                 html += '</td></tr>';

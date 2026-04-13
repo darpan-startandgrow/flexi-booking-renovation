@@ -12267,6 +12267,12 @@ class BM_Request {
 											}
 										} //end foreach
 
+										if ( $capacity_exceeded ) {
+											// One or more extras could not be booked due to capacity.
+											// Already-inserted extras (before the break) are valid.
+											do_action( 'bm_extras_capacity_exceeded', $booking_id, $extra_service_ids, $date );
+										}
+
 										do_action( 'bm_after_extra_booking', $booking_id, $extra_service_ids, $extra_slots_booked, $date );
 									} //end if
 								} //end if

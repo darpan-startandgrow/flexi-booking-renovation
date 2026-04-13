@@ -1789,11 +1789,11 @@ class Booking_Management_Admin {
 		$id        = filter_input( INPUT_POST, 'id', FILTER_VALIDATE_INT );
 
 		if ( ! empty( $id ) && $id > 0 ) {
-			$today      = wp_date( 'Y-m-d' );
-			$peak_usage          = $dbhandler->get_global_extra_peak_usage( $id, $today );
+			$today                 = wp_date( 'Y-m-d' );
+			$peak_usage            = $dbhandler->get_global_extra_peak_usage( $id, $today );
 			$total_booking_records = $dbhandler->get_global_extra_total_bookings( $id );
-			$data['status']         = true;
-			$data['peak_usage']     = $peak_usage;
+			$data['status']        = true;
+			$data['peak_usage']    = $peak_usage;
 			$data['total_bookings'] = $total_booking_records;
 		}
 

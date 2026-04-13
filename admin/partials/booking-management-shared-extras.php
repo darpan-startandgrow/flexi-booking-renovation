@@ -262,7 +262,7 @@ if ( ! empty( $all_services ) ) {
                     </span>
                 </td>
                 <td style="text-align:center;"><?php echo $ge->is_visible_frontend ? '<span style="color:green;">&#10003;</span>' : '<span style="color:#999;">&#10007;</span>'; ?></td>
-                <td style="text-align:center;"><?php echo esc_html( ! empty( $ge->created_at ) ? wp_date( get_option( 'date_format' ), strtotime( $ge->created_at ) ) : '&mdash;' ); ?></td>
+                <td style="text-align:center;"><?php echo ! empty( $ge->created_at ) ? esc_html( wp_date( get_option( 'date_format' ), strtotime( $ge->created_at ) ) ) : '—'; ?></td>
                 <td style="text-align:center;">
                     <button type="button" class="button bm-se-edit-btn" title="<?php esc_attr_e( 'Edit', 'service-booking' ); ?>" data-id="<?php echo esc_attr( $ge_id ); ?>"><i class="fa fa-edit" aria-hidden="true"></i></button>
                     <button type="button" class="button bm-se-delete-btn" title="<?php esc_attr_e( 'Delete', 'service-booking' ); ?>" data-id="<?php echo esc_attr( $ge_id ); ?>"><i class="fa fa-trash" aria-hidden="true" style="color:red;"></i></button>
