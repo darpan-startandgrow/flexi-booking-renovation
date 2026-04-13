@@ -14097,3 +14097,100 @@ jQuery(document).on('click', '.bm-se-link-toggle', function(e) {
     });
 });
 
+// ============================================================
+// Generic Bulk Actions for Listing Tables
+// ============================================================
+
+// Select All checkbox for generic bulk tables.
+jQuery(document).on('change', '.bm-bulk-check-all', function() {
+    var tableId = jQuery(this).data('table');
+    jQuery('.' + tableId + '-row-check').prop('checked', jQuery(this).is(':checked'));
+    bm_bulk_update_state(tableId);
+});
+
+// Individual row checkbox for generic bulk tables.
+jQuery(document).on('change', '.bm-bulk-row-check', function() {
+    var tableId = jQuery(this).data('table');
+    var total = jQuery('.' + tableId + '-row-check').length;
+    var checked = jQuery('.' + tableId + '-row-check:checked').length;
+    jQuery('.bm-bulk-check-all[data-table="' + tableId + '"]').prop('checked', total === checked && total > 0);
+    bm_bulk_update_state(tableId);
+});
+
+// Bulk action dropdown change for generic bulk tables.
+jQuery(document).on('change', '.bm-bulk-action-select', function() {
+    var tableId = jQuery(this).data('table');
+    var action = jQuery(this).val();
+    var bar = jQuery(this).closest('.bm-bulk-bar');
+    bar.find('.bm-bulk-visibility-wrap').toggle(action === 'bulk_toggle_visibility');
+    bar.find('.bm-bulk-status-wrap').toggle(action === 'bulk_toggle_status');
+    bm_bulk_update_state(tableId);
+});
+
+// Apply bulk action for generic bulk tables.
+jQuery(document).on('click', '.bm-bulk-apply', function(e) {
+    e.preventDefault();
+    var tableId = jQuery(this).data('table');
+    var bar = jQuery(this).closest('.bm-bulk-bar');
+    var action = bar.find('.bm-bulk-action-select').val();
+    if (!action) {
+        alert('Please select a bulk action.');
+        return;
+    }
+    var ids = [];
+    jQuery('.' + tableId + '-row-check:checked').each(function() {
+        ids.push(jQuery(this).val());
+    });
+    if (ids.length === 0) {
+        alert('No items selected.');
+        return;
+    }
+
+    var confirmMsg = 'Are you sure you want to apply this bulk action to ' + ids.length + ' item(s)?';
+    if (action === 'bulk_delete') {
+        confirmMsg = 'Are you sure you want to delete ' + ids.length + ' item(s)? This cannot be undone.';
+    }
+    if (!confirm(confirmMsg)) return;
+
+    var postData = {
+        action: 'bm_bulk_listing_action',
+        table_type: tableId,
+        bulk_action: action,
+        ids: ids.join(','),
+        nonce: bm_ajax_object.nonce
+    };
+
+    if (action === 'bulk_toggle_visibility') {
+        postData.visibility = bar.find('.bm-bulk-visibility-val').val();
+    }
+    if (action === 'bulk_toggle_status') {
+        postData.status_val = bar.find('.bm-bulk-status-val').val();
+    }
+
+    var btn = jQuery(this);
+    btn.prop('disabled', true).text('Processing...');
+    jQuery.post(bm_ajax_object.ajax_url, postData, function(response) {
+        var res = typeof response === 'string' ? JSON.parse(response) : response;
+        btn.prop('disabled', false).text('Apply');
+        if (res.status) {
+            alert(res.message);
+            location.reload();
+        } else {
+            alert('Bulk action failed: ' + (res.message || 'Unknown error'));
+        }
+    });
+});
+
+// Helper: update bulk action button state and selected count for generic tables.
+function bm_bulk_update_state(tableId) {
+    var checked = jQuery('.' + tableId + '-row-check:checked').length;
+    var bar = jQuery('.bm-bulk-bar[data-table="' + tableId + '"]');
+    var action = bar.find('.bm-bulk-action-select').val();
+    bar.find('.bm-bulk-apply').prop('disabled', checked === 0 || !action);
+    if (checked > 0) {
+        bar.find('.bm-bulk-count').text(checked + ' item(s) selected');
+    } else {
+        bar.find('.bm-bulk-count').text('');
+    }
+}
+

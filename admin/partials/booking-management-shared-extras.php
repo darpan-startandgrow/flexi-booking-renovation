@@ -1,9 +1,17 @@
 <?php
 $dbhandler   = new BM_DBhandler();
 $bmrequests  = new BM_Request();
+$pagenum     = filter_input( INPUT_GET, 'pagenum' );
+$pagenum     = isset( $pagenum ) ? absint( $pagenum ) : 1;
+$limit       = ! empty( $dbhandler->get_global_option_value( 'bm_shared_extras_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_shared_extras_per_page' ) : 10;
+$offset      = ( ( $pagenum - 1 ) * $limit );
+$idx_start   = ( 1 + $offset );
+$total       = $dbhandler->bm_count( 'GLOBALEXTRA' );
+$num_of_pages = ceil( $total / $limit );
+$pagination  = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequests->bm_get_page_url(), 'list' );
 
-// Fetch all global extras.
-$global_extras = $dbhandler->get_all_result( 'GLOBALEXTRA', '*', 1, 'results' );
+// Fetch paginated global extras.
+$global_extras = $dbhandler->get_all_result( 'GLOBALEXTRA', '*', 1, 'results', $offset, $limit, 'id', 'DESC' );
 
 // Fetch all services for linking.
 $all_services = $dbhandler->get_all_result( 'SERVICE', '*', 1, 'results' );
@@ -236,7 +244,7 @@ if ( ! empty( $all_services ) ) {
         </thead>
         <tbody>
             <?php
-            $idx = 1;
+            $idx = $idx_start;
             foreach ( $global_extras as $ge ) :
                 $ge_id        = (int) $ge->id;
                 $linked_svcs  = isset( $services_for_globals[ $ge_id ] ) ? $services_for_globals[ $ge_id ] : array();
@@ -287,6 +295,7 @@ if ( ! empty( $all_services ) ) {
             ?>
         </tbody>
     </table>
+    <div class="shared_extras_pagination"><?php echo wp_kses_post( $pagination ?? '' ); ?></div>
     <?php else : ?>
         <p style="padding:20px;text-align:center;color:#666;"><?php esc_html_e( 'No shared extras found. Click "Add Shared Extra" to create one.', 'service-booking' ); ?></p>
     <?php endif; ?>

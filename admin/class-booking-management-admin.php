@@ -1972,6 +1972,123 @@ class Booking_Management_Admin {
 
 
 	/**
+	 * Generic bulk actions for listing tables.
+	 *
+	 * Supports: bulk_delete, bulk_toggle_visibility, bulk_toggle_status.
+	 * Accepts a table_type param to determine which DB table/column to operate on.
+	 */
+	public function bm_bulk_listing_action() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) || ! current_user_can( 'manage_options' ) ) {
+			die( esc_html__( 'Failed security check', 'service-booking' ) );
+		}
+
+		$dbhandler  = new BM_DBhandler();
+		$bmrequests = new BM_Request();
+		$data       = array( 'status' => false, 'message' => '' );
+
+		$table_type  = isset( $_POST['table_type'] ) ? sanitize_text_field( wp_unslash( $_POST['table_type'] ) ) : '';
+		$action_type = isset( $_POST['bulk_action'] ) ? sanitize_text_field( wp_unslash( $_POST['bulk_action'] ) ) : '';
+		$ids_raw     = isset( $_POST['ids'] ) ? sanitize_text_field( wp_unslash( $_POST['ids'] ) ) : '';
+
+		if ( empty( $table_type ) || empty( $action_type ) || empty( $ids_raw ) ) {
+			$data['message'] = esc_html__( 'No action, table type, or items selected.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
+		$ids = array_filter( array_map( 'absint', explode( ',', $ids_raw ) ) );
+		if ( empty( $ids ) ) {
+			$data['message'] = esc_html__( 'Invalid IDs provided.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
+		// Map table_type to DB identifier and columns.
+		$table_config = array(
+			'service'        => array( 'identifier' => 'SERVICE', 'visibility_col' => 'is_service_front' ),
+			'category'       => array( 'identifier' => 'CATEGORY', 'visibility_col' => 'cat_in_front' ),
+			'customer'       => array( 'identifier' => 'CUSTOMERS', 'status_col' => 'is_active' ),
+			'email_template' => array( 'identifier' => 'EMAIL_TMPL', 'status_col' => 'status' ),
+			'order'          => array( 'identifier' => 'BOOKING' ),
+			'coupon'         => array( 'identifier' => 'COUPON' ),
+			'price_module'   => array( 'identifier' => 'EXTERNAL_SERVICE_PRICE_MODULE' ),
+		);
+
+		if ( ! isset( $table_config[ $table_type ] ) ) {
+			$data['message'] = esc_html__( 'Invalid table type.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+
+		$config    = $table_config[ $table_type ];
+		$db_id     = $config['identifier'];
+		$processed = 0;
+
+		switch ( $action_type ) {
+			case 'bulk_delete':
+				foreach ( $ids as $item_id ) {
+					$dbhandler->remove_row( $db_id, 'id', $item_id, '%d' );
+					$processed++;
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of items deleted */
+					esc_html__( '%d item(s) deleted.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			case 'bulk_toggle_visibility':
+				if ( ! isset( $config['visibility_col'] ) ) {
+					$data['message'] = esc_html__( 'Visibility toggle not supported for this table.', 'service-booking' );
+					break;
+				}
+				$visibility = isset( $_POST['visibility'] ) ? absint( $_POST['visibility'] ) : 1;
+				foreach ( $ids as $item_id ) {
+					$dbhandler->update_row( $db_id, 'id', $item_id, array(
+						$config['visibility_col'] => $visibility,
+					) );
+					$processed++;
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of items updated */
+					esc_html__( '%d item(s) visibility updated.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			case 'bulk_toggle_status':
+				if ( ! isset( $config['status_col'] ) ) {
+					$data['message'] = esc_html__( 'Status toggle not supported for this table.', 'service-booking' );
+					break;
+				}
+				$status = isset( $_POST['status_val'] ) ? absint( $_POST['status_val'] ) : 1;
+				foreach ( $ids as $item_id ) {
+					$dbhandler->update_row( $db_id, 'id', $item_id, array(
+						$config['status_col'] => $status,
+					) );
+					$processed++;
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of items updated */
+					esc_html__( '%d item(s) status updated.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			default:
+				$data['message'] = esc_html__( 'Unknown bulk action.', 'service-booking' );
+		}
+
+		echo wp_json_encode( $data );
+		die;
+	}//end bm_bulk_listing_action()
+
+
+	/**
 	 * Get local extras for a given service (AJAX).
 	 *
 	 * Returns the list of local extras (is_global=0) for a specific service.

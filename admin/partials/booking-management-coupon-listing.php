@@ -21,10 +21,20 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
             </span>
         </div>
         <?php if ( isset( $coupons ) && !empty( $coupons ) ) { ?>
+            <!-- Bulk Actions Bar -->
+            <div class="bm-bulk-bar" data-table="coupon" style="margin-bottom:10px;padding:8px 12px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <select class="bm-bulk-action-select" data-table="coupon" style="min-width:180px;">
+                    <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
+                    <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+                </select>
+                <button type="button" class="button button-primary bm-bulk-apply" data-table="coupon" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
+                <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+            </div>
             <input type="hidden" name="pagenum" value="<?php echo esc_attr( $pagenum ); ?>" />
             <table class="wp-list-table widefat striped">
                 <thead>
                     <tr>
+                        <th style="text-align:center;width:30px;"><input type="checkbox" class="bm-bulk-check-all" data-table="coupon" title="<?php esc_attr_e( 'Select All', 'service-booking' ); ?>"></th>
                         <th width="10%" style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Serial No', 'service-booking' ); ?></th>
                         <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Coupon Code', 'service-booking' ); ?></th>
                         <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Expiry Date', 'service-booking' ); ?></th>
@@ -41,6 +51,7 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
 						?>
                         <tr class="single_coupon_record">
                             <form role="form" method="post">
+                                <td style="text-align:center;"><input type="checkbox" class="bm-bulk-row-check coupon-row-check" data-table="coupon" value="<?php echo esc_attr( $coupon->id ); ?>"></td>
                                 <td style="text-align: center;"><?php echo esc_attr( $i ); ?></td>
                                 <td style="text-align: center;"><?php echo esc_attr( $coupon->coupon_code ); ?></td>
                                 <td style="text-align: center;"><?php echo !empty( $coupon->expiry_date ) ? esc_attr( $coupon->expiry_date ) : '-'; ?></td>
