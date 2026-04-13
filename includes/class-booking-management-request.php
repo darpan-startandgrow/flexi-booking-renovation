@@ -4644,6 +4644,7 @@ class BM_Request {
 			$type                     = isset( $data['type'] ) ? $data['type'] : '';
 			$extra_svc_ids            = isset( $data['extra_svc_ids'] ) ? $data['extra_svc_ids'] : '';
 			$total_extra_slots_booked = isset( $data['no_of_persons'] ) ? $data['no_of_persons'] : '';
+			$extra_types_booked       = isset( $data['extra_types'] ) ? $data['extra_types'] : '';
 			$match                    = preg_match_all( '/\<span class\="single_slot_timings"\>(.*?)\<\/span\>/', $time, $slot_details );
 			$show_edit_button         = $dbhandler->get_global_option_value( 'bm_show_frontend_edit_button_in_booking_form', 0 ) == 0 ? 'hide_div' : '';
 			$booking_currency         = $this->bm_get_currency_symbol( $dbhandler->get_global_option_value( 'bm_booking_currency', 'EUR' ) );
@@ -4722,6 +4723,7 @@ class BM_Request {
 				$resp .= '<input type="hidden" id="total_service_booking" name="total_service_booking" value="' . $total_service_booking . '">';
 				$resp .= '<input type="hidden" id="extra_svc_booked" name="extra_svc_booked" value="' . $extra_svc_ids . '">';
 				$resp .= '<input type="hidden" id="total_extra_slots_booked" name="total_extra_slots_booked" value="' . $total_extra_slots_booked . '">';
+				$resp .= '<input type="hidden" id="extra_types_booked" name="extra_types_booked" value="' . $extra_types_booked . '">';
 
 				// Calculate extra service price and total cost
 				if ( isset( $extra_svc_ids ) && ! empty( $extra_svc_ids ) && isset( $total_extra_slots_booked ) && ! empty( $total_extra_slots_booked ) ) {
@@ -4729,13 +4731,26 @@ class BM_Request {
 					$extra_price_text  = '';
 
 					$total_slots_booked = explode( ',', $total_extra_slots_booked );
+					$extra_types_arr    = ! empty( $extra_types_booked ) ? explode( ',', $extra_types_booked ) : array();
+					$extra_ids_arr      = explode( ',', $extra_svc_ids );
 
-					$additional  = "id in($extra_svc_ids)";
-					$extra_price = $dbhandler->get_all_result( 'EXTRA', 'extra_price', 1, 'results', 0, false, null, false, $additional );
-					$extra_name  = $dbhandler->get_all_result( 'EXTRA', 'extra_name', 1, 'results', 0, false, null, false, $additional );
-					$extra_price = array_column( $extra_price, 'extra_price' );
-					$extra_name  = array_column( $extra_name, 'extra_name' );
-					$i           = 1;
+					// Build per-extra price and name arrays that handle both local and global.
+					$extra_price = array();
+					$extra_name  = array();
+					foreach ( $extra_ids_arr as $eidx => $eid ) {
+						$etype = isset( $extra_types_arr[ $eidx ] ) ? $extra_types_arr[ $eidx ] : 'local';
+						if ( $etype === 'global' ) {
+							$ge_row = $dbhandler->get_row( 'GLOBALEXTRA', $eid, 'id' );
+							$extra_price[] = ! empty( $ge_row ) ? $ge_row->price : 0;
+							$extra_name[]  = ! empty( $ge_row ) ? $ge_row->name : '';
+						} else {
+							$le_row = $dbhandler->get_row( 'EXTRA', $eid, 'id' );
+							$extra_price[] = ! empty( $le_row ) ? $le_row->extra_price : 0;
+							$extra_name[]  = ! empty( $le_row ) ? $le_row->extra_name : '';
+						}
+					}
+
+					$i = 1;
 
 					if ( ! empty( $extra_price ) && ! empty( $total_slots_booked ) ) {
 						foreach ( $extra_price as $key => $price ) {
@@ -4861,6 +4876,7 @@ class BM_Request {
 			$date                     = isset( $data['date'] ) ? $data['date'] : '';
 			$extra_svc_ids            = isset( $data['extra_svc_ids'] ) ? $data['extra_svc_ids'] : '';
 			$total_extra_slots_booked = isset( $data['no_of_persons'] ) ? $data['no_of_persons'] : '';
+			$extra_types_booked       = isset( $data['extra_types'] ) ? $data['extra_types'] : '';
 			$match                    = preg_match_all( '/\<span class\="single_slot_timings"\>(.*?)\<\/span\>/', $time, $slot_details );
 			$booking_currency         = $this->bm_get_currency_symbol( $dbhandler->get_global_option_value( 'bm_booking_currency', 'EUR' ) );
 			$total_extra_price        = 0;
@@ -4883,6 +4899,7 @@ class BM_Request {
 				$booking_fields['total_service_booking']    = $total_service_booking;
 				$booking_fields['extra_svc_booked']         = $extra_svc_ids;
 				$booking_fields['total_extra_slots_booked'] = $total_extra_slots_booked;
+				$booking_fields['extra_types_booked']       = $extra_types_booked;
 				$booking_fields['base_svc_price']           = $base_svc_price;
 				$booking_fields['service_cost']             = $booking_price;
 				$booking_fields['svc_price_module_id']      = $svc_price_module_id;
@@ -4891,11 +4908,23 @@ class BM_Request {
 				if ( isset( $extra_svc_ids ) && ! empty( $extra_svc_ids ) && isset( $total_extra_slots_booked ) && ! empty( $total_extra_slots_booked ) ) {
 					$total_slots_booked = explode( ',', $total_extra_slots_booked );
 					$extra_total        = array();
-					$additional         = "id in($extra_svc_ids)";
+					$extra_types_arr    = ! empty( $extra_types_booked ) ? explode( ',', $extra_types_booked ) : array();
+					$extra_ids_arr      = explode( ',', $extra_svc_ids );
 
-					$extra_price = $dbhandler->get_all_result( 'EXTRA', 'extra_price', 1, 'results', 0, false, null, false, $additional );
-					$extra_price = array_column( $extra_price, 'extra_price' );
-					$i           = 1;
+					// Build per-extra price array that handles both local and global.
+					$extra_price = array();
+					foreach ( $extra_ids_arr as $eidx => $eid ) {
+						$etype = isset( $extra_types_arr[ $eidx ] ) ? $extra_types_arr[ $eidx ] : 'local';
+						if ( $etype === 'global' ) {
+							$ge_row = $dbhandler->get_row( 'GLOBALEXTRA', $eid, 'id' );
+							$extra_price[] = ! empty( $ge_row ) ? $ge_row->price : 0;
+						} else {
+							$le_row = $dbhandler->get_row( 'EXTRA', $eid, 'id' );
+							$extra_price[] = ! empty( $le_row ) ? $le_row->extra_price : 0;
+						}
+					}
+
+					$i = 1;
 
 					if ( ! empty( $extra_price ) && ! empty( $total_slots_booked ) ) {
 						foreach ( $extra_price as $key => $price ) {
@@ -4938,6 +4967,7 @@ class BM_Request {
 			$date                     = isset( $data['booking_date'] ) ? $data['booking_date'] : '';
 			$extra_svc_ids            = isset( $data['extra_svc_booked'] ) ? maybe_unserialize( $data['extra_svc_booked'] ) : '';
 			$total_extra_slots_booked = isset( $data['total_extra_slots_booked'] ) ? maybe_unserialize( $data['total_extra_slots_booked'] ) : '';
+			$extra_types_booked       = isset( $data['extra_types_booked'] ) ? $data['extra_types_booked'] : '';
 			$booking_currency         = $this->bm_get_currency_symbol( $dbhandler->get_global_option_value( 'bm_booking_currency', 'EUR' ) );
 			$total_extra_price        = 0;
 
@@ -4959,20 +4989,33 @@ class BM_Request {
 				$booking_fields['total_service_booking']    = $total_service_booking;
 				$booking_fields['extra_svc_booked']         = ! empty( $extra_svc_ids ) && is_array( $extra_svc_ids ) ? implode( ',', $extra_svc_ids ) : $extra_svc_ids;
 				$booking_fields['total_extra_slots_booked'] = ! empty( $total_extra_slots_booked ) && is_array( $total_extra_slots_booked ) ? implode( ',', $total_extra_slots_booked ) : $total_extra_slots_booked;
+				$booking_fields['extra_types_booked']       = $extra_types_booked;
 				$booking_fields['base_svc_price']           = $base_svc_price;
 				$booking_fields['service_cost']             = $booking_price;
 				$booking_fields['svc_price_module_id']      = $svc_price_module_id;
 
 				// Calculate extra service price and total cost
 				if ( isset( $extra_svc_ids ) && ! empty( $extra_svc_ids ) && isset( $total_extra_slots_booked ) && ! empty( $total_extra_slots_booked ) ) {
-					$extra_svc_ids      = is_array( $extra_svc_ids ) ? implode( ',', $extra_svc_ids ) : $extra_svc_ids;
+					$extra_svc_ids_str  = is_array( $extra_svc_ids ) ? implode( ',', $extra_svc_ids ) : $extra_svc_ids;
 					$total_slots_booked = $total_extra_slots_booked;
 					$extra_total        = array();
-					$additional         = "id in($extra_svc_ids)";
+					$extra_types_arr    = ! empty( $extra_types_booked ) ? explode( ',', $extra_types_booked ) : array();
+					$extra_ids_arr      = explode( ',', $extra_svc_ids_str );
 
-					$extra_price = $dbhandler->get_all_result( 'EXTRA', 'extra_price', 1, 'results', 0, false, null, false, $additional );
-					$extra_price = array_column( $extra_price, 'extra_price' );
-					$i           = 1;
+					// Build per-extra price array handling both local and global.
+					$extra_price = array();
+					foreach ( $extra_ids_arr as $eidx => $eid ) {
+						$etype = isset( $extra_types_arr[ $eidx ] ) ? $extra_types_arr[ $eidx ] : 'local';
+						if ( $etype === 'global' ) {
+							$ge_row = $dbhandler->get_row( 'GLOBALEXTRA', $eid, 'id' );
+							$extra_price[] = ! empty( $ge_row ) ? $ge_row->price : 0;
+						} else {
+							$le_row = $dbhandler->get_row( 'EXTRA', $eid, 'id' );
+							$extra_price[] = ! empty( $le_row ) ? $le_row->extra_price : 0;
+						}
+					}
+
+					$i = 1;
 
 					if ( ! empty( $extra_price ) && ! empty( $total_slots_booked ) ) {
 						foreach ( $extra_price as $key => $price ) {
@@ -10738,6 +10781,7 @@ class BM_Request {
 		$resp .= '<input type="hidden" id="booking_date2">';
 		$resp .= '<input type="hidden" id="selected_slot">';
 		$resp .= '<input type="hidden" id="selected_extra_service_ids">';
+		$resp .= '<input type="hidden" id="selected_extra_types">';
 		$resp .= '<input type="hidden" id="total_service_booking">';
 		$resp .= '<input type="hidden" id="no_of_persons">';
 		$resp .= '<input type="hidden" id="service_id_for_checkout">';
@@ -10844,6 +10888,7 @@ class BM_Request {
 		$resp .= '<input type="hidden" id="booking_date2">';
 		$resp .= '<input type="hidden" id="selected_slot">';
 		$resp .= '<input type="hidden" id="selected_extra_service_ids">';
+		$resp .= '<input type="hidden" id="selected_extra_types">';
 		$resp .= '<input type="hidden" id="total_service_booking">';
 		$resp .= '<input type="hidden" id="no_of_persons">';
 		$resp .= '<input type="hidden" id="service_id_for_checkout">';
@@ -10919,6 +10964,7 @@ class BM_Request {
 		$resp .= '<input type="hidden" id="current_service_id">';
 		$resp .= '<input type="hidden" id="selected_slot">';
 		$resp .= '<input type="hidden" id="selected_extra_service_ids">';
+		$resp .= '<input type="hidden" id="selected_extra_types">';
 		$resp .= '<input type="hidden" id="total_service_booking">';
 		$resp .= '<input type="hidden" id="no_of_persons">';
 		$resp .= '<input type="hidden" id="service_id_for_checkout">';
@@ -17391,7 +17437,7 @@ class BM_Request {
 						continue;
 					}
 				}
-				$extra->extra_type = 'local'; // Old globals behave like locals for capacity.
+				$extra->extra_type = 'local'; // Legacy global extras (is_global=1 in service_extras table) use per-service capacity logic, not pooled. Only new GLOBALEXTRA entries use pooled capacity.
 				$unified[]         = $extra;
 			}
 		}

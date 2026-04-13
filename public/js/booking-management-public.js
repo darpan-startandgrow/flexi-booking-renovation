@@ -722,6 +722,7 @@ jQuery(document).on('click', '.get_checkout_form', function (e) {
 		'id': service_id,
 		'total_service_booking': total_service_booking,
 		'extra_svc_ids': jQuery('#selected_extra_service_ids').val(),
+		'extra_types': jQuery('#selected_extra_types').val(),
 		'no_of_persons': no_of_persons.length != 0 ? no_of_persons.join(',') : jQuery('#no_of_persons').val(),
 		'checkout_option': jQuery('#flexi_checkout_options').length > 0 ? jQuery('#flexi_checkout_options').val() : '',
 		'type': 'home_page',
@@ -787,6 +788,7 @@ jQuery(document).on('click', '.get_svc_by_cat_checkout_form', function (e) {
 		'id': jQuery(this).attr('id') ? jQuery(this).attr('id') : strict_decode(jQuery('#service_id_for_checkout').val()),
 		'total_service_booking': jQuery('#total_service_booking').val(),
 		'extra_svc_ids': jQuery('#selected_extra_service_ids').val(),
+		'extra_types': jQuery('#selected_extra_types').val(),
 		'no_of_persons': no_of_persons.length != 0 ? no_of_persons.join(',') : jQuery('#no_of_persons').val(),
 		'checkout_option': jQuery('#flexi_checkout_options').length > 0 ? jQuery('#flexi_checkout_options').val() : '',
 		'type': 'service_by_category',
@@ -888,10 +890,12 @@ jQuery(document).on('change', '.service_total_booking', function () {
 // Highlight next button on extra service selection
 jQuery(document).on('change', '.listed_extra_service', function () {
 	var ids = [];
+	var extra_types = [];
 	var type = '';
 
 	jQuery(".extra_services_available input:checked").each(function () {
 		ids.push(jQuery(this).attr('id'));
+		extra_types.push(jQuery(this).data('extra-type') || 'local');
 	});
 
 	var $cancelBtn = jQuery(this).parents('div.extra_service_results').find('.cancelbtn');
@@ -954,6 +958,7 @@ jQuery(document).on('change', '.listed_extra_service', function () {
 		$cancelBtn.css('cssText', `background-color: '' !important; color: '' !important;`);
 
 		jQuery('#selected_extra_service_ids').val(ids.join(","));
+		jQuery('#selected_extra_types').val(extra_types.join(","));
 	} else {
 		jQuery(this)
 			.parents('div.extra_service_results')
@@ -982,6 +987,7 @@ jQuery(document).on('change', '.listed_extra_service', function () {
 		$cancelBtn.css('cssText', `background-color: ${frontend_button_background_colur} !important; color: ${frontend_button_text_colur} !important;`);
 
 		jQuery('#selected_extra_service_ids').val('');
+		jQuery('#selected_extra_types').val('');
 	}
 });
 
@@ -1290,6 +1296,7 @@ function getFormData(formId) {
 // Edit slot selection
 jQuery(document).on('click', '.edit_slot_selection', function () {
 	jQuery('#selected_extra_service_ids').val('');
+	jQuery('#selected_extra_types').val('');
 	jQuery(this).parents('.modaloverlay ').removeClass('active-slot');
 	jQuery('#time_slot_modal').addClass('active-slot');
 });
@@ -1299,6 +1306,7 @@ jQuery(document).on('click', '.edit_slot_selection', function () {
 // Edit slot selection
 jQuery(document).on('click', '.edit_svc_by_cat_slot_selection', function () {
 	jQuery('#selected_extra_service_ids').val('');
+	jQuery('#selected_extra_types').val('');
 	jQuery(this).parents('.modaloverlay ').removeClass('active-slot');
 	jQuery('#slot_modal').addClass('active-slot');
 });

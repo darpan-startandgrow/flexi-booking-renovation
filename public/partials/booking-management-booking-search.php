@@ -279,6 +279,7 @@ $svc_btn_txt_colour = $dbhandler->get_global_option_value( 'bm_frontend_book_but
 <input type="hidden" id="selected_slot">
 <input type="hidden" id="current_service_id">
 <input type="hidden" id="selected_extra_service_ids">
+<input type="hidden" id="selected_extra_types">
 <input type="hidden" id="selected_service_id">
 <input type="hidden" id="total_service_booking">
 <input type="hidden" id="no_of_persons">
