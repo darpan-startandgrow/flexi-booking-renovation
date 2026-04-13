@@ -1318,6 +1318,8 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                     <?php endif; ?>
 
                 </div>
+
+                <input type="hidden" id="has_variable_price_module" value="0">
                 <div id="price_calendar" class="tabcontent">
                     <table class="form-table" role="presentation">
                         <tr>
