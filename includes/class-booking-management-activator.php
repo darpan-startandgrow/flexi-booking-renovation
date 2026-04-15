@@ -539,6 +539,7 @@ class Booking_Management_Activator {
 
 		$this->add_extra_type_column_to_extraslotcount();
 		$this->add_extras_indexes();
+		$this->migrate_legacy_global_extras();
 		$this->add_error_column_to_emails();
 		$this->add_error_column_to_failed_transactions();
 		$this->create_default_form_fields();
@@ -1937,6 +1938,84 @@ class Booking_Management_Activator {
 				$wpdb->query( "ALTER TABLE `{$table}` {$idx_def['sql']}" );
 			}
 		}
+	}
+
+	/**
+	 * Migrate legacy service_extras with is_global=1 to the global_extras table.
+	 *
+	 * For each legacy record:
+	 * 1. Inserts into GLOBALEXTRA if not already migrated.
+	 * 2. Links to all services via SERVICEGLOBALEXTRA for the original service_id (if non-zero).
+	 * 3. Removes the legacy record from EXTRA (service_extras).
+	 *
+	 * Idempotent: checks for a migration flag before running.
+	 */
+	private function migrate_legacy_global_extras() {
+		$dbhandler       = new BM_DBhandler();
+		$migration_done  = $dbhandler->get_global_option_value( 'bm_legacy_global_extras_migrated', '0' );
+
+		if ( $migration_done === '1' ) {
+			return;
+		}
+
+		$legacy_globals = $dbhandler->get_all_result( 'EXTRA', '*', array( 'is_global' => 1 ), 'results' );
+
+		if ( ! empty( $legacy_globals ) && is_array( $legacy_globals ) ) {
+			foreach ( $legacy_globals as $legacy ) {
+				// Insert into GLOBALEXTRA.
+				$new_id = $dbhandler->insert_row( 'GLOBALEXTRA', array(
+					'name'                 => isset( $legacy->extra_name ) ? $legacy->extra_name : '',
+					'description'          => isset( $legacy->extra_desc ) ? $legacy->extra_desc : '',
+					'price'                => isset( $legacy->extra_price ) ? $legacy->extra_price : 0,
+					'duration_hours'       => isset( $legacy->extra_duration ) ? $legacy->extra_duration : null,
+					'total_operation_hours' => isset( $legacy->extra_operation ) ? $legacy->extra_operation : null,
+					'max_capacity'         => isset( $legacy->extra_max_cap ) ? $legacy->extra_max_cap : 1,
+					'is_visible_frontend'  => isset( $legacy->is_extra_service_front ) ? $legacy->is_extra_service_front : 1,
+					'link_woocommerce'     => isset( $legacy->is_linked_wc_extrasvc ) ? $legacy->is_linked_wc_extrasvc : 0,
+					'wc_product_id'        => isset( $legacy->svcextra_wc_product ) ? $legacy->svcextra_wc_product : null,
+				) );
+
+				if ( ! empty( $new_id ) ) {
+					// Link to the original service if service_id was set.
+					if ( ! empty( $legacy->service_id ) && (int) $legacy->service_id > 0 ) {
+						$dbhandler->insert_if_not_exists(
+							'SERVICEGLOBALEXTRA',
+							array(
+								'service_id'      => (int) $legacy->service_id,
+								'global_extra_id' => (int) $new_id,
+							),
+							array(
+								'service_id'      => (int) $legacy->service_id,
+								'global_extra_id' => (int) $new_id,
+							)
+						);
+					} else {
+						// Legacy globals with service_id=0 were available for all services.
+						$all_services = $dbhandler->get_all_result( 'SERVICE', 'id', 1, 'results' );
+						if ( ! empty( $all_services ) && is_array( $all_services ) ) {
+							foreach ( $all_services as $svc ) {
+								$dbhandler->insert_if_not_exists(
+									'SERVICEGLOBALEXTRA',
+									array(
+										'service_id'      => (int) $svc->id,
+										'global_extra_id' => (int) $new_id,
+									),
+									array(
+										'service_id'      => (int) $svc->id,
+										'global_extra_id' => (int) $new_id,
+									)
+								);
+							}
+						}
+					}
+
+					// Remove the legacy record from service_extras.
+					$dbhandler->remove_row( 'EXTRA', 'id', (int) $legacy->id, '%d' );
+				}
+			}
+		}
+
+		$dbhandler->update_global_option_value( 'bm_legacy_global_extras_migrated', '1' );
 	}
 
 	public function create_default_form_fields() {
