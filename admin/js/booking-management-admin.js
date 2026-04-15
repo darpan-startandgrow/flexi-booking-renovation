@@ -10395,6 +10395,35 @@ function bm_show_hide_respective_orders($this) {
 		jQuery('.category_search_span').show();
 		bm_fetch_archived_order_as_per_search('save_search');
 	}
+
+	// Refresh bulk action options for the selected order_type.
+	bm_refresh_order_bulk_options($this.value);
+}
+
+/**
+ * Refresh the bulk-action <select> options for the order table
+ * based on the currently selected order_type.
+ */
+function bm_refresh_order_bulk_options(orderType) {
+	var $select = jQuery('.bm-bulk-action-select[data-table="order"]');
+	if (!$select.length) return;
+
+	var defaultLabel = bm_normal_object.bulk_actions_default || '— Bulk Actions —';
+	var html = '<option value="">' + defaultLabel + '</option>';
+
+	if (orderType === 'all-non-failed') {
+		html += '<option value="bulk_delete">' + (bm_normal_object.bulk_delete || 'Delete Selected') + '</option>';
+		html += '<option value="bulk_archive">' + (bm_normal_object.bulk_archive || 'Archive Selected') + '</option>';
+		html += '<option value="bulk_approve">' + (bm_normal_object.bulk_approve || 'Approve Selected') + '</option>';
+		html += '<option value="bulk_cancel">' + (bm_normal_object.bulk_cancel || 'Cancel Selected') + '</option>';
+	} else {
+		// 'failed' and 'archived' both only support delete.
+		html += '<option value="bulk_delete">' + (bm_normal_object.bulk_delete || 'Delete Selected') + '</option>';
+	}
+
+	$select.html(html);
+	// Reset the bulk bar state after refreshing options.
+	bm_bulk_update_state('order');
 }
 
 
@@ -13558,6 +13587,35 @@ jQuery(document).on('click', '#bm_create_and_link_se_btn', function(e) {
 // ============================================================
 // Shared Extras Dashboard CRUD (/shared-extras page)
 // ============================================================
+
+// Initialize multiselect on shared extras service selects.
+jQuery(document).ready(function() {
+    if (jQuery('#bm_se_link_services').length) {
+        jQuery('#bm_se_link_services').multiselect({
+            columns: 1,
+            texts: {
+                placeholder: bm_normal_object.filter_service || 'Select Services',
+                search: bm_normal_object.search_here || 'Search',
+                selectAll: bm_normal_object.select_all || 'Select All'
+            },
+            search: true,
+            selectAll: true
+        });
+    }
+    if (jQuery('#bm_se_bulk_service_select').length) {
+        jQuery('#bm_se_bulk_service_select').multiselect({
+            columns: 1,
+            texts: {
+                placeholder: bm_normal_object.filter_service || 'Select Services',
+                search: bm_normal_object.search_here || 'Search',
+                selectAll: bm_normal_object.select_all || 'Select All'
+            },
+            search: true,
+            selectAll: true
+        });
+    }
+});
+
 jQuery(document).on('click', '#bm_add_shared_extra_btn', function(e) {
     e.preventDefault();
     // Reset form for creation.
@@ -13572,6 +13630,9 @@ jQuery(document).on('click', '#bm_add_shared_extra_btn', function(e) {
     jQuery('#bm_se_wc').prop('checked', false);
     jQuery('#bm_se_wc_product').val('').hide();
     jQuery('#bm_se_link_services').val([]);
+    if (jQuery('#bm_se_link_services').length) {
+        jQuery('#bm_se_link_services').multiselect('reload');
+    }
     jQuery('#bm_shared_extra_form_title').text('Add Shared Extra');
     jQuery('#bm_shared_extra_form_wrap').slideDown(200);
 });
@@ -13635,6 +13696,9 @@ jQuery(document).on('click', '.bm-se-edit-btn', function(e) {
         if (res.status && res.service_ids) {
             jQuery('#bm_se_link_services').val(res.service_ids.map(String));
         }
+        if (jQuery('#bm_se_link_services').length) {
+            jQuery('#bm_se_link_services').multiselect('reload');
+        }
     });
     jQuery('#bm_shared_extra_form_title').text('Edit Shared Extra');
     jQuery('#bm_shared_extra_form_wrap').slideDown(200);
@@ -13647,6 +13711,21 @@ jQuery(document).on('click', '#bm_se_save_btn', function(e) {
     var name = jQuery('#bm_se_name').val().trim();
     if (!name) {
         alert('Shared Extra name is required.');
+        return;
+    }
+    var duration = parseFloat(jQuery('#bm_se_duration').val());
+    if (!duration || duration <= 0) {
+        alert('Duration must be greater than 0.');
+        return;
+    }
+    var operation = parseFloat(jQuery('#bm_se_operation').val());
+    if (!operation || operation <= 0) {
+        alert('Total Operation Hours must be greater than 0.');
+        return;
+    }
+    var maxCap = parseInt(jQuery('#bm_se_max_cap').val(), 10);
+    if (!maxCap || maxCap <= 0) {
+        alert('Max Capacity (Shared Pool) must be greater than 0.');
         return;
     }
     var btn = jQuery(this);

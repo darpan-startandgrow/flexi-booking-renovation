@@ -3,8 +3,9 @@ $dbhandler   = new BM_DBhandler();
 $bmrequests  = new BM_Request();
 $pagenum     = filter_input( INPUT_GET, 'pagenum' );
 $pagenum     = isset( $pagenum ) ? absint( $pagenum ) : 1;
-$limit_opt   = $dbhandler->get_global_option_value( 'bm_shared_extras_per_page' );
-$limit       = ! empty( $limit_opt ) ? (int) $limit_opt : 10;
+$limit_param = filter_input( INPUT_GET, 'limit', FILTER_VALIDATE_INT );
+$limit_param = $limit_param ? min( $limit_param, 100 ) : 0;
+$limit       = $limit_param ? $limit_param : ( ! empty( $dbhandler->get_global_option_value( 'bm_shared_extras_per_page' ) ) ? (int) $dbhandler->get_global_option_value( 'bm_shared_extras_per_page' ) : 10 );
 $offset      = ( ( $pagenum - 1 ) * $limit );
 $idx_start   = ( 1 + $offset );
 $total       = $dbhandler->bm_count( 'GLOBALEXTRA' );
@@ -154,15 +155,15 @@ if ( ! empty( $all_services ) ) {
                 <td><input type="number" id="bm_se_price" class="regular-text" step="0.01" min="0" value="0"></td>
             </tr>
             <tr>
-                <th scope="row"><label for="bm_se_duration"><?php esc_html_e( 'Duration (hours)', 'service-booking' ); ?></label></th>
-                <td><input type="number" id="bm_se_duration" class="regular-text" step="0.01" min="0" value="0"></td>
+                <th scope="row"><label for="bm_se_duration"><?php esc_html_e( 'Duration (hours)', 'service-booking' ); ?> <span style="color:red;">*</span></label></th>
+                <td><input type="number" id="bm_se_duration" class="regular-text" step="0.01" min="0.01" value="0"></td>
             </tr>
             <tr>
-                <th scope="row"><label for="bm_se_operation"><?php esc_html_e( 'Total Operation Hours', 'service-booking' ); ?></label></th>
-                <td><input type="number" id="bm_se_operation" class="regular-text" step="0.01" min="0" value="0"></td>
+                <th scope="row"><label for="bm_se_operation"><?php esc_html_e( 'Total Operation Hours', 'service-booking' ); ?> <span style="color:red;">*</span></label></th>
+                <td><input type="number" id="bm_se_operation" class="regular-text" step="0.01" min="0.01" value="0"></td>
             </tr>
             <tr>
-                <th scope="row"><label for="bm_se_max_cap"><?php esc_html_e( 'Max Capacity (Shared Pool)', 'service-booking' ); ?></label></th>
+                <th scope="row"><label for="bm_se_max_cap"><?php esc_html_e( 'Max Capacity (Shared Pool)', 'service-booking' ); ?> <span style="color:red;">*</span></label></th>
                 <td><input type="number" id="bm_se_max_cap" class="regular-text" step="1" min="1" value="1"></td>
             </tr>
             <tr>
@@ -179,14 +180,14 @@ if ( ! empty( $all_services ) ) {
             <tr>
                 <th scope="row"><label for="bm_se_link_services"><?php esc_html_e( 'Link to Services (optional)', 'service-booking' ); ?></label></th>
                 <td>
-                    <select id="bm_se_link_services" multiple style="min-width:300px;height:auto;max-height:120px;">
+                    <select id="bm_se_link_services" multiple style="min-width:300px;">
                         <?php if ( ! empty( $all_services ) ) : ?>
                             <?php foreach ( $all_services as $svc ) : ?>
                                 <option value="<?php echo esc_attr( $svc->id ); ?>"><?php echo esc_html( $svc->service_name ); ?></option>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </select>
-                    <p class="description"><?php esc_html_e( 'Hold Ctrl/Cmd to select multiple services. The shared extra will be linked to selected services upon saving.', 'service-booking' ); ?></p>
+                    <p class="description"><?php esc_html_e( 'The shared extra will be linked to selected services upon saving.', 'service-booking' ); ?></p>
                 </td>
             </tr>
         </table>
@@ -207,14 +208,13 @@ if ( ! empty( $all_services ) ) {
             <option value="bulk_toggle_visibility"><?php esc_html_e( 'Toggle Visibility', 'service-booking' ); ?></option>
         </select>
         <span id="bm_se_bulk_service_wrap" style="display:none;">
-            <select id="bm_se_bulk_service_select" multiple style="min-width:250px;height:auto;max-height:100px;">
+            <select id="bm_se_bulk_service_select" multiple style="min-width:250px;">
                 <?php if ( ! empty( $all_services ) ) : ?>
                     <?php foreach ( $all_services as $svc ) : ?>
                         <option value="<?php echo esc_attr( $svc->id ); ?>"><?php echo esc_html( $svc->service_name ); ?></option>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </select>
-            <small style="color:#666;"><?php esc_html_e( 'Hold Ctrl/Cmd to select multiple', 'service-booking' ); ?></small>
         </span>
         <span id="bm_se_bulk_visibility_wrap" style="display:none;">
             <select id="bm_se_bulk_visibility_val">
@@ -224,6 +224,17 @@ if ( ! empty( $all_services ) ) {
         </span>
         <button type="button" class="button button-primary" id="bm_se_bulk_apply" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
         <span id="bm_se_bulk_count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+
+        <!-- Dynamic Pagination -->
+        <div class="bm-dynamic-pagination" style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+            <label for="shared_extras_items_per_page" style="font-size:13px;color:#3c434a;"><?php esc_html_e( 'Items per page:', 'service-booking' ); ?></label>
+            <select id="shared_extras_items_per_page" name="shared_extras_items_per_page" style="min-width:80px;">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
     </div>
 
     <!-- Global Extras Listing Table -->
