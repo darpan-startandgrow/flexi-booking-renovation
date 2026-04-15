@@ -14567,12 +14567,13 @@ class BM_Request {
 	 */
 	public function bm_fetch_payment_statuses( $key = '', $exclude = array() ) {
 		$statusList = array(
-			'pending'   => 'Pending',
-			'succeeded' => 'Paid',
-			'failed'    => 'Failed',
-			'free'      => 'Free',
-			'cancelled' => 'Cancelled',
-			'refunded'  => 'Refunded',
+			'pending'          => 'Pending',
+			'succeeded'        => 'Paid',
+			'requires_capture' => 'Awaiting Capture',
+			'failed'           => 'Failed',
+			'free'             => 'Free',
+			'cancelled'        => 'Cancelled',
+			'refunded'         => 'Refunded',
 		);
 
 		if ( ! empty( $key ) ) {
