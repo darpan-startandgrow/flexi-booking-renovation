@@ -14179,35 +14179,27 @@ function bm_bulk_update_state(tableId) {
 
 // ===== DYNAMIC PAGINATION FOR ALL TABLES WITH BULK ACTIONS =====
 jQuery(document).ready(function() {
-    // Generic handler for all dynamic pagination dropdowns.
-    // Each dropdown has an id of `{table}_items_per_page` and localStorage key of `bm_{table}_items_per_page`.
-    var paginationTables = [
-        'order', 'voucher', 'checkin', 'service', 'customer', 'category',
-        'email_template', 'email_record', 'email_log', 'payment_log',
-        'coupon', 'notification_process', 'price_module'
-    ];
-
-    paginationTables.forEach(function(table) {
-        var selectId = '#' + table + '_items_per_page';
-        var storageKey = 'bm_' + table + '_items_per_page';
-        var el = jQuery(selectId);
-
-        if (el.length) {
-            // Restore saved value from localStorage (independent of global settings).
-            var saved = localStorage.getItem(storageKey);
-            if (saved) {
-                el.val(saved);
-            }
-
-            // On change: persist to localStorage, update URL and reload.
-            jQuery(document).on('change', selectId, function() {
-                var value = jQuery(this).val();
-                localStorage.setItem(storageKey, value);
-                var url = new URL(window.location);
-                url.searchParams.set('limit', value);
-                url.searchParams.delete('pagenum'); // Reset to first page.
-                window.location.href = url.toString();
-            });
+    // Restore saved pagination values from localStorage for all dropdowns on the page.
+    jQuery('.bm-dynamic-pagination select[id$="_items_per_page"]').each(function() {
+        var el = jQuery(this);
+        var id = el.attr('id'); // e.g. "order_items_per_page"
+        var storageKey = 'bm_' + id;
+        var saved = localStorage.getItem(storageKey);
+        if (saved) {
+            el.val(saved);
         }
+    });
+
+    // Single delegated change handler for all pagination dropdowns.
+    jQuery(document).on('change', '.bm-dynamic-pagination select[id$="_items_per_page"]', function() {
+        var el = jQuery(this);
+        var id = el.attr('id');
+        var storageKey = 'bm_' + id;
+        var value = el.val();
+        localStorage.setItem(storageKey, value);
+        var url = new URL(window.location);
+        url.searchParams.set('limit', value);
+        url.searchParams.delete('pagenum'); // Reset to first page.
+        window.location.href = url.toString();
     });
 });
