@@ -1109,10 +1109,6 @@ class Booking_Management_Admin {
 		$content = $this->flexibooking_language_switcher();
 		ob_end_clean();
 		return $content;
-
-		/**ob_start();
-		$this->flexibooking_language_switcher();
-		return ob_get_clean();*/
 	}//end bm_flexibooking_language_switcher()
 
 
@@ -9244,8 +9240,6 @@ class Booking_Management_Admin {
 			$total_extra_slots_booked = array();
 			$dbhandler->update_global_option_value( 'bm_backend_dashboard_customer_wise_global_search_field', $search_string );
 
-			/**$customer_data = $dbhandler->get_all_result( 'CUSTOMERS', '*', array( 'is_active' => 1 ), 'results' );*/
-
 			if ( ! empty( $bookings ) && is_array( $bookings ) ) {
 				foreach ( $bookings as $key => $booking ) {
 					$customer_id                 = isset( $booking->customer_id ) ? $booking->customer_id : 0;
@@ -16544,15 +16538,6 @@ class Booking_Management_Admin {
 			$password = isset( $post['password'] ) ? $post['password'] : '';
 
 			if ( ! empty( $username ) && ! empty( $password ) ) {
-				/**$user = wp_authenticate( $username, $password );
-				$user = wp_authenticate_username_password( null, $username, $password );
-
-				if ( is_a( $user, 'WP_User' ) ) {
-					if ( in_array( 'administrator', (array) $user->roles ) ) {
-						$status = true;
-					}
-				}*/
-
 				$user = get_user_by( 'login', $username );
 
 				if ( ! $user ) {

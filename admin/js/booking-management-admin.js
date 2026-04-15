@@ -7201,41 +7201,6 @@ function setIntlInput() {
 
 
 // Add unavailable dates in service page
-// function bm_add_unavailable_date() {
-// 	var total_elements = jQuery('td.date_option_field span.date_input_span').length;
-// 	var date = new Date(jQuery.now());
-// 	var crossSign = "✕";
-// 	date = date.getFullYear() + "-" + padWithZeros((date.getMonth() + 1)) + "-" + padWithZeros(date.getDate());
-
-// 	if (total_elements !== 0) {
-// 		var id = jQuery('td.date_option_field span.date_input_span:last input').attr('id');
-// 		var index = Number(id.split("_")[2]) + 1;
-// 		var option_box = '<span class="date_input_span"><input type="date" id="unavailable_date_' + index + '" name="service_unavailability[dates][' + index + ']">';
-// 		option_box += '<button type="button" id="svc_date_remove" title="' + bm_normal_object.remove + '" onclick="bm_remove_svc_unavailable_date(this)">' + crossSign + '</button></span>'
-// 		jQuery('td.date_option_field span.date_input_span:last').after(option_box);
-// 	} else {
-// 		var option_box = '<span class="date_input_span"><input type="date" id="unavailable_date_1" name="service_unavailability[dates][1]">';
-// 		option_box += '<button type="button" id="svc_date_remove" title="' + bm_normal_object.remove + '" onclick="bm_remove_svc_unavailable_date(this)">' + crossSign + '</button></span>'
-// 		jQuery('td.date_option_field span.add_dates_button').before(option_box);
-// 	}
-// }
-
-
-
-
-// Remove unavailable dates in service page
-// function bm_remove_svc_unavailable_date($this) {
-// 	if (confirm(bm_normal_object.remove_svc_unavl_date)) {
-// 		jQuery($this).parent('span').remove();
-// 		jQuery('[id^=unavailable_date_]').each(function (id, item) {
-// 			var counter = id + 1;
-
-// 			jQuery(item).attr('id', 'unavailable_date_' + counter);
-// 			jQuery(item).attr('name', 'service_unavailability[dates][' + counter + ']');
-// 		});
-// 	}
-// }
-
 // Fetch booked product form
 jQuery(document).on('click', '#show-product-dialog', function (e) {
 	e.preventDefault();
