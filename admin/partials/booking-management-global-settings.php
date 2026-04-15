@@ -87,18 +87,6 @@ $plugin_path = plugin_dir_url( __FILE__ );
             </div>
 
             <div class="settings_row">
-                <a href="admin.php?page=bm_pagination_settings">
-                    <div class="bm_setting_image">
-                        <img src="<?php echo esc_url( $plugin_path . 'images/pagination.png' ); ?>" class="options" alt="options">
-                    </div>
-                    <div class="bm-setting-heading">
-                        <span class="bm-setting-icon-title"><?php esc_html_e( 'Pagination Settings', 'service-booking' ); ?></span>
-                        <span class="bm-setting-description"><?php esc_html_e( 'Order, Service, Category pagination etc.', 'service-booking' ); ?></span>
-                    </div>
-                </a>
-            </div>
-
-            <div class="settings_row">
                 <a href="admin.php?page=bm_upload_settings">
                     <div class="bm_setting_image">
                         <img src="<?php echo esc_url( $plugin_path . 'images/upload.png' ); ?>" class="options" alt="options">

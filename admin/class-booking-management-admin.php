@@ -717,7 +717,6 @@ class Booking_Management_Admin {
         add_submenu_page( '', __( 'Service and Booking Settings', 'service-booking' ), __( 'Service and Booking Settings', 'service-booking' ), 'manage_options', 'bm_svc_booking_settings', array( $this, 'bm_svc_booking_settings' ) );
         add_submenu_page( '', __( 'CSS Settings', 'service-booking' ), __( 'CSS Settings', 'service-booking' ), 'manage_options', 'bm_global_css_settings', array( $this, 'bm_global_css_settings' ) );
         add_submenu_page( '', __( 'Timezone And Country Settings', 'service-booking' ), __( 'Timezone And Country Settings', 'service-booking' ), 'manage_options', 'bm_global_timezone_country_settings', array( $this, 'bm_global_timezone_country_settings' ) );
-        add_submenu_page( '', __( 'Pagination Settings', 'service-booking' ), __( 'Pagination Settings', 'service-booking' ), 'manage_options', 'bm_pagination_settings', array( $this, 'bm_pagination_settings' ) );
         add_submenu_page( '', __( 'Upload Settings', 'service-booking' ), __( 'Upload Settings', 'service-booking' ), 'manage_options', 'bm_upload_settings', array( $this, 'bm_upload_settings' ) );
         add_submenu_page( '', __( 'Language Settings', 'service-booking' ), __( 'Language Settings', 'service-booking' ), 'manage_options', 'bm_global_language_settings', array( $this, 'bm_global_language_settings' ) );
         add_submenu_page( '', __( 'Format Settings', 'service-booking' ), __( 'Format Settings', 'service-booking' ), 'manage_options', 'bm_global_format_settings', array( $this, 'bm_global_format_settings' ) );
@@ -770,7 +769,6 @@ class Booking_Management_Admin {
             'bm_svc_booking_settings'             => 'bm_global',
             'bm_global_css_settings'              => 'bm_global',
             'bm_global_timezone_country_settings' => 'bm_global',
-            'bm_pagination_settings'              => 'bm_global',
             'bm_upload_settings'                  => 'bm_global',
             'bm_global_language_settings'         => 'bm_global',
             'bm_global_format_settings'           => 'bm_global',
@@ -954,11 +952,6 @@ class Booking_Management_Admin {
 	public function bm_global_timezone_country_settings() {
 		include 'partials/booking-management-global-timezone-country-settings.php';
 	}//end bm_global_timezone_country_settings()
-
-
-	public function bm_pagination_settings() {
-		include 'partials/booking-management-global-pagination-settings.php';
-	}//end bm_pagination_settings()
 
 
 	public function bm_upload_settings() {
@@ -1598,6 +1591,28 @@ class Booking_Management_Admin {
 			'link_woocommerce'      => isset( $_POST['global_extra_wc'] ) ? 1 : 0,
 			'wc_product_id'         => isset( $_POST['global_extra_wc'] ) && ! empty( $_POST['global_extra_wc_product'] ) ? absint( $_POST['global_extra_wc_product'] ) : 0,
 		);
+
+		// Validate required fields.
+		if ( empty( $extra_data['name'] ) ) {
+			$data['message'] = esc_html__( 'Name is required.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+		if ( $extra_data['duration_hours'] <= 0 ) {
+			$data['message'] = esc_html__( 'Duration must be greater than 0.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+		if ( $extra_data['total_operation_hours'] <= 0 ) {
+			$data['message'] = esc_html__( 'Total Operation Hours must be greater than 0.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
+		if ( $extra_data['max_capacity'] <= 0 ) {
+			$data['message'] = esc_html__( 'Max Capacity must be greater than 0.', 'service-booking' );
+			echo wp_json_encode( $data );
+			die;
+		}
 
 		$sanitized = $bmrequests->sanitize_request( $extra_data, 'GLOBALEXTRA' );
 
@@ -17245,7 +17260,7 @@ class Booking_Management_Admin {
 	public function bm_disable_admin_notices_on_specific_pages() {
 		$screen = get_current_screen();
 
-		$pages_to_disable = array( 'toplevel_page_bm_home', 'flexibooking_page_bm_all_orders', 'admin_page_bm_add_order', 'flexibooking_page_bm_all_customers', 'admin_page_bm_add_customer', 'admin_page_bm_customer_profile', 'flexibooking_page_bm_all_services', 'admin_page_bm_add_service', 'flexibooking_page_bm_all_categories', 'admin_page_bm_add_category', 'flexibooking_page_bm_email_templates', 'admin_page_bm_add_template', 'flexibooking_page_bm_fields', 'flexibooking_page_bm_all_external_service_prices', 'flexibooking_page_bm_voucher_records', 'admin_page_bm_add_external_service_price', 'flexibooking_page_bm_all_notification_processes', 'admin_page_bm_add_notification_process', 'flexibooking_page_bm_email_records', 'flexibooking_page_bm_all_coupons', 'admin_page_bm_add_coupon', 'flexibooking_page_bm_global', 'admin_page_bm_global_general_settings', 'admin_page_bm_global_css_settings', 'admin_page_bm_global_timezone_country_settings', 'admin_page_bm_global_email_settings', 'admin_page_bm_global_payment_settings', 'admin_page_bm_svc_booking_settings', 'admin_page_bm_pagination_settings', 'admin_page_bm_upload_settings', 'admin_page_bm_global_language_settings', 'admin_page_bm_global_format_settings', 'admin_page_bm_global_integration_settings', 'admin_page_bm_global_coupon_settings', 'flexibooking_page_bm_service_booking_planner', 'flexibooking_page_bm_single_service_booking_planner', 'flexibooking_page_bm_check_ins' );
+		$pages_to_disable = array( 'toplevel_page_bm_home', 'flexibooking_page_bm_all_orders', 'admin_page_bm_add_order', 'flexibooking_page_bm_all_customers', 'admin_page_bm_add_customer', 'admin_page_bm_customer_profile', 'flexibooking_page_bm_all_services', 'admin_page_bm_add_service', 'flexibooking_page_bm_all_categories', 'admin_page_bm_add_category', 'flexibooking_page_bm_email_templates', 'admin_page_bm_add_template', 'flexibooking_page_bm_fields', 'flexibooking_page_bm_all_external_service_prices', 'flexibooking_page_bm_voucher_records', 'admin_page_bm_add_external_service_price', 'flexibooking_page_bm_all_notification_processes', 'admin_page_bm_add_notification_process', 'flexibooking_page_bm_email_records', 'flexibooking_page_bm_all_coupons', 'admin_page_bm_add_coupon', 'flexibooking_page_bm_global', 'admin_page_bm_global_general_settings', 'admin_page_bm_global_css_settings', 'admin_page_bm_global_timezone_country_settings', 'admin_page_bm_global_email_settings', 'admin_page_bm_global_payment_settings', 'admin_page_bm_svc_booking_settings', 'admin_page_bm_upload_settings', 'admin_page_bm_global_language_settings', 'admin_page_bm_global_format_settings', 'admin_page_bm_global_integration_settings', 'admin_page_bm_global_coupon_settings', 'flexibooking_page_bm_service_booking_planner', 'flexibooking_page_bm_single_service_booking_planner', 'flexibooking_page_bm_check_ins' );
 
 		if ( in_array( $screen->id, $pages_to_disable ) ) {
 			remove_all_actions( 'admin_notices' );
