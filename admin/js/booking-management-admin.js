@@ -14179,39 +14179,35 @@ function bm_bulk_update_state(tableId) {
 
 // ===== DYNAMIC PAGINATION FOR ALL TABLES WITH BULK ACTIONS =====
 jQuery(document).ready(function() {
-    // Order table pagination
-    var savedOrderPagination = localStorage.getItem('bm_order_items_per_page') || '10';
-    jQuery('#order_items_per_page').val(savedOrderPagination);
-    
-    jQuery(document).on('change', '#order_items_per_page', function() {
-        var value = jQuery(this).val();
-        localStorage.setItem('bm_order_items_per_page', value);
-        var url = new URL(window.location);
-        url.searchParams.set('limit', value);
-        window.location.href = url.toString();
-    });
-    
-    // Voucher records pagination
-    var savedVoucherPagination = localStorage.getItem('bm_voucher_items_per_page') || '10';
-    jQuery('#voucher_items_per_page').val(savedVoucherPagination);
-    
-    jQuery(document).on('change', '#voucher_items_per_page', function() {
-        var value = jQuery(this).val();
-        localStorage.setItem('bm_voucher_items_per_page', value);
-        var url = new URL(window.location);
-        url.searchParams.set('limit', value);
-        window.location.href = url.toString();
-    });
-    
-    // Check-in records pagination
-    var savedCheckinPagination = localStorage.getItem('bm_checkin_items_per_page') || '10';
-    jQuery('#checkin_items_per_page').val(savedCheckinPagination);
-    
-    jQuery(document).on('change', '#checkin_items_per_page', function() {
-        var value = jQuery(this).val();
-        localStorage.setItem('bm_checkin_items_per_page', value);
-        var url = new URL(window.location);
-        url.searchParams.set('limit', value);
-        window.location.href = url.toString();
+    // Generic handler for all dynamic pagination dropdowns.
+    // Each dropdown has an id of `{table}_items_per_page` and localStorage key of `bm_{table}_items_per_page`.
+    var paginationTables = [
+        'order', 'voucher', 'checkin', 'service', 'customer', 'category',
+        'email_template', 'email_record', 'email_log', 'payment_log',
+        'coupon', 'notification_process', 'price_module'
+    ];
+
+    paginationTables.forEach(function(table) {
+        var selectId = '#' + table + '_items_per_page';
+        var storageKey = 'bm_' + table + '_items_per_page';
+        var el = jQuery(selectId);
+
+        if (el.length) {
+            // Restore saved value from localStorage (independent of global settings).
+            var saved = localStorage.getItem(storageKey);
+            if (saved) {
+                el.val(saved);
+            }
+
+            // On change: persist to localStorage, update URL and reload.
+            jQuery(document).on('change', selectId, function() {
+                var value = jQuery(this).val();
+                localStorage.setItem(storageKey, value);
+                var url = new URL(window.location);
+                url.searchParams.set('limit', value);
+                url.searchParams.delete('pagenum'); // Reset to first page.
+                window.location.href = url.toString();
+            });
+        }
     });
 });
