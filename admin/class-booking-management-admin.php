@@ -2315,7 +2315,7 @@ class Booking_Management_Admin {
 				// For tables with string-based statuses (checkin), use the string value directly.
 				// For tables with numeric statuses (voucher, customer, etc.), clamp to 0 or 1.
 				if ( $table_type === 'checkin' ) {
-					$allowed_checkin_statuses = array( 'pending', 'checked_in', 'completed', 'in_progress', 'cancelled', 'no_show', 'expired' );
+					$allowed_checkin_statuses = array( 'pending', 'checked_in', 'expired' );
 					$status = in_array( $raw_status, $allowed_checkin_statuses, true ) ? $raw_status : 'pending';
 				} else {
 					$status = min( absint( $raw_status ), 1 );
@@ -7229,14 +7229,6 @@ class Booking_Management_Admin {
 			$offset       = isset( $post['limit'] ) ? ( ( $pagenum - 1 ) * $limit ) : 0;
 			$user_id      = get_current_user_id();
 			$all_checkins = $bmrequests->bm_fetch_all_order_checkins();
-
-			// foreach ( $all_checkins as &$checkin ) {
-			// if ( $checkin['checkin_status'] === 'pending' &&
-			// strtotime( $checkin['booking_date'] ) < time() ) {
-			// $bmrequests->bm_update_checkin_status_as_expired( $checkin['booking_id'] );
-			// $checkin['checkin_status'] = 'expired';
-			// }
-			// }
 
 			$filtered_checkins = $all_checkins;
 
@@ -14607,43 +14599,6 @@ class Booking_Management_Admin {
 	 *
 	 * @author Darpan
 	 */
-	public function bm_update_checkin_status_old() {
-		$nonce = filter_input( INPUT_POST, 'nonce' );
-
-		if ( ! $nonce || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
-			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
-			return;
-		}
-
-		$checkin_id = sanitize_text_field( filter_input( INPUT_POST, 'checkin_id', FILTER_VALIDATE_INT ) );
-		$status     = sanitize_text_field( filter_input( INPUT_POST, 'new_status' ) );
-
-		$dbhandler = new BM_DBhandler();
-		$checkin   = $dbhandler->get_row( 'CHECKIN', $checkin_id, 'id' );
-
-		if ( ! $checkin ) {
-			wp_send_json_error( esc_html__( 'Checkin data not found', 'service-booking' ) );
-			return;
-		}
-
-		$data = array( 'status' => $status );
-
-		if ( $status === 'checked_in' ) {
-			$data['checkin_time'] = current_time( 'mysql' );
-		} else {
-			$data['checkin_time'] = null;
-		}
-
-		$updated = $dbhandler->update_row( 'CHECKIN', 'id', $checkin_id, $data );
-		wp_send_json_success();
-	} //end bm_update_checkin_status()
-
-
-	/**
-	 * Update checkin status
-	 *
-	 * @author Darpan
-	 */
 	public function bm_update_checkin_status() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
 
@@ -14656,19 +14611,21 @@ class Booking_Management_Admin {
 		$status     = sanitize_text_field( filter_input( INPUT_POST, 'new_status' ) );
 		$booking_id = filter_input( INPUT_POST, 'booking_id', FILTER_VALIDATE_INT );
 
+		// Validate status against allowed values.
+		$allowed_statuses = array( 'pending', 'checked_in', 'expired' );
+		if ( ! in_array( $status, $allowed_statuses, true ) ) {
+			wp_send_json_error( esc_html__( 'Invalid checkin status.', 'service-booking' ) );
+			return;
+		}
+
 		$dbhandler = new BM_DBhandler();
 		$checkin   = $checkin_id ? $dbhandler->get_row( 'CHECKIN', $checkin_id, 'id' ) : null;
 
 		$data = array(
-			'status'     => $status,
-			'updated_at' => current_time( 'mysql' ),
+			'status'       => $status,
+			'updated_at'   => current_time( 'mysql' ),
+			'checkin_time' => ( $status === 'checked_in' ) ? current_time( 'mysql' ) : null,
 		);
-
-		if ( $status === 'checked_in' ) {
-			$data['checkin_time'] = current_time( 'mysql' );
-		} else {
-			$data['checkin_time'] = null;
-		}
 
 		if ( $checkin ) {
 			$updated = $dbhandler->update_row( 'CHECKIN', 'id', $checkin_id, $data );

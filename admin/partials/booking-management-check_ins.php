@@ -139,16 +139,12 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
             <select class="bm-bulk-action-select" data-table="checkin" style="min-width:180px;">
                 <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
                 <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
-                <option value="bulk_toggle_status"><?php esc_html_e( 'Toggle Status Selected', 'service-booking' ); ?></option>
+                <option value="bulk_toggle_status"><?php esc_html_e( 'Toggle Status', 'service-booking' ); ?></option>
             </select>
             <span class="bm-bulk-status-wrap" style="display:none;">
                 <select class="bm-bulk-status-val">
                     <option value="pending"><?php esc_html_e( 'Pending', 'service-booking' ); ?></option>
                     <option value="checked_in"><?php esc_html_e( 'Checked In', 'service-booking' ); ?></option>
-                    <option value="completed"><?php esc_html_e( 'Completed', 'service-booking' ); ?></option>
-                    <option value="in_progress"><?php esc_html_e( 'In Progress', 'service-booking' ); ?></option>
-                    <option value="no_show"><?php esc_html_e( 'No Show', 'service-booking' ); ?></option>
-                    <option value="cancelled"><?php esc_html_e( 'Cancelled', 'service-booking' ); ?></option>
                     <option value="expired"><?php esc_html_e( 'Expired', 'service-booking' ); ?></option>
                 </select>
             </span>
