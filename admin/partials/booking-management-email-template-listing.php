@@ -23,7 +23,7 @@ $pagination      = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmre
 <!-- Templates -->
 <div class="wrap listing_table" id="templates_records_listing">
 	<div class="row">
-		<div style="float:left;">
+		<div>
 			<h2 class="title" style="font-weight: bold;"><?php esc_html_e( 'Email Templates', 'service-booking' ); ?></h2>
 			<a href="admin.php?page=bm_add_template" class="button button-primary" style="margin-bottom:10px;" title="<?php esc_html_e( 'Add Template', 'service-booking' ); ?>"><?php esc_html_e( 'Add Template', 'service-booking' ); ?>&nbsp;<i class="fa fa-plus" aria-hidden="true"></i></a>
 		</div>
