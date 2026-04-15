@@ -2311,7 +2311,7 @@ class Booking_Management_Admin {
 				// For tables with string-based statuses (checkin), use the string value directly.
 				// For tables with numeric statuses (voucher, customer, etc.), clamp to 0 or 1.
 				if ( $table_type === 'checkin' ) {
-					$allowed_checkin_statuses = array( 'pending', 'checked_in', 'expired' );
+					$allowed_checkin_statuses = self::bm_get_allowed_checkin_statuses();
 					$status = in_array( $raw_status, $allowed_checkin_statuses, true ) ? $raw_status : 'pending';
 				} else {
 					$status = min( absint( $raw_status ), 1 );
@@ -2337,6 +2337,18 @@ class Booking_Management_Admin {
 		echo wp_json_encode( $data );
 		die;
 	}//end bm_bulk_listing_action()
+
+
+	/**
+	 * Return the valid check-in statuses.
+	 *
+	 * Single source of truth used by bulk actions and individual status updates.
+	 *
+	 * @return string[]
+	 */
+	private static function bm_get_allowed_checkin_statuses() {
+		return array( 'pending', 'checked_in', 'expired' );
+	}
 
 
 	/**
@@ -14606,7 +14618,7 @@ class Booking_Management_Admin {
 		$booking_id = filter_input( INPUT_POST, 'booking_id', FILTER_VALIDATE_INT );
 
 		// Validate status against allowed values.
-		$allowed_statuses = array( 'pending', 'checked_in', 'expired' );
+		$allowed_statuses = self::bm_get_allowed_checkin_statuses();
 		if ( ! in_array( $status, $allowed_statuses, true ) ) {
 			wp_send_json_error( esc_html__( 'Invalid checkin status.', 'service-booking' ) );
 			return;
