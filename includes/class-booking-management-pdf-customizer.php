@@ -391,7 +391,7 @@ class BM_PDF_Processor {
 
             file_put_contents( $filepath, $dompdf->output() );
         } catch ( \Exception $e ) {
-            error_log( 'BM PDF generation failed: ' . $e->getMessage() );
+            error_log( 'BM PDF generation failed for ' . $filepath . ': ' . $e->getMessage() );
             error_reporting( $original_error_reporting );
             return '';
         } finally {

@@ -5590,8 +5590,8 @@ class Booking_Management_Public {
 					$bmrequests->bm_restore_locale( $admin_old_locale );
 				}
 				$admin_result     = $bm_mail->bm_send_notification_to_shop_admin( $admin_email_subject, $admin_email_message, (int) $order_id );
-				$mail_to_admin    = is_array( $admin_result ) ? $admin_result['success'] : false;
-				$admin_mail_error = is_array( $admin_result ) ? $admin_result['error'] : '';
+				$mail_to_admin    = is_array( $admin_result ) ? ( $admin_result['success'] ?? false ) : false;
+				$admin_mail_error = is_array( $admin_result ) ? ( $admin_result['error'] ?? '' ) : '';
 			}
 
 			// Customer email (only if needed)
@@ -5618,8 +5618,8 @@ class Booking_Management_Public {
 				ob_end_clean();
 
 				$customer_result  = $bm_mail->bm_send_email_to_customer( $template_subject, $template_body, (int) $order_id );
-				$mail_to_customer = is_array( $customer_result ) ? $customer_result['success'] : false;
-				$cust_mail_error  = is_array( $customer_result ) ? $customer_result['error'] : '';
+				$mail_to_customer = is_array( $customer_result ) ? ( $customer_result['success'] ?? false ) : false;
+				$cust_mail_error  = is_array( $customer_result ) ? ( $customer_result['error'] ?? '' ) : '';
 
 				$error_msg = array();
 				if ( ! empty( $admin_mail_error ) ) {
