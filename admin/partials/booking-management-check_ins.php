@@ -137,9 +137,29 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
             <select class="bm-bulk-action-select" data-table="checkin" style="min-width:180px;">
                 <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
                 <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
+                <option value="bulk_toggle_status"><?php esc_html_e( 'Toggle Status Selected', 'service-booking' ); ?></option>
             </select>
+            <span class="bm-bulk-status-wrap" style="display:none;">
+                <select class="bm-bulk-status-val">
+                    <option value="pending"><?php esc_html_e( 'Pending', 'service-booking' ); ?></option>
+                    <option value="completed"><?php esc_html_e( 'Completed', 'service-booking' ); ?></option>
+                    <option value="in_progress"><?php esc_html_e( 'In Progress', 'service-booking' ); ?></option>
+                    <option value="cancelled"><?php esc_html_e( 'Cancelled', 'service-booking' ); ?></option>
+                </select>
+            </span>
             <button type="button" class="button button-primary bm-bulk-apply" data-table="checkin" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
             <span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+            
+            <!-- Dynamic Pagination -->
+            <div class="bm-dynamic-pagination" style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+                <label for="checkin_items_per_page" style="font-size:13px;color:#3c434a;"><?php esc_html_e( 'Items per page:', 'service-booking' ); ?></label>
+                <select id="checkin_items_per_page" name="checkin_items_per_page" style="min-width:80px;">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
         </div>
         <table class="wp-list-table widefat striped" id="checkin_listing">
             <thead>

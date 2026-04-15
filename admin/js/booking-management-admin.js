@@ -14120,6 +14120,12 @@ jQuery(document).on('click', '.bm-bulk-apply', function(e) {
     var confirmMsg = (bm_normal_object.bulk_confirm_action || 'Are you sure you want to apply this bulk action to %d item(s)?').replace('%d', ids.length);
     if (action === 'bulk_delete') {
         confirmMsg = (bm_normal_object.bulk_confirm_delete || 'Are you sure you want to delete %d item(s)? This cannot be undone.').replace('%d', ids.length);
+    } else if (action === 'bulk_archive') {
+        confirmMsg = (bm_normal_object.bulk_confirm_archive || 'Are you sure you want to archive %d order(s)?').replace('%d', ids.length);
+    } else if (action === 'bulk_approve') {
+        confirmMsg = (bm_normal_object.bulk_confirm_approve || 'Are you sure you want to approve %d order(s)? Only on_request bookings will be affected.').replace('%d', ids.length);
+    } else if (action === 'bulk_cancel') {
+        confirmMsg = (bm_normal_object.bulk_confirm_cancel || 'Are you sure you want to cancel %d order(s)? Only on_request bookings will be affected.').replace('%d', ids.length);
     }
     if (!confirm(confirmMsg)) return;
 
@@ -14130,6 +14136,11 @@ jQuery(document).on('click', '.bm-bulk-apply', function(e) {
         ids: ids.join(','),
         nonce: bm_ajax_object.nonce
     };
+
+    // Add order_type for order deletion context
+    if (tableId === 'order') {
+        postData.order_type = jQuery('#order_type').val() || 'all-non-failed';
+    }
 
     if (action === 'bulk_toggle_visibility') {
         postData.visibility = bar.find('.bm-bulk-visibility-val').val();
@@ -14165,3 +14176,42 @@ function bm_bulk_update_state(tableId) {
     }
 }
 
+
+// ===== DYNAMIC PAGINATION FOR ALL TABLES WITH BULK ACTIONS =====
+jQuery(document).ready(function() {
+    // Order table pagination
+    var savedOrderPagination = localStorage.getItem('bm_order_items_per_page') || '10';
+    jQuery('#order_items_per_page').val(savedOrderPagination);
+    
+    jQuery(document).on('change', '#order_items_per_page', function() {
+        var value = jQuery(this).val();
+        localStorage.setItem('bm_order_items_per_page', value);
+        var url = new URL(window.location);
+        url.searchParams.set('limit', value);
+        window.location.href = url.toString();
+    });
+    
+    // Voucher records pagination
+    var savedVoucherPagination = localStorage.getItem('bm_voucher_items_per_page') || '10';
+    jQuery('#voucher_items_per_page').val(savedVoucherPagination);
+    
+    jQuery(document).on('change', '#voucher_items_per_page', function() {
+        var value = jQuery(this).val();
+        localStorage.setItem('bm_voucher_items_per_page', value);
+        var url = new URL(window.location);
+        url.searchParams.set('limit', value);
+        window.location.href = url.toString();
+    });
+    
+    // Check-in records pagination
+    var savedCheckinPagination = localStorage.getItem('bm_checkin_items_per_page') || '10';
+    jQuery('#checkin_items_per_page').val(savedCheckinPagination);
+    
+    jQuery(document).on('change', '#checkin_items_per_page', function() {
+        var value = jQuery(this).val();
+        localStorage.setItem('bm_checkin_items_per_page', value);
+        var url = new URL(window.location);
+        url.searchParams.set('limit', value);
+        window.location.href = url.toString();
+    });
+});
