@@ -376,7 +376,9 @@ class BM_PDF_Processor {
 
         // Increase execution time for PDF generation to prevent timeout crashes
         $original_time_limit = (int) ini_get( 'max_execution_time' );
-        @set_time_limit( max( $original_time_limit, 300 ) );
+        if ( function_exists( 'set_time_limit' ) ) {
+            set_time_limit( max( $original_time_limit, 300 ) );
+        }
 
         try {
             $dompdf = new Dompdf();

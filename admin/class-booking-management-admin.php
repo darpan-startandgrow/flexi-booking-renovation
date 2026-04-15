@@ -12345,7 +12345,6 @@ class Booking_Management_Admin {
 				delete_transient( $lock_key );
 				continue;
 			}
-			set_transient( $retry_key, $retry_count + 1, DAY_IN_SECONDS );
 
 			// Re-read mail_sent from DB to avoid stale data from the query
 			$fresh_mail_sent = (int) $dbhandler->get_value( 'BOOKING', 'mail_sent', $booking->id, 'id' );
@@ -12396,10 +12395,13 @@ class Booking_Management_Admin {
 				}
 			}
 
-			// Check if mail_sent is now complete after processing and clear retry counter
+			// Check if mail_sent is now complete after processing
 			$updated_mail_sent = (int) $dbhandler->get_value( 'BOOKING', 'mail_sent', $booking->id, 'id' );
 			if ( $updated_mail_sent >= 3 ) {
 				delete_transient( $retry_key );
+			} else {
+				// Increment retry counter only on incomplete send
+				set_transient( $retry_key, $retry_count + 1, DAY_IN_SECONDS );
 			}
 
 			delete_transient( $lock_key );
