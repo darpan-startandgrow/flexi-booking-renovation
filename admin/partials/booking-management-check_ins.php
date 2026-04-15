@@ -142,9 +142,12 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
             <span class="bm-bulk-status-wrap" style="display:none;">
                 <select class="bm-bulk-status-val">
                     <option value="pending"><?php esc_html_e( 'Pending', 'service-booking' ); ?></option>
+                    <option value="checked_in"><?php esc_html_e( 'Checked In', 'service-booking' ); ?></option>
                     <option value="completed"><?php esc_html_e( 'Completed', 'service-booking' ); ?></option>
                     <option value="in_progress"><?php esc_html_e( 'In Progress', 'service-booking' ); ?></option>
+                    <option value="no_show"><?php esc_html_e( 'No Show', 'service-booking' ); ?></option>
                     <option value="cancelled"><?php esc_html_e( 'Cancelled', 'service-booking' ); ?></option>
+                    <option value="expired"><?php esc_html_e( 'Expired', 'service-booking' ); ?></option>
                 </select>
             </span>
             <button type="button" class="button button-primary bm-bulk-apply" data-table="checkin" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
