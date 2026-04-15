@@ -23,8 +23,10 @@ class BM_PDF_Processor {
         $language   = $this->dbhandler->get_global_option_value( 'bm_flexi_current_language', 'en' );
         if( $customer ) {
             $order    = $this->dbhandler->get_row( 'BOOKING', $booking_id, 'id' );
-            $trp_lang = get_option( 'trp_lang_' . $order->booking_key, false );
-            $language = ! empty( $trp_lang ) ? $trp_lang : $language;
+            if ( ! empty( $order ) && isset( $order->booking_key ) ) {
+                $trp_lang = get_option( 'trp_lang_' . $order->booking_key, false );
+                $language = ! empty( $trp_lang ) ? $trp_lang : $language;
+            }
         }else {
             $back_lang = $this->dbhandler->get_global_option_value( 'bm_flexi_current_language_backend', '' );
             $language  = ! empty( $back_lang ) ? $back_lang : $language;
@@ -372,6 +374,12 @@ class BM_PDF_Processor {
         $original_error_reporting = error_reporting();
         error_reporting( $original_error_reporting & ~E_DEPRECATED & ~E_USER_DEPRECATED );
 
+        // Increase execution time for PDF generation to prevent timeout crashes
+        $original_time_limit = (int) ini_get( 'max_execution_time' );
+        if ( function_exists( 'set_time_limit' ) ) {
+            set_time_limit( max( $original_time_limit, 300 ) );
+        }
+
         try {
             $dompdf = new Dompdf();
             $dompdf->set_option( 'isHtml5ParserEnabled', true );
@@ -382,6 +390,10 @@ class BM_PDF_Processor {
             $dompdf->render();
 
             file_put_contents( $filepath, $dompdf->output() );
+        } catch ( \Exception $e ) {
+            error_log( 'BM PDF generation failed for ' . $filepath . ': ' . $e->getMessage() );
+            error_reporting( $original_error_reporting );
+            return '';
         } finally {
             error_reporting( $original_error_reporting );
         }

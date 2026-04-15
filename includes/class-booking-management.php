@@ -184,6 +184,7 @@ class Booking_Management {
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 		$this->loader->add_action( 'admin_menu', $plugin_admin, 'booking_admin_menu' );
+		$this->loader->add_action( 'admin_head', $plugin_admin, 'bm_ensure_admin_title_string', 1 );
 		$this->loader->add_action( 'admin_notices', $plugin_admin, 'bm_disable_admin_notices_on_specific_pages', 1 );
 		$this->loader->add_action( 'init', $plugin_admin, 'bm_set_timezone' );
 		$this->loader->add_action( 'update_option_timezone_string', $plugin_admin, 'bm_update_plugin_timezone_on_wp_change', 10, 2 );
