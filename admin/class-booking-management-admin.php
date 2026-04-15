@@ -1109,10 +1109,6 @@ class Booking_Management_Admin {
 		$content = $this->flexibooking_language_switcher();
 		ob_end_clean();
 		return $content;
-
-		/**ob_start();
-		$this->flexibooking_language_switcher();
-		return ob_get_clean();*/
 	}//end bm_flexibooking_language_switcher()
 
 
@@ -2059,7 +2055,8 @@ class Booking_Management_Admin {
 	/**
 	 * Generic bulk actions for listing tables.
 	 *
-	 * Supports: bulk_delete, bulk_toggle_visibility, bulk_toggle_status.
+	 * Supports: bulk_delete, bulk_toggle_visibility, bulk_toggle_status,
+	 *           bulk_archive, bulk_approve, bulk_cancel.
 	 * Accepts a table_type param to determine which DB table/column to operate on.
 	 */
 	public function bm_bulk_listing_action() {
@@ -2107,7 +2104,7 @@ class Booking_Management_Admin {
 			'price_module'         => array( 'identifier' => 'EXTERNAL_SERVICE_PRICE_MODULE' ),
 			'notification_process' => array( 'identifier' => 'EVENTNOTIFICATION', 'status_col' => 'status' ),
 			'voucher'              => array( 'identifier' => 'VOUCHERS', 'status_col' => 'status' ),
-			'checkin'              => array( 'identifier' => 'CHECKINS', 'status_col' => 'checkin_status' ),
+			'checkin'              => array( 'identifier' => 'CHECKIN', 'status_col' => 'status' ),
 			'email_record'         => array( 'identifier' => 'EMAILS' ),
 			'email_log'            => array( 'identifier' => 'EMAILS' ),
 			'payment_log'          => array( 'identifier' => 'TRANSACTIONS' ),
@@ -2169,25 +2166,45 @@ class Booking_Management_Admin {
 					break;
 				}
 				foreach ( $ids as $item_id ) {
-					// Get booking data first
-					$booking = $dbhandler->get_row_data( 'BOOKING', 'id', $item_id );
-					if ( ! empty( $booking ) ) {
-						// Insert into archive table
-						$dbhandler->insert_row( 'BOOKING_ARCHIVE', array(
-							'id'                    => $booking->id ?? null,
-							'service_id'            => $booking->service_id ?? null,
-							'customer_id'           => $booking->customer_id ?? null,
-							'order_status'          => $booking->order_status ?? 'cancelled',
-							'payment_status'        => $booking->payment_status ?? 'cancelled',
-							'service_date'          => $booking->service_date ?? null,
-							'order_date'            => $booking->order_date ?? null,
-							'total_cost'            => $booking->total_cost ?? 0,
-							'archived_date'         => current_time( 'mysql' ),
-							'archived_by'           => get_current_user_id(),
-						) );
-						// Remove from main booking table
-						$dbhandler->remove_row( 'BOOKING', 'id', $item_id, '%d' );
-						$processed++;
+					$order_data       = $dbhandler->get_row( 'BOOKING', $item_id, 'id' );
+					if ( ! empty( $order_data ) ) {
+						$slot_data        = $dbhandler->get_row( 'SLOTCOUNT', $item_id, 'booking_id' );
+						$extraslot_data   = $dbhandler->get_all_result( 'EXTRASLOTCOUNT', '*', array( 'booking_id' => $item_id ), 'results' );
+						$transaction_data = $dbhandler->get_row( 'TRANSACTIONS', $item_id, 'booking_id' );
+
+						$folder    = 'new-mail';
+						$directory = wp_normalize_path( plugin_dir_path( __DIR__ ) . 'src/mail-attachments/' . $folder . '/order-details' );
+						$pdf_path  = wp_normalize_path( $directory . '/order-details-booking-' . $item_id . '.pdf' );
+
+						$archive_data = array(
+							'original_id'      => $item_id,
+							'booking_data'     => maybe_serialize( $order_data ),
+							'slot_data'        => maybe_serialize( $slot_data ),
+							'extraslot_data'   => maybe_serialize( $extraslot_data ),
+							'transaction_data' => maybe_serialize( $transaction_data ),
+							'pdf_path'         => $pdf_path,
+							'deleted_at'       => current_time( 'mysql' ),
+							'deleted_by'       => get_current_user_id(),
+						);
+
+						$archive_data   = $bmrequests->sanitize_request( $archive_data, 'BOOKING_ARCHIVE' );
+						$archive_result = ( $archive_data != false ) ? $dbhandler->insert_row( 'BOOKING_ARCHIVE', $archive_data ) : array();
+
+						if ( ! empty( $archive_result ) ) {
+							if ( ! empty( $slot_data ) ) {
+								$dbhandler->remove_row( 'SLOTCOUNT', 'id', $slot_data->id, '%d' );
+							}
+							if ( ! empty( $extraslot_data ) ) {
+								foreach ( $extraslot_data as $extraslot ) {
+									$dbhandler->remove_row( 'EXTRASLOTCOUNT', 'id', $extraslot->id, '%d' );
+								}
+							}
+							if ( ! empty( $transaction_data ) ) {
+								$dbhandler->remove_row( 'TRANSACTIONS', 'id', $transaction_data->id, '%d' );
+							}
+							$dbhandler->remove_row( 'BOOKING', 'id', $item_id, '%d' );
+							$processed++;
+						}
 					}
 				}
 				$data['status']  = true;
@@ -2204,25 +2221,24 @@ class Booking_Management_Admin {
 					break;
 				}
 				foreach ( $ids as $item_id ) {
-					// Only approve on_request bookings with requires_capture payment status
-					$booking = $dbhandler->get_row_data( 'BOOKING', 'id', $item_id );
-					if ( ! empty( $booking ) && $booking->booking_type === 'on_request' && $booking->is_active == 1 ) {
-						// Update order status to confirmed
-						$dbhandler->update_row( 'BOOKING', 'id', $item_id, array(
-							'order_status'   => 'confirmed',
-							'is_active'      => 1,
-							'approved_by'    => get_current_user_id(),
-							'approved_date'  => current_time( 'mysql' ),
-						) );
-						
-						// If payment status is requires_capture, capture the payment
-						if ( isset( $booking->payment_status ) && $booking->payment_status === 'requires_capture' ) {
-							$dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $item_id, array(
-								'payment_status' => 'succeeded',
-								'captured_date'  => current_time( 'mysql' ),
-							), '%d' );
+					$booking = $dbhandler->get_row( 'BOOKING', $item_id, 'id' );
+					if ( ! empty( $booking ) && isset( $booking->booking_type ) && $booking->booking_type === 'on_request' && isset( $booking->is_active ) && $booking->is_active == 1 ) {
+						$transaction = $dbhandler->get_row( 'TRANSACTIONS', $item_id, 'booking_id' );
+						// Only approve if payment status is requires_capture or order is pending
+						$can_approve = ( ! empty( $transaction ) && isset( $transaction->payment_status ) && $transaction->payment_status === 'requires_capture' )
+							|| ( isset( $booking->order_status ) && $booking->order_status === 'pending' );
+						if ( $can_approve ) {
+							$dbhandler->update_row( 'BOOKING', 'id', $item_id, array(
+								'order_status' => 'confirmed',
+								'is_active'    => 1,
+							) );
+							if ( ! empty( $transaction ) && isset( $transaction->payment_status ) && $transaction->payment_status === 'requires_capture' ) {
+								$dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $item_id, array(
+									'payment_status' => 'succeeded',
+								), '%d' );
+							}
+							$processed++;
 						}
-						$processed++;
 					}
 				}
 				$data['status']  = true;
@@ -2239,25 +2255,23 @@ class Booking_Management_Admin {
 					break;
 				}
 				foreach ( $ids as $item_id ) {
-					// Only cancel on_request bookings with requires_capture payment status
-					$booking = $dbhandler->get_row_data( 'BOOKING', 'id', $item_id );
-					if ( ! empty( $booking ) && $booking->booking_type === 'on_request' && $booking->is_active == 1 ) {
-						// Update order status to cancelled
-						$dbhandler->update_row( 'BOOKING', 'id', $item_id, array(
-							'order_status'   => 'cancelled',
-							'is_active'      => 0,
-							'cancelled_by'   => get_current_user_id(),
-							'cancelled_date' => current_time( 'mysql' ),
-						) );
-						
-						// If payment status is requires_capture, refund/cancel the payment
-						if ( isset( $booking->payment_status ) && $booking->payment_status === 'requires_capture' ) {
-							$dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $item_id, array(
-								'payment_status' => 'cancelled',
-								'cancelled_date' => current_time( 'mysql' ),
-							), '%d' );
+					$booking = $dbhandler->get_row( 'BOOKING', $item_id, 'id' );
+					if ( ! empty( $booking ) && isset( $booking->booking_type ) && $booking->booking_type === 'on_request' && isset( $booking->is_active ) && $booking->is_active == 1 ) {
+						$transaction = $dbhandler->get_row( 'TRANSACTIONS', $item_id, 'booking_id' );
+						$can_cancel = ( ! empty( $transaction ) && isset( $transaction->payment_status ) && $transaction->payment_status === 'requires_capture' )
+							|| ( isset( $booking->order_status ) && in_array( $booking->order_status, array( 'pending', 'confirmed' ), true ) );
+						if ( $can_cancel ) {
+							$dbhandler->update_row( 'BOOKING', 'id', $item_id, array(
+								'order_status' => 'cancelled',
+								'is_active'    => 0,
+							) );
+							if ( ! empty( $transaction ) && isset( $transaction->payment_status ) && $transaction->payment_status === 'requires_capture' ) {
+								$dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $item_id, array(
+									'payment_status' => 'cancelled',
+								), '%d' );
+							}
+							$processed++;
 						}
-						$processed++;
 					}
 				}
 				$data['status']  = true;
@@ -2293,7 +2307,15 @@ class Booking_Management_Admin {
 					$data['message'] = esc_html__( 'Status toggle not supported for this table.', 'service-booking' );
 					break;
 				}
-				$status = isset( $_POST['status_val'] ) ? min( absint( $_POST['status_val'] ), 1 ) : 1;
+				$raw_status = isset( $_POST['status_val'] ) ? sanitize_text_field( wp_unslash( $_POST['status_val'] ) ) : '';
+				// For tables with string-based statuses (checkin), use the string value directly.
+				// For tables with numeric statuses (voucher, customer, etc.), clamp to 0 or 1.
+				if ( $table_type === 'checkin' ) {
+					$allowed_checkin_statuses = self::bm_get_allowed_checkin_statuses();
+					$status = in_array( $raw_status, $allowed_checkin_statuses, true ) ? $raw_status : 'pending';
+				} else {
+					$status = min( absint( $raw_status ), 1 );
+				}
 				foreach ( $ids as $item_id ) {
 					$dbhandler->update_row( $db_id, 'id', $item_id, array(
 						$config['status_col'] => $status,
@@ -2315,6 +2337,18 @@ class Booking_Management_Admin {
 		echo wp_json_encode( $data );
 		die;
 	}//end bm_bulk_listing_action()
+
+
+	/**
+	 * Return the valid check-in statuses.
+	 *
+	 * Single source of truth used by bulk actions and individual status updates.
+	 *
+	 * @return string[]
+	 */
+	private static function bm_get_allowed_checkin_statuses() {
+		return array( 'pending', 'checked_in', 'expired' );
+	}
 
 
 	/**
@@ -7204,14 +7238,6 @@ class Booking_Management_Admin {
 			$user_id      = get_current_user_id();
 			$all_checkins = $bmrequests->bm_fetch_all_order_checkins();
 
-			// foreach ( $all_checkins as &$checkin ) {
-			// if ( $checkin['checkin_status'] === 'pending' &&
-			// strtotime( $checkin['booking_date'] ) < time() ) {
-			// $bmrequests->bm_update_checkin_status_as_expired( $checkin['booking_id'] );
-			// $checkin['checkin_status'] = 'expired';
-			// }
-			// }
-
 			$filtered_checkins = $all_checkins;
 
 			if ( ! empty( $search_term ) ) {
@@ -9225,8 +9251,6 @@ class Booking_Management_Admin {
 			$total_slots_booked       = array();
 			$total_extra_slots_booked = array();
 			$dbhandler->update_global_option_value( 'bm_backend_dashboard_customer_wise_global_search_field', $search_string );
-
-			/**$customer_data = $dbhandler->get_all_result( 'CUSTOMERS', '*', array( 'is_active' => 1 ), 'results' );*/
 
 			if ( ! empty( $bookings ) && is_array( $bookings ) ) {
 				foreach ( $bookings as $key => $booking ) {
@@ -14581,43 +14605,6 @@ class Booking_Management_Admin {
 	 *
 	 * @author Darpan
 	 */
-	public function bm_update_checkin_status_old() {
-		$nonce = filter_input( INPUT_POST, 'nonce' );
-
-		if ( ! $nonce || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
-			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
-			return;
-		}
-
-		$checkin_id = sanitize_text_field( filter_input( INPUT_POST, 'checkin_id', FILTER_VALIDATE_INT ) );
-		$status     = sanitize_text_field( filter_input( INPUT_POST, 'new_status' ) );
-
-		$dbhandler = new BM_DBhandler();
-		$checkin   = $dbhandler->get_row( 'CHECKIN', $checkin_id, 'id' );
-
-		if ( ! $checkin ) {
-			wp_send_json_error( esc_html__( 'Checkin data not found', 'service-booking' ) );
-			return;
-		}
-
-		$data = array( 'status' => $status );
-
-		if ( $status === 'checked_in' ) {
-			$data['checkin_time'] = current_time( 'mysql' );
-		} else {
-			$data['checkin_time'] = null;
-		}
-
-		$updated = $dbhandler->update_row( 'CHECKIN', 'id', $checkin_id, $data );
-		wp_send_json_success();
-	} //end bm_update_checkin_status()
-
-
-	/**
-	 * Update checkin status
-	 *
-	 * @author Darpan
-	 */
 	public function bm_update_checkin_status() {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
 
@@ -14630,19 +14617,21 @@ class Booking_Management_Admin {
 		$status     = sanitize_text_field( filter_input( INPUT_POST, 'new_status' ) );
 		$booking_id = filter_input( INPUT_POST, 'booking_id', FILTER_VALIDATE_INT );
 
+		// Validate status against allowed values.
+		$allowed_statuses = self::bm_get_allowed_checkin_statuses();
+		if ( ! in_array( $status, $allowed_statuses, true ) ) {
+			wp_send_json_error( esc_html__( 'Invalid checkin status.', 'service-booking' ) );
+			return;
+		}
+
 		$dbhandler = new BM_DBhandler();
 		$checkin   = $checkin_id ? $dbhandler->get_row( 'CHECKIN', $checkin_id, 'id' ) : null;
 
 		$data = array(
-			'status'     => $status,
-			'updated_at' => current_time( 'mysql' ),
+			'status'       => $status,
+			'updated_at'   => current_time( 'mysql' ),
+			'checkin_time' => ( $status === 'checked_in' ) ? current_time( 'mysql' ) : null,
 		);
-
-		if ( $status === 'checked_in' ) {
-			$data['checkin_time'] = current_time( 'mysql' );
-		} else {
-			$data['checkin_time'] = null;
-		}
 
 		if ( $checkin ) {
 			$updated = $dbhandler->update_row( 'CHECKIN', 'id', $checkin_id, $data );
@@ -16561,15 +16550,6 @@ class Booking_Management_Admin {
 			$password = isset( $post['password'] ) ? $post['password'] : '';
 
 			if ( ! empty( $username ) && ! empty( $password ) ) {
-				/**$user = wp_authenticate( $username, $password );
-				$user = wp_authenticate_username_password( null, $username, $password );
-
-				if ( is_a( $user, 'WP_User' ) ) {
-					if ( in_array( 'administrator', (array) $user->roles ) ) {
-						$status = true;
-					}
-				}*/
-
 				$user = get_user_by( 'login', $username );
 
 				if ( ! $user ) {

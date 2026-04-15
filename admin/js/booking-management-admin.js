@@ -7201,41 +7201,6 @@ function setIntlInput() {
 
 
 // Add unavailable dates in service page
-// function bm_add_unavailable_date() {
-// 	var total_elements = jQuery('td.date_option_field span.date_input_span').length;
-// 	var date = new Date(jQuery.now());
-// 	var crossSign = "✕";
-// 	date = date.getFullYear() + "-" + padWithZeros((date.getMonth() + 1)) + "-" + padWithZeros(date.getDate());
-
-// 	if (total_elements !== 0) {
-// 		var id = jQuery('td.date_option_field span.date_input_span:last input').attr('id');
-// 		var index = Number(id.split("_")[2]) + 1;
-// 		var option_box = '<span class="date_input_span"><input type="date" id="unavailable_date_' + index + '" name="service_unavailability[dates][' + index + ']">';
-// 		option_box += '<button type="button" id="svc_date_remove" title="' + bm_normal_object.remove + '" onclick="bm_remove_svc_unavailable_date(this)">' + crossSign + '</button></span>'
-// 		jQuery('td.date_option_field span.date_input_span:last').after(option_box);
-// 	} else {
-// 		var option_box = '<span class="date_input_span"><input type="date" id="unavailable_date_1" name="service_unavailability[dates][1]">';
-// 		option_box += '<button type="button" id="svc_date_remove" title="' + bm_normal_object.remove + '" onclick="bm_remove_svc_unavailable_date(this)">' + crossSign + '</button></span>'
-// 		jQuery('td.date_option_field span.add_dates_button').before(option_box);
-// 	}
-// }
-
-
-
-
-// Remove unavailable dates in service page
-// function bm_remove_svc_unavailable_date($this) {
-// 	if (confirm(bm_normal_object.remove_svc_unavl_date)) {
-// 		jQuery($this).parent('span').remove();
-// 		jQuery('[id^=unavailable_date_]').each(function (id, item) {
-// 			var counter = id + 1;
-
-// 			jQuery(item).attr('id', 'unavailable_date_' + counter);
-// 			jQuery(item).attr('name', 'service_unavailability[dates][' + counter + ']');
-// 		});
-// 	}
-// }
-
 // Fetch booked product form
 jQuery(document).on('click', '#show-product-dialog', function (e) {
 	e.preventDefault();
@@ -14179,39 +14144,27 @@ function bm_bulk_update_state(tableId) {
 
 // ===== DYNAMIC PAGINATION FOR ALL TABLES WITH BULK ACTIONS =====
 jQuery(document).ready(function() {
-    // Order table pagination
-    var savedOrderPagination = localStorage.getItem('bm_order_items_per_page') || '10';
-    jQuery('#order_items_per_page').val(savedOrderPagination);
-    
-    jQuery(document).on('change', '#order_items_per_page', function() {
-        var value = jQuery(this).val();
-        localStorage.setItem('bm_order_items_per_page', value);
-        var url = new URL(window.location);
-        url.searchParams.set('limit', value);
-        window.location.href = url.toString();
+    // Restore saved pagination values from localStorage for all dropdowns on the page.
+    jQuery('.bm-dynamic-pagination select[id$="_items_per_page"]').each(function() {
+        var el = jQuery(this);
+        var id = el.attr('id'); // e.g. "order_items_per_page"
+        var storageKey = 'bm_' + id;
+        var saved = localStorage.getItem(storageKey);
+        if (saved) {
+            el.val(saved);
+        }
     });
-    
-    // Voucher records pagination
-    var savedVoucherPagination = localStorage.getItem('bm_voucher_items_per_page') || '10';
-    jQuery('#voucher_items_per_page').val(savedVoucherPagination);
-    
-    jQuery(document).on('change', '#voucher_items_per_page', function() {
-        var value = jQuery(this).val();
-        localStorage.setItem('bm_voucher_items_per_page', value);
+
+    // Single delegated change handler for all pagination dropdowns.
+    jQuery(document).on('change', '.bm-dynamic-pagination select[id$="_items_per_page"]', function() {
+        var el = jQuery(this);
+        var id = el.attr('id');
+        var storageKey = 'bm_' + id;
+        var value = el.val();
+        localStorage.setItem(storageKey, value);
         var url = new URL(window.location);
         url.searchParams.set('limit', value);
-        window.location.href = url.toString();
-    });
-    
-    // Check-in records pagination
-    var savedCheckinPagination = localStorage.getItem('bm_checkin_items_per_page') || '10';
-    jQuery('#checkin_items_per_page').val(savedCheckinPagination);
-    
-    jQuery(document).on('change', '#checkin_items_per_page', function() {
-        var value = jQuery(this).val();
-        localStorage.setItem('bm_checkin_items_per_page', value);
-        var url = new URL(window.location);
-        url.searchParams.set('limit', value);
+        url.searchParams.delete('pagenum'); // Reset to first page.
         window.location.href = url.toString();
     });
 });

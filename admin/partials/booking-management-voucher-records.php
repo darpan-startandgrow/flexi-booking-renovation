@@ -3,7 +3,9 @@ $dbhandler    = new BM_DBhandler();
 $bmrequests   = new BM_Request();
 $pagenum      = filter_input( INPUT_GET, 'pagenum' );
 $pagenum      = isset( $pagenum ) ? absint( $pagenum ) : 1;
-$limit        = !empty( $dbhandler->get_global_option_value( 'bm_voucher_records_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_voucher_records_per_page' ) : 10;
+$limit_param  = filter_input( INPUT_GET, 'limit', FILTER_VALIDATE_INT );
+$limit_param  = $limit_param ? min( $limit_param, 100 ) : 0;
+$limit        = $limit_param ? $limit_param : ( !empty( $dbhandler->get_global_option_value( 'bm_voucher_records_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_voucher_records_per_page' ) : 10 );
 $offset       = ( ( $pagenum - 1 ) * $limit );
 $i            = ( 1 + $offset );
 $total        = $dbhandler->bm_count( 'VOUCHERS' );
@@ -28,7 +30,7 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
             <select class="bm-bulk-action-select" data-table="voucher" style="min-width:180px;">
                 <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
                 <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
-                <option value="bulk_toggle_status"><?php esc_html_e( 'Toggle Status Selected', 'service-booking' ); ?></option>
+                <option value="bulk_toggle_status"><?php esc_html_e( 'Toggle Status', 'service-booking' ); ?></option>
             </select>
             <span class="bm-bulk-status-wrap" style="display:none;">
                 <select class="bm-bulk-status-val">

@@ -212,7 +212,7 @@ if ( ( filter_input( INPUT_POST, 'savesvc' ) ) || ( filter_input( INPUT_POST, 'u
         'extra_operation'        => isset( $_POST['svc_extra_operation'] ) ? filter_input( INPUT_POST, 'svc_extra_operation' ) : null,
         'extra_price'            => isset( $_POST['svc_extra_price'] ) ? filter_input( INPUT_POST, 'svc_extra_price' ) : null,
         'extra_max_cap'          => !empty( $_POST['svc_extra_max_cap'] ) ? filter_input( INPUT_POST, 'svc_extra_max_cap' ) : 1,
-        'is_global'              => isset( $_POST['is_global'] ) ? 1 : 0,
+        'is_global'              => 0,
         'is_extra_service_front' => filter_input( INPUT_POST, 'is_extra_service_front' ),
         'extra_desc'             => isset( $_POST['svc_extra_desc'] ) ? filter_input( INPUT_POST, 'svc_extra_desc' ) : null,
         'is_linked_wc_extrasvc'  => isset( $_POST['is_linked_wc_extrasvc'] ) ? 1 : 0,
@@ -257,7 +257,7 @@ if ( ( filter_input( INPUT_POST, 'savesvc' ) ) || ( filter_input( INPUT_POST, 'u
 			}
 
 			if ( ( filter_input( INPUT_POST, 'if_extra_svc' ) == '1' ) ) {
-				$extrafields['service_id'] = isset( $_POST['is_global'] ) ? 0 : esc_attr( $service_id );
+				$extrafields['service_id'] = esc_attr( $service_id );
 				$extra_service_post        = $bmrequests->sanitize_request( $extrafields, $extra_identifier, $exclude );
 
 				if ( $extra_service_post != false ) {
@@ -359,7 +359,7 @@ if ( ( filter_input( INPUT_POST, 'savesvc' ) ) || ( filter_input( INPUT_POST, 'u
 				}
 
 				if ( ( filter_input( INPUT_POST, 'if_extra_svc' ) == '1' ) ) {
-					$extrafields['service_id'] = isset( $_POST['is_global'] ) ?  0 : esc_attr( $id );
+					$extrafields['service_id'] = esc_attr( $id );
 					$extra_service_post        = $bmrequests->sanitize_request( $extrafields, $extra_identifier, $exclude );
 
 					if ( $extra_service_post != false ) {
@@ -433,7 +433,7 @@ if ( filter_input( INPUT_POST, 'savesvc_extra' ) || filter_input( INPUT_POST, 'u
         'extra_operation'        => isset( $_POST['svc_extra_operation'] ) ? filter_input( INPUT_POST, 'svc_extra_operation' ) : null,
         'extra_price'            => isset( $_POST['svc_extra_price'] ) ? filter_input( INPUT_POST, 'svc_extra_price' ) : null,
         'extra_max_cap'          => !empty( $_POST['svc_extra_max_cap'] ) ? filter_input( INPUT_POST, 'svc_extra_max_cap' ) : 1,
-        'is_global'              => isset( $_POST['is_global'] ) ? 1 : 0,
+        'is_global'              => 0,
         'is_extra_service_front' => filter_input( INPUT_POST, 'is_extra_service_front' ),
         'extra_desc'             => isset( $_POST['svc_extra_desc'] ) ? filter_input( INPUT_POST, 'svc_extra_desc' ) : null,
         'is_linked_wc_extrasvc'  => isset( $_POST['is_linked_wc_extrasvc'] ) ? 1 : 0,
@@ -442,7 +442,7 @@ if ( filter_input( INPUT_POST, 'savesvc_extra' ) || filter_input( INPUT_POST, 'u
 
     if ( filter_input( INPUT_POST, 'savesvc_extra' ) ) {
         if ( $id != 0 ) {
-            isset( $_POST['is_global'] ) ? $extrafields['service_id'] = 0 : $extrafields['service_id'] = esc_attr( $id );
+            $extrafields['service_id'] = esc_attr( $id );
             $extra_service_post                                       = $bmrequests->sanitize_request( $extrafields, $extra_identifier, $exclude );
 
             if ( $extra_service_post != false ) {
@@ -473,7 +473,7 @@ if ( filter_input( INPUT_POST, 'savesvc_extra' ) || filter_input( INPUT_POST, 'u
 
     if ( filter_input( INPUT_POST, 'upsvc_extra' ) ) {
         if ( $extra_id > 0 && $id > 0 ) {
-            $extrafields['service_id']        = isset( $_POST['is_global'] ) ?  0 : esc_attr( $id );
+            $extrafields['service_id']        = esc_attr( $id );
             $extrafields['extras_updated_at'] = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
             $extra_service_post               = $bmrequests->sanitize_request( $extrafields, $extra_identifier, $exclude );
 
@@ -1160,16 +1160,6 @@ if ( filter_input( INPUT_POST, 'delsvc_extra' ) ) {
                         <tr>
                             <th scope="row"><label for="svc_extra_max_cap"><?php esc_html_e( 'Maximum Capacity', 'service-booking' ); ?></label></th>
                             <td><input name="svc_extra_max_cap" type="number" min="1" id="svc_extra_max_cap" value="<?php echo isset( $sv_extra_row ) && !empty( $sv_extra_row->extra_max_cap ) ? esc_html( $sv_extra_row->extra_max_cap ) : ''; ?>" placeholder="<?php esc_html_e( 'maximum capacity', 'service-booking' ); ?>" class="regular-text" autocomplete="off"></td>
-                        </tr>
-                        <tr>
-                            <th scope="row"><?php esc_html_e( 'Global ?', 'service-booking' ); ?></th>
-                            <td class="bm-checkbox-td">
-                                <input name="is_global" type="checkbox" id="is_global" class="regular-text bm_toggle" <?php isset( $sv_extra_row ) ?  checked( $sv_extra_row->is_global, 1 ) : ''; ?>>
-                                <label for="is_global"></label>
-                                <span class="info_text" style="margin-left:0px;margin-top:5px;">
-                                    <?php esc_html_e( '( If Global, this extra will be available for all services )', 'service-booking' ); ?>
-                                </span>
-                            </td>
                         </tr>
                         <tr>
                             <th scope="row"><?php esc_html_e( 'Is visible in frontend ?', 'service-booking' ); ?></th>

@@ -1007,7 +1007,6 @@ class BM_Request {
 		$price_format = '';
 
 		if ( $has_conversion ) {
-			/**$price = $this->bm_convert_to_european_price_format( $price, true );*/
 			$price = $this->bm_format_price( $price, true );
 		}
 
@@ -3618,7 +3617,6 @@ class BM_Request {
 			if ( $shortcode_type == 'service_by_id' ) {
 				if ( strlen( $svc_desc ) > 250 ) {
 					$svc_shrt_dsc_class = "Style='height:auto;width:97%;text-align:justify;font-size:$svc_shrt_desc_font!important;'";
-					/**$shrt_dsc_fa_class  = "Style='position:absolute;bottom:38%;right:5%;clear:both;'";*/
 					$book_button_class = "Style='background:$svc_button_colour'";
 				} else {
 					$book_button_class  = "Style='background:$svc_button_colour'";
@@ -8736,7 +8734,6 @@ class BM_Request {
 			$value = isset( $order->$field_name ) ? $order->$field_name : '';
 
 			if ( $field_name == 'booking_key' ) {
-				/**$value = $this->encrypt_key( $value, 'booking_reference_key' );*/
 				return base64_encode( $value );
 			}
 
@@ -8810,7 +8807,6 @@ class BM_Request {
 		}
 
 		if ( $field_name == 'booking_key' ) {
-			/**$value = $this->encrypt_key( $order_key, 'booking_reference_key' );*/
 			return base64_encode( $value );
 		}
 
@@ -10019,7 +10015,6 @@ class BM_Request {
 			$order_data = $dbhandler->bm_fetch_data_from_transient( $booking_key );
 		}
 
-		/**$order_data = $dbhandler->bm_fetch_data_from_transient( $booking_key );*/
 		$booking_currency = $dbhandler->get_global_option_value( 'bm_booking_currency', 'EUR' );
 		$product          = array();
 
@@ -10048,7 +10043,6 @@ class BM_Request {
 			$order_data = $dbhandler->bm_fetch_data_from_transient( $booking_key );
 		}
 
-		/**$order_data = $dbhandler->bm_fetch_data_from_transient( $booking_key );*/
 		$booking_currency = $dbhandler->get_global_option_value( 'bm_booking_currency', 'EUR' );
 		$product          = array();
 
@@ -10142,7 +10136,6 @@ class BM_Request {
 			$wc_order_id = $dbhandler->get_value( 'BOOKING', 'wc_order_id', $order_id, 'id' );
 			$discount    = $dbhandler->get_value( 'BOOKING', 'disount_amount', $order_id, 'id' );
 			$total       = $dbhandler->get_value( 'BOOKING', 'total_cost', $order_id, 'id' );
-			$wc_order_id = $dbhandler->get_value( 'BOOKING', 'wc_order_id', $order_id, 'id' );
 
 			if ( $wc_order_id > 0 && $checkout == 'woocommerce_checkout' ) {
 				$products = $this->get_woocommerce_booked_products( $wc_order_id, $order_id );
@@ -12045,9 +12038,8 @@ class BM_Request {
 		} else {
 			$order_data = $dbhandler->bm_fetch_data_from_transient( $booking_key );
 		}
-                $order_data = apply_filters( 'bm_order_data_before_save_booking_data', $order_data, $booking_key, $checkout_key );
+		$order_data = apply_filters( 'bm_order_data_before_save_booking_data', $order_data, $booking_key, $checkout_key );
 
-		/**$order_data = $dbhandler->bm_fetch_data_from_transient( $booking_key );*/
 		$checkout_data    = $dbhandler->bm_fetch_data_from_transient( $checkout_key );
 		$booking_type     = isset( $checkout_data['request_type'] ) ? $checkout_data['request_type'] : '';
 		$field_data       = isset( $checkout_data['billing'] ) ? $checkout_data['billing'] : array();
@@ -12462,7 +12454,6 @@ class BM_Request {
 			$booking_details = $dbhandler->bm_fetch_data_from_transient( $booking_key );
 		}
 
-		/**$booking_details = $dbhandler->bm_fetch_data_from_transient( $booking_key );*/
 		$message = '';
 
 		if ( ! empty( $booking_details ) ) {
@@ -12601,7 +12592,6 @@ class BM_Request {
 			$booking_details = $dbhandler->bm_fetch_data_from_transient( $booking_key );
 		}
 
-		/**$booking_details  = $dbhandler->bm_fetch_data_from_transient( $booking_key );*/
 		$checkout_details = $dbhandler->bm_fetch_data_from_transient( $checkout_key );
 		$data             = array();
 		$resp             = '';
@@ -13587,7 +13577,6 @@ class BM_Request {
 			$booking_data = $dbhandler->bm_fetch_data_from_transient( $booking_key );
 		}
 
-		/**$booking_data   = $dbhandler->bm_fetch_data_from_transient( $booking_key )*/
 		$checkout_data  = $dbhandler->bm_fetch_data_from_transient( $checkout_key );
 		$checkout_data  = isset( $checkout_data['checkout'] ) ? $checkout_data['checkout'] : array();
 		$gift_key       = base64_encode( $booking_key );
@@ -14169,7 +14158,6 @@ class BM_Request {
 			$booking_fields = $dbhandler->bm_fetch_data_from_transient( $booking_key );
 		}
 
-        /**$booking_fields = $dbhandler->bm_fetch_data_from_transient( $booking_key );*/
         $bookable = true;
         if ( $gift ) {
             return $bookable;
@@ -14386,7 +14374,6 @@ class BM_Request {
 			$booking_details = $dbhandler->bm_fetch_data_from_transient( $booking_key );
 		}
 
-		/**$booking_details = $dbhandler->bm_fetch_data_from_transient( $booking_key );*/
 		$request_type = '';
 
 		if ( ! empty( $booking_details ) ) {
@@ -14488,8 +14475,6 @@ class BM_Request {
 			$booking_fields = $dbhandler->bm_fetch_data_from_transient( $booking_key );
 		}
 
-		/**$booking_fields = $dbhandler->bm_fetch_data_from_transient( $booking_key );*/
-
 		if ( ! empty( $booking_fields ) ) {
 			$booking_date          = isset( $booking_fields['booking_date'] ) ? $booking_fields['booking_date'] : '';
 			$extra_services_booked = isset( $booking_fields['extra_svc_booked'] ) ? explode( ',', $booking_fields['extra_svc_booked'] ) : array();
@@ -14567,12 +14552,13 @@ class BM_Request {
 	 */
 	public function bm_fetch_payment_statuses( $key = '', $exclude = array() ) {
 		$statusList = array(
-			'pending'   => 'Pending',
-			'succeeded' => 'Paid',
-			'failed'    => 'Failed',
-			'free'      => 'Free',
-			'cancelled' => 'Cancelled',
-			'refunded'  => 'Refunded',
+			'pending'          => 'Pending',
+			'succeeded'        => 'Paid',
+			'requires_capture' => 'Awaiting Capture',
+			'failed'           => 'Failed',
+			'free'             => 'Free',
+			'cancelled'        => 'Cancelled',
+			'refunded'         => 'Refunded',
 		);
 
 		if ( ! empty( $key ) ) {
@@ -15378,59 +15364,18 @@ class BM_Request {
 
 		$is_frontend_booking      = $dbhandler->get_value( 'BOOKING', 'is_frontend_booking', $booking_id, 'id' );
 		$default_payment_statuses = $this->bm_fetch_payment_statuses();
-		/**$excluded_payment_statuses = array_keys( $this->bm_fetch_payment_statuses( '', array( 'Refunded' ) ) );*/
 
 		$html  = '<div class="transaction_details_parent_div">';
 		$html .= '<h4 style="font-size: 16px;text-decoration: underline;">' . __( 'Transaction Details', 'service-booking' ) . '</h4>';
 		$html .= '<input type="hidden" name="booking_id" id="booking_id" value=' . esc_attr( $booking_id ) . '>';
 		$html .= '<input type="hidden" name="paid_amount" id="paid_amount" value=' . esc_attr( $paid_amount ) . '>';
 		$html .= '<input type="hidden" name="paid_amount_currency" id="paid_amount_currency" value=' . esc_html( $paid_currency ) . '>';
-		/**$html .= '<div class="single_transaction_details">';
-		$html .= '<label for="paid_amount" class="boldfont">' . __( 'Amount paid:', 'service-booking' ) . '</label>';
-		$html .= '<input type="number" name="paid_amount" id="paid_amount" value=' . esc_attr( $paid_amount ) . '>';
-		$html .= '</div>';
-		$html .= '<div class="single_transaction_details">';
-		$html .= '<label for="paid_amount_currency" class="boldfont">' . __( 'Currency:', 'service-booking' ) . '</label>';
-		$html .= '<select name="paid_amount_currency" id="paid_amount_currency" class="regular-text" style="max-width:300px">';
-		$html .= '<option value="USD" ' . ( $paid_currency == 'USD' ? 'selected' : '' ) . '>' . __( 'US Dollars', 'service-booking' ) . '($)</option>';
-		$html .= '<option value="EUR" ' . ( $paid_currency == 'EUR' ? 'selected' : '' ) . '>' . __( 'Euros', 'service-booking' ) . '(&euro;)</option>';
-		$html .= '<option value="GBP" ' . ( $paid_currency == 'GBP' ? 'selected' : '' ) . '>' . __( 'Pounds Sterling', 'service-booking' ) . '(&pound;)</option>';
-		$html .= '<option value="AUD" ' . ( $paid_currency == 'AUD' ? 'selected' : '' ) . '>' . __( 'Australian Dollars', 'service-booking' ) . '($)</option>';
-		$html .= '<option value="BRL" ' . ( $paid_currency == 'BRL' ? 'selected' : '' ) . '>' . __( 'Brazilian Real', 'service-booking' ) . '(R$)</option>';
-		$html .= '<option value="CAD" ' . ( $paid_currency == 'CAD' ? 'selected' : '' ) . '>' . __( 'Canadian Dollars', 'service-booking' ) . '($)</option>';
-		$html .= '<option value="CZK" ' . ( $paid_currency == 'CZK' ? 'selected' : '' ) . '>' . __( 'Czech Koruna', 'service-booking' ) . '</option>';
-		$html .= '<option value="DKK" ' . ( $paid_currency == 'DKK' ? 'selected' : '' ) . '>' . __( 'Danish Krone', 'service-booking' ) . '</option>';
-		$html .= '<option value="HKD" ' . ( $paid_currency == 'HKD' ? 'selected' : '' ) . '>' . __( 'Hong Kong Dollar', 'service-booking' ) . '($)</option>';
-		$html .= '<option value="HUF" ' . ( $paid_currency == 'HUF' ? 'selected' : '' ) . '>' . __( 'Hungarian Forint', 'service-booking' ) . '</option>';
-		$html .= '<option value="ILS" ' . ( $paid_currency == 'ILS' ? 'selected' : '' ) . '>' . __( 'Israeli Shekel', 'service-booking' ) . '(&#x20aa;)</option>';
-		$html .= '<option value="JPY" ' . ( $paid_currency == 'JPY' ? 'selected' : '' ) . '>' . __( 'Japanese Yen', 'service-booking' ) . '(&yen;)</option>';
-		$html .= '<option value="MYR" ' . ( $paid_currency == 'MYR' ? 'selected' : '' ) . '>' . __( 'Malaysian Ringgits', 'service-booking' ) . '</option>';
-		$html .= '<option value="MXN" ' . ( $paid_currency == 'MXN' ? 'selected' : '' ) . '>' . __( 'Mexican Peso', 'service-booking' ) . '($)</option>';
-		$html .= '<option value="NZD" ' . ( $paid_currency == 'NZD' ? 'selected' : '' ) . '>' . __( 'New Zealand Dollar', 'service-booking' ) . '($)</option>';
-		$html .= '<option value="NOK" ' . ( $paid_currency == 'NOK' ? 'selected' : '' ) . '>' . __( 'Norwegian Krone', 'service-booking' ) . '</option>';
-		$html .= '<option value="PHP" ' . ( $paid_currency == 'PHP' ? 'selected' : '' ) . '>' . __( 'Philippine Pesos', 'service-booking' ) . '</option>';
-		$html .= '<option value="PLN" ' . ( $paid_currency == 'PLN' ? 'selected' : '' ) . '>' . __( 'Polish Zloty', 'service-booking' ) . '</option>';
-		$html .= '<option value="SGD" ' . ( $paid_currency == 'SGD' ? 'selected' : '' ) . '>' . __( 'Singapore Dollar', 'service-booking' ) . '($)</option>';
-		$html .= '<option value="SEK" ' . ( $paid_currency == 'SEK' ? 'selected' : '' ) . '>' . __( 'Swedish Krona', 'service-booking' ) . '</option>';
-		$html .= '<option value="CHF" ' . ( $paid_currency == 'CHF' ? 'selected' : '' ) . '>' . __( 'Swiss Franc', 'service-booking' ) . '</option>';
-		$html .= '<option value="TWD" ' . ( $paid_currency == 'TWD' ? 'selected' : '' ) . '>' . __( 'Taiwan New Dollars', 'service-booking' ) . '</option>';
-		$html .= '<option value="THB" ' . ( $paid_currency == 'THB' ? 'selected' : '' ) . '>' . __( 'Thai Baht', 'service-booking' ) . '(&#3647;)</option>';
-		$html .= '<option value="INR" ' . ( $paid_currency == 'INR' ? 'selected' : '' ) . '>' . __( 'Indian Rupee', 'service-booking' ) . '(&#x20B9;)</option>';
-		$html .= '<option value="TRY" ' . ( $paid_currency == 'TRY' ? 'selected' : '' ) . '>' . __( 'Turkish Lira', 'service-booking' ) . '(&#8378;)</option>';
-		$html .= '<option value="RIAL" ' . ( $paid_currency == 'RIAL' ? 'selected' : '' ) . '>' . __( 'Iranian Rial', 'service-booking' ) . '</option>';
-		$html .= '<option value="RUB" ' . ( $paid_currency == 'RUB' ? 'selected' : '' ) . '>' . __( 'Russian Rubles', 'service-booking' ) . '</option>';
-		$html .= '</select>';
-		$html .= '</div>';*/
 		if ( $is_frontend_booking == 1 ) {
 			$html .= '<div class="single_transaction_details ' . ( $is_active == 0 || $is_active == 2 ? 'readonly_cursor' : '' ) . '">';
 			$html .= '<label for="transaction_id" class="boldfont">' . __( 'Transaction ID', 'service-booking' ) . '</label>';
 			$html .= '<input type="text" name="transaction_id" id="transaction_id" ' . ( $is_active == 0 || $is_active == 2 ? 'readonly' : '' ) . ' value=' . esc_html( $transaction_id ) . '>';
 			$html .= '</div>';
 		}
-		/**$html .= '<div class="single_transaction_details">';
-		$html .= '<label for="payment_method" class="boldfont">' . __( 'Payment Method', 'service-booking' ) . '</label>';
-		$html .= '<input type="text" name="payment_method" id="payment_method" value=' . esc_html( $payment_method ) . '>';
-		$html .= '</div>';*/
 		$html .= '<div class="single_transaction_details ' . ( $is_active == 0 || $is_active == 2 ? 'readonly_cursor' : '' ) . '">';
 		$html .= '<label for="payment_status" class="boldfont">' . __( 'Payment Status', 'service-booking' ) . '</label>';
 		$html .= '<select name="payment_status" id="payment_status" onchange="check_payment_status(this)"  class="' . ( $is_active == 0 || $is_active == 2 ? 'readonly_checkbox' : '' ) . '">';
@@ -15716,13 +15661,11 @@ class BM_Request {
 					$age_input_html .= '<div class="checkout_discount_buttons">';
 					$age_input_html .= '<span class="primarybutton button-primary">';
 					$age_input_html .= '<a href="#" id="check_checkout_discount" class="check_checkout_discount" title="' . esc_html__( 'Calculate', 'service-booking' ) . '">';
-					/**$age_input_html .= esc_html__( 'Calculate', 'service-booking' );*/
 					$age_input_html .= '<i class="fa fa-calculator"></i>';
 					$age_input_html .= '</a>';
 					$age_input_html .= '</span>';
 					$age_input_html .= '<span class="secondarybutton button-secondary">';
 					$age_input_html .= '<a href="#" id="reset_checkout_discount" class="reset_checkout_discount" title="' . esc_html__( 'Reset', 'service-booking' ) . '">';
-					/**$age_input_html .= esc_html__( 'Reset', 'service-booking' );*/
 					$age_input_html .= '<i class="fa fa-refresh"></i>';
 					$age_input_html .= '</a>';
 					$age_input_html .= '</span>';
@@ -15730,8 +15673,6 @@ class BM_Request {
 				}
 			}
 		}
-
-		/**$dbhandler->bm_save_data_to_transient( 'flexi_svc_price_module_age_ranges_' . $booking_key, $module_age_ranges, 72 );*/
 
 		return apply_filters( 'bm_backend_order_price_module_html', wp_kses( $age_input_html, $this->bm_fetch_expanded_allowed_tags() ), $svc_price_module_id, $service_id, $date );
 	}//end bm_fetch_price_discount_module_box_for_backend_order()

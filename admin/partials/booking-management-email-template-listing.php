@@ -3,7 +3,9 @@ $dbhandler       = new BM_DBhandler();
 $bmrequests      = new BM_Request();
 $pagenum         = filter_input( INPUT_GET, 'pagenum' );
 $pagenum         = isset( $pagenum ) ? absint( $pagenum ) : 1;
-$limit           = ! empty( $dbhandler->get_global_option_value( 'bm_templates_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_templates_per_page' ) : 10;
+$limit_param     = filter_input( INPUT_GET, 'limit', FILTER_VALIDATE_INT );
+$limit_param     = $limit_param ? min( $limit_param, 100 ) : 0;
+$limit           = $limit_param ? $limit_param : ( ! empty( $dbhandler->get_global_option_value( 'bm_templates_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_templates_per_page' ) : 10 );
 $offset          = ( ( $pagenum - 1 ) * $limit );
 $i               = ( 1 + $offset );
 $language        = $dbhandler->get_global_option_value( 'bm_flexi_current_language', 'en' );
@@ -42,6 +44,17 @@ $pagination      = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmre
 			</span>
 			<button type="button" class="button button-primary bm-bulk-apply" data-table="email_template" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
 			<span class="bm-bulk-count" style="color:#666;font-size:12px;margin-left:8px;"></span>
+			
+			<!-- Dynamic Pagination -->
+			<div class="bm-dynamic-pagination" style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+				<label for="email_template_items_per_page" style="font-size:13px;color:#3c434a;"><?php esc_html_e( 'Items per page:', 'service-booking' ); ?></label>
+				<select id="email_template_items_per_page" name="email_template_items_per_page" style="min-width:80px;">
+					<option value="10">10</option>
+					<option value="20">20</option>
+					<option value="50">50</option>
+					<option value="100">100</option>
+				</select>
+			</div>
 		</div>
 		<input type="hidden" name="pagenum" value="<?php echo esc_attr( $pagenum ); ?>" />
 		<table class="wp-list-table widefat striped">

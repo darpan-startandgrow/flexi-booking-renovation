@@ -3,7 +3,9 @@ $dbhandler  = new BM_DBhandler();
 $bmrequests = new BM_Request();
 $pagenum    = filter_input( INPUT_GET, 'pagenum' );
 $pagenum    = isset( $pagenum ) ? absint( $pagenum ) : 1;
-$limit      = !empty( $dbhandler->get_global_option_value( 'bm_checkins_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_checkins_per_page' ) : 10;
+$limit_param = filter_input( INPUT_GET, 'limit', FILTER_VALIDATE_INT );
+$limit_param = $limit_param ? min( $limit_param, 100 ) : 0;
+$limit      = $limit_param ? $limit_param : ( !empty( $dbhandler->get_global_option_value( 'bm_checkins_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_checkins_per_page' ) : 10 );
 $offset     = ( ( $pagenum - 1 ) * $limit );
 $i          = ( 1 + $offset );
 $checkins   = $bmrequests->bm_fetch_all_order_checkins();
@@ -137,14 +139,13 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
             <select class="bm-bulk-action-select" data-table="checkin" style="min-width:180px;">
                 <option value=""><?php esc_html_e( '— Bulk Actions —', 'service-booking' ); ?></option>
                 <option value="bulk_delete"><?php esc_html_e( 'Delete Selected', 'service-booking' ); ?></option>
-                <option value="bulk_toggle_status"><?php esc_html_e( 'Toggle Status Selected', 'service-booking' ); ?></option>
+                <option value="bulk_toggle_status"><?php esc_html_e( 'Toggle Status', 'service-booking' ); ?></option>
             </select>
             <span class="bm-bulk-status-wrap" style="display:none;">
                 <select class="bm-bulk-status-val">
                     <option value="pending"><?php esc_html_e( 'Pending', 'service-booking' ); ?></option>
-                    <option value="completed"><?php esc_html_e( 'Completed', 'service-booking' ); ?></option>
-                    <option value="in_progress"><?php esc_html_e( 'In Progress', 'service-booking' ); ?></option>
-                    <option value="cancelled"><?php esc_html_e( 'Cancelled', 'service-booking' ); ?></option>
+                    <option value="checked_in"><?php esc_html_e( 'Checked In', 'service-booking' ); ?></option>
+                    <option value="expired"><?php esc_html_e( 'Expired', 'service-booking' ); ?></option>
                 </select>
             </span>
             <button type="button" class="button button-primary bm-bulk-apply" data-table="checkin" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
