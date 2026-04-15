@@ -5509,10 +5509,19 @@ class Booking_Management_Public {
 		$language         = ! empty( $back_lang ) ? $back_lang : $language;
 		$mail_data        = array();
 
-		if ( ! empty( $order ) ) {
+		if ( empty( $order ) ) {
+			return;
+		}
+
 			$current_mail_sent = isset( $order->mail_sent ) ? (int) $order->mail_sent : 0;
-			$need_admin        = false;
-			$need_customer     = false;
+
+			// Both admin and customer emails already sent — nothing to do
+			if ( $current_mail_sent >= 3 ) {
+				return;
+			}
+
+			$need_admin    = false;
+			$need_customer = false;
 
 			if ( $current_mail_sent == 0 ) {
 				$need_admin    = true;
@@ -5523,9 +5532,6 @@ class Booking_Management_Public {
 			} elseif ( $current_mail_sent == 2 ) {
 				$need_admin    = true;
 				$need_customer = false; // customer already sent
-			} elseif ( $current_mail_sent == 3 ) {
-				$need_admin    = false;
-				$need_customer = false; // both sent
 			}
 
 			$source = isset( $order->is_frontend_booking ) ? $order->is_frontend_booking : -1;
@@ -5583,10 +5589,9 @@ class Booking_Management_Public {
 				if ( $admin_old_locale ) {
 					$bmrequests->bm_restore_locale( $admin_old_locale );
 				}
-				$mail_to_admin = $bm_mail->bm_send_notification_to_shop_admin( $admin_email_subject, $admin_email_message, (int) $order_id );
-
-				$mail_to_admin    = $mail_to_admin['success'];
-				$admin_mail_error = $mail_to_admin['error'];
+				$admin_result     = $bm_mail->bm_send_notification_to_shop_admin( $admin_email_subject, $admin_email_message, (int) $order_id );
+				$mail_to_admin    = is_array( $admin_result ) ? $admin_result['success'] : false;
+				$admin_mail_error = is_array( $admin_result ) ? $admin_result['error'] : '';
 			}
 
 			// Customer email (only if needed)
@@ -5612,16 +5617,16 @@ class Booking_Management_Public {
 				$template_body = ob_get_contents();
 				ob_end_clean();
 
-				$mail_to_customer = $bm_mail->bm_send_email_to_customer( $template_subject, $template_body, (int) $order_id );
-				$mail_to_customer = $mail_to_customer['success'];
-				$cust_mail_error  = $mail_to_customer['error'];
+				$customer_result  = $bm_mail->bm_send_email_to_customer( $template_subject, $template_body, (int) $order_id );
+				$mail_to_customer = is_array( $customer_result ) ? $customer_result['success'] : false;
+				$cust_mail_error  = is_array( $customer_result ) ? $customer_result['error'] : '';
 
 				$error_msg = array();
-				if ( !empty( $admin_mail_error ) ) {
+				if ( ! empty( $admin_mail_error ) ) {
 					$error_msg['admin'] = $admin_mail_error;
 				}
 
-				if ( !empty( $cust_mail_error ) ) {
+				if ( ! empty( $cust_mail_error ) ) {
 					$error_msg['customer'] = $cust_mail_error;
 				}
 
@@ -5670,7 +5675,6 @@ class Booking_Management_Public {
 					$mail_id                 = $dbhandler->insert_row( 'EMAILS', $mail_data );
 				}
 			}
-		}
 	} //end bm_flexibooking_mail_on_new_order_created()
 
 

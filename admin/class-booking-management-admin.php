@@ -12288,6 +12288,7 @@ class Booking_Management_Admin {
 	/**
 	 * Cron job to resend missing emails for paid bookings with future service dates.
 	 * Uses the custom get_results_with_join method to fetch eligible bookings.
+	 * Includes idempotency guards and retry cap to prevent duplicate emails.
 	 */
 	public function bm_resend_missing_emails_cron() {
 		$dbhandler = new BM_DBhandler();
@@ -12321,11 +12322,15 @@ class Booking_Management_Admin {
 			'AND b.booking_date IS NOT NULL'
 		);
 
-		if ( empty( $results ) ) {
+		if ( empty( $results ) || ! is_array( $results ) ) {
 			return;
 		}
 
 		foreach ( $results as $booking ) {
+			if ( empty( $booking->id ) ) {
+				continue;
+			}
+
 			// --- TRANSIENT LOCK: prevent duplicate processing ---
 			$lock_key = 'bm_processing_booking_' . $booking->id;
 			if ( get_transient( $lock_key ) ) {
@@ -12333,10 +12338,27 @@ class Booking_Management_Admin {
 			}
 			set_transient( $lock_key, true, 10 * MINUTE_IN_SECONDS ); // lock for 10 minutes
 
+			// --- RETRY CAP: prevent infinite cron retries (max 5 attempts) ---
+			$retry_key   = 'bm_mail_retry_count_' . $booking->id;
+			$retry_count = (int) get_transient( $retry_key );
+			if ( $retry_count >= 5 ) {
+				delete_transient( $lock_key );
+				continue;
+			}
+			set_transient( $retry_key, $retry_count + 1, DAY_IN_SECONDS );
+
+			// Re-read mail_sent from DB to avoid stale data from the query
+			$fresh_mail_sent = (int) $dbhandler->get_value( 'BOOKING', 'mail_sent', $booking->id, 'id' );
+			if ( $fresh_mail_sent >= 3 ) {
+				delete_transient( $lock_key );
+				delete_transient( $retry_key );
+				continue;
+			}
+
 			// Combine date and time from booking_slots
 			$service_date = $booking->booking_date;
 			$slots        = maybe_unserialize( $booking->booking_slots );
-			$from_slot    = isset( $slots['from'] ) ? $slots['from'] : '';
+			$from_slot    = is_array( $slots ) && isset( $slots['from'] ) ? $slots['from'] : '';
 			if ( ! empty( $from_slot ) ) {
 				$service_datetime = $service_date . ' ' . $from_slot;
 			} else {
@@ -12368,17 +12390,19 @@ class Booking_Management_Admin {
 					),
 					'results'
 				);
-				// get_all_result may return null on error; check empty array
+				// get_all_result may return null on error; only trigger if truly empty
 				if ( empty( $voucher_emails ) ) {
 					do_action( 'flexibooking_set_process_new_order_voucher', $booking->id );
-				} else {
-					// Optional: log that voucher email already exists
-					error_log( "Voucher email already sent for booking {$booking->id}" );
 				}
 			}
 
-			// Release the lock after processing (optional – keep for the full 10 minutes to be safe)
-			// delete_transient( $lock_key );
+			// Check if mail_sent is now complete after processing and clear retry counter
+			$updated_mail_sent = (int) $dbhandler->get_value( 'BOOKING', 'mail_sent', $booking->id, 'id' );
+			if ( $updated_mail_sent >= 3 ) {
+				delete_transient( $retry_key );
+			}
+
+			delete_transient( $lock_key );
 		}
 	}
 

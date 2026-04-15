@@ -106,9 +106,11 @@ class BM_Email {
 		$back_lang = $dbhandler->get_global_option_value( 'bm_flexi_current_language_backend', '' );
 		$language  = ! empty( $back_lang ) ? $back_lang : $language;
 		if ( $customer ) {
-			$order    = $dbhandler->get_row( 'BOOKING', $booking_id, 'id' );
-			$trp_lang = get_option( 'trp_lang_' . $order->booking_key, false );
-			$language = ! empty( $trp_lang ) ? $trp_lang : $language;
+			$order = $dbhandler->get_row( 'BOOKING', $booking_id, 'id' );
+			if ( ! empty( $order ) && isset( $order->booking_key ) ) {
+				$trp_lang = get_option( 'trp_lang_' . $order->booking_key, false );
+				$language = ! empty( $trp_lang ) ? $trp_lang : $language;
+			}
 		}
 
 		$email_body = "email_body_$language";
@@ -124,9 +126,11 @@ class BM_Email {
 		$back_lang = $dbhandler->get_global_option_value( 'bm_flexi_current_language_backend', '' );
 		$language  = ! empty( $back_lang ) ? $back_lang : $language;
 		if ( $customer ) {
-			$order    = $dbhandler->get_row( 'BOOKING', $booking_id, 'id' );
-			$trp_lang = get_option( 'trp_lang_' . $order->booking_key, false );
-			$language = ! empty( $trp_lang ) ? $trp_lang : $language;
+			$order = $dbhandler->get_row( 'BOOKING', $booking_id, 'id' );
+			if ( ! empty( $order ) && isset( $order->booking_key ) ) {
+				$trp_lang = get_option( 'trp_lang_' . $order->booking_key, false );
+				$language = ! empty( $trp_lang ) ? $trp_lang : $language;
+			}
 		}
 		$email_subject = "email_subject_$language";
 		$subject       = $dbhandler->get_value( 'EMAIL_TMPL', $email_subject, $template_id, 'id' );
