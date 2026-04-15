@@ -2106,8 +2106,8 @@ class Booking_Management_Admin {
 			'coupon'               => array( 'identifier' => 'COUPON', 'status_col' => 'is_active' ),
 			'price_module'         => array( 'identifier' => 'EXTERNAL_SERVICE_PRICE_MODULE' ),
 			'notification_process' => array( 'identifier' => 'EVENTNOTIFICATION', 'status_col' => 'status' ),
-			'voucher'              => array( 'identifier' => 'VOUCHERS' ),
-			'checkin'              => array( 'identifier' => 'CHECKINS' ),
+			'voucher'              => array( 'identifier' => 'VOUCHERS', 'status_col' => 'status' ),
+			'checkin'              => array( 'identifier' => 'CHECKINS', 'status_col' => 'checkin_status' ),
 			'email_record'         => array( 'identifier' => 'EMAILS' ),
 			'email_log'            => array( 'identifier' => 'EMAILS' ),
 			'payment_log'          => array( 'identifier' => 'TRANSACTIONS' ),
@@ -2125,14 +2125,145 @@ class Booking_Management_Admin {
 
 		switch ( $action_type ) {
 			case 'bulk_delete':
-				foreach ( $ids as $item_id ) {
-					$dbhandler->remove_row( $db_id, 'id', $item_id, '%d' );
-					$processed++;
+				// Handle order deletion based on order type context
+				if ( $table_type === 'order' ) {
+					// Check if we're dealing with failed orders or archived orders
+					$order_type = isset( $_POST['order_type'] ) ? sanitize_text_field( wp_unslash( $_POST['order_type'] ) ) : 'all-non-failed';
+					
+					if ( $order_type === 'failed' ) {
+						// Delete from FAILED_TRANSACTIONS table
+						foreach ( $ids as $item_id ) {
+							$dbhandler->remove_row( 'FAILED_TRANSACTIONS', 'id', $item_id, '%d' );
+							$processed++;
+						}
+					} elseif ( $order_type === 'archived' ) {
+						// Delete from BOOKING_ARCHIVE table
+						foreach ( $ids as $item_id ) {
+							$dbhandler->remove_row( 'BOOKING_ARCHIVE', 'id', $item_id, '%d' );
+							$processed++;
+						}
+					} else {
+						// Default: delete from BOOKING table
+						foreach ( $ids as $item_id ) {
+							$dbhandler->remove_row( $db_id, 'id', $item_id, '%d' );
+							$processed++;
+						}
+					}
+				} else {
+					foreach ( $ids as $item_id ) {
+						$dbhandler->remove_row( $db_id, 'id', $item_id, '%d' );
+						$processed++;
+					}
 				}
 				$data['status']  = true;
 				$data['message'] = sprintf(
 					/* translators: %d: number of items deleted */
 					esc_html__( '%d item(s) deleted.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			case 'bulk_archive':
+				if ( $table_type !== 'order' ) {
+					$data['message'] = esc_html__( 'Archive action only available for orders.', 'service-booking' );
+					break;
+				}
+				foreach ( $ids as $item_id ) {
+					// Get booking data first
+					$booking = $dbhandler->get_row_data( 'BOOKING', 'id', $item_id );
+					if ( ! empty( $booking ) ) {
+						// Insert into archive table
+						$dbhandler->insert_row( 'BOOKING_ARCHIVE', array(
+							'id'                    => $booking->id ?? null,
+							'service_id'            => $booking->service_id ?? null,
+							'customer_id'           => $booking->customer_id ?? null,
+							'order_status'          => $booking->order_status ?? 'cancelled',
+							'payment_status'        => $booking->payment_status ?? 'cancelled',
+							'service_date'          => $booking->service_date ?? null,
+							'order_date'            => $booking->order_date ?? null,
+							'total_cost'            => $booking->total_cost ?? 0,
+							'archived_date'         => current_time( 'mysql' ),
+							'archived_by'           => get_current_user_id(),
+						) );
+						// Remove from main booking table
+						$dbhandler->remove_row( 'BOOKING', 'id', $item_id, '%d' );
+						$processed++;
+					}
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of items archived */
+					esc_html__( '%d item(s) archived.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			case 'bulk_approve':
+				if ( $table_type !== 'order' ) {
+					$data['message'] = esc_html__( 'Approve action only available for orders.', 'service-booking' );
+					break;
+				}
+				foreach ( $ids as $item_id ) {
+					// Only approve on_request bookings with requires_capture payment status
+					$booking = $dbhandler->get_row_data( 'BOOKING', 'id', $item_id );
+					if ( ! empty( $booking ) && $booking->booking_type === 'on_request' && $booking->is_active == 1 ) {
+						// Update order status to confirmed
+						$dbhandler->update_row( 'BOOKING', 'id', $item_id, array(
+							'order_status'   => 'confirmed',
+							'is_active'      => 1,
+							'approved_by'    => get_current_user_id(),
+							'approved_date'  => current_time( 'mysql' ),
+						) );
+						
+						// If payment status is requires_capture, capture the payment
+						if ( isset( $booking->payment_status ) && $booking->payment_status === 'requires_capture' ) {
+							$dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $item_id, array(
+								'payment_status' => 'succeeded',
+								'captured_date'  => current_time( 'mysql' ),
+							), '%d' );
+						}
+						$processed++;
+					}
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of items approved */
+					esc_html__( '%d item(s) approved.', 'service-booking' ),
+					$processed
+				);
+				break;
+
+			case 'bulk_cancel':
+				if ( $table_type !== 'order' ) {
+					$data['message'] = esc_html__( 'Cancel action only available for orders.', 'service-booking' );
+					break;
+				}
+				foreach ( $ids as $item_id ) {
+					// Only cancel on_request bookings with requires_capture payment status
+					$booking = $dbhandler->get_row_data( 'BOOKING', 'id', $item_id );
+					if ( ! empty( $booking ) && $booking->booking_type === 'on_request' && $booking->is_active == 1 ) {
+						// Update order status to cancelled
+						$dbhandler->update_row( 'BOOKING', 'id', $item_id, array(
+							'order_status'   => 'cancelled',
+							'is_active'      => 0,
+							'cancelled_by'   => get_current_user_id(),
+							'cancelled_date' => current_time( 'mysql' ),
+						) );
+						
+						// If payment status is requires_capture, refund/cancel the payment
+						if ( isset( $booking->payment_status ) && $booking->payment_status === 'requires_capture' ) {
+							$dbhandler->update_row( 'TRANSACTIONS', 'booking_id', $item_id, array(
+								'payment_status' => 'cancelled',
+								'cancelled_date' => current_time( 'mysql' ),
+							), '%d' );
+						}
+						$processed++;
+					}
+				}
+				$data['status']  = true;
+				$data['message'] = sprintf(
+					/* translators: %d: number of items cancelled */
+					esc_html__( '%d item(s) cancelled.', 'service-booking' ),
 					$processed
 				);
 				break;

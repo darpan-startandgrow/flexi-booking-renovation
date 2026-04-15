@@ -1,3 +1,32 @@
-# Ignore all files in src/mail-attachments
-src/mail-attachments/
-/vendor/
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+
+# Dependencies
+node_modules/
+vendor/
+composer.lock
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# WordPress specific
+wp-content/cache/
+*.sql
+```
