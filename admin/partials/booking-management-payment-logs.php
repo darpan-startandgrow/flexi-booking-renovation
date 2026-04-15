@@ -5,6 +5,7 @@ $bm_activator = new Booking_Management_Activator();
 $pagenum      = filter_input( INPUT_GET, 'pagenum' );
 $pagenum      = isset( $pagenum ) ? absint( $pagenum ) : 1;
 $limit_param  = filter_input( INPUT_GET, 'limit', FILTER_VALIDATE_INT );
+$limit_param  = $limit_param ? min( $limit_param, 100 ) : 0;
 $limit        = $limit_param ? $limit_param : ( ! empty( $dbhandler->get_global_option_value( 'bm_payment_logs_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_payment_logs_per_page' ) : 20 );
 $offset       = ( ( $pagenum - 1 ) * $limit );
 
