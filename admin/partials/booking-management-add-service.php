@@ -129,17 +129,13 @@ if ( $id > 0 ) {
     if ( ! empty( $extra_rows ) ) {
         $total_extra_rows = $extra_rows;
     }
-    // Fetch new-style global extras linked to this service.
+    // Fetch new-style global extras linked to this service (shown only in Shared Extras tab).
     $linked_new_globals = $bmrequests->bm_get_new_global_extras_for_service( $id, false );
     $linked_new_global_ids = array();
     if ( ! empty( $linked_new_globals ) ) {
         foreach ( $linked_new_globals as $lng ) {
             $linked_new_global_ids[] = (int) $lng->global_extra_id;
         }
-        if ( ! isset( $total_extra_rows ) ) {
-            $total_extra_rows = array();
-        }
-        $total_extra_rows = array_merge( $total_extra_rows, $linked_new_globals );
     }
     $svc_gallery_images = $dbhandler->get_all_result(
         $gallery_identifier,

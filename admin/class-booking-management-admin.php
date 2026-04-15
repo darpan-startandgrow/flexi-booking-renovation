@@ -726,6 +726,19 @@ class Booking_Management_Admin {
     } //end booking_admin_menu()
 
 
+	/**
+	 * Ensure the global $title is always a string to prevent PHP 8.1+ deprecation
+	 * in WordPress core admin-header.php where strip_tags($title) is called.
+	 * Hidden submenu pages (parent '') may not have $title set by WordPress.
+	 */
+	public function bm_ensure_admin_title_string() {
+		global $title;
+		if ( ! isset( $title ) || $title === null ) {
+			$title = '';
+		}
+	}
+
+
     /**
      * Build the submenu highlight map dynamically.
      *
