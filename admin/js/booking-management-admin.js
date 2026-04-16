@@ -14242,6 +14242,7 @@ jQuery(document).ready(function() {
     }
 
     // On initial load: if localStorage has a saved value and URL lacks ?limit=, redirect to apply it.
+    var bmPaginationRedirecting = false;
     jQuery('.bm-dynamic-pagination input[id$="_items_per_page"]').each(function() {
         var el = jQuery(this);
         var id = el.attr('id');
@@ -14253,11 +14254,16 @@ jQuery(document).ready(function() {
             var url = new URL(window.location);
             if (!url.searchParams.has('limit')) {
                 localStorage.setItem(storageKey, clamped);
+                bmPaginationRedirecting = true;
                 bmApplyPagination(clamped);
                 return false;
             }
         }
     });
+
+    if (bmPaginationRedirecting) {
+        return;
+    }
 
     // Handle Enter key on pagination input to apply immediately.
     jQuery(document).on('keydown', '.bm-dynamic-pagination input[id$="_items_per_page"]', function(e) {
