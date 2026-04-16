@@ -227,7 +227,7 @@ class BM_Email {
 
         $attachment_urls[] = $bmrequests->bm_get_order_details_attachment( $booking_id, true );
 
-        return wp_mail( sanitize_email( $email ), $subject, $message, $headers, $attachment_urls );
+        return $this->send_mail_with_logging( sanitize_email( $email ), $subject, $message, $headers, $attachment_urls );
     } //end bm_send_invoice_to_email()
 
 	/**

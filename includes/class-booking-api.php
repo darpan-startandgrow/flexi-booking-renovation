@@ -1295,13 +1295,14 @@ class Booking_API
                 $payment_intent = isset( $event->data->object ) ? $event->data->object : null;
                 $transaction_id = ! empty( $payment_intent->id ) ? sanitize_text_field( $payment_intent->id ) : '';
                 if (! empty($transaction_id)) {
-                    // Confirm any booking tied to this payment intent that is still pending.
                     $payment_id = $dbhandler->get_value('TRANSACTIONS', 'id', $transaction_id, 'transaction_id');
                     if (! empty($payment_id)) {
                         $dbhandler->update_row('TRANSACTIONS', 'id', $payment_id, array(
                             'payment_status'         => 'succeeded',
                             'transaction_updated_at' => current_time('mysql'),
                         ), '', '%d');
+                    } else {
+                        error_log( 'Stripe webhook: No transaction found for succeeded intent ' . $transaction_id );
                     }
                 }
                 break;
@@ -1309,6 +1310,10 @@ class Booking_API
             case 'payment_intent.payment_failed':
                 $payment_intent = isset( $event->data->object ) ? $event->data->object : null;
                 $transaction_id = ! empty( $payment_intent->id ) ? sanitize_text_field( $payment_intent->id ) : '';
+                $failure_message = '';
+                if ( ! empty( $payment_intent->last_payment_error ) && ! empty( $payment_intent->last_payment_error->message ) ) {
+                    $failure_message = sanitize_text_field( $payment_intent->last_payment_error->message );
+                }
                 if (! empty($transaction_id)) {
                     $payment_id = $dbhandler->get_value('TRANSACTIONS', 'id', $transaction_id, 'transaction_id');
                     if (! empty($payment_id)) {
@@ -1316,6 +1321,43 @@ class Booking_API
                             'payment_status'         => 'failed',
                             'transaction_updated_at' => current_time('mysql'),
                         ), '', '%d');
+                        if ( ! empty( $failure_message ) ) {
+                            error_log( 'Stripe payment_intent.payment_failed for ' . $transaction_id . ': ' . $failure_message );
+                        }
+                    } else {
+                        error_log( 'Stripe webhook: No transaction found for failed intent ' . $transaction_id );
+                    }
+                }
+                break;
+
+            case 'payment_intent.canceled':
+                $payment_intent = isset( $event->data->object ) ? $event->data->object : null;
+                $transaction_id = ! empty( $payment_intent->id ) ? sanitize_text_field( $payment_intent->id ) : '';
+                if (! empty($transaction_id)) {
+                    $payment_id = $dbhandler->get_value('TRANSACTIONS', 'id', $transaction_id, 'transaction_id');
+                    if (! empty($payment_id)) {
+                        $dbhandler->update_row('TRANSACTIONS', 'id', $payment_id, array(
+                            'payment_status'         => 'canceled',
+                            'transaction_updated_at' => current_time('mysql'),
+                        ), '', '%d');
+                    } else {
+                        error_log( 'Stripe webhook: No transaction found for canceled intent ' . $transaction_id );
+                    }
+                }
+                break;
+
+            case 'charge.refunded':
+                $charge         = isset( $event->data->object ) ? $event->data->object : null;
+                $payment_intent_id = ! empty( $charge->payment_intent ) ? sanitize_text_field( $charge->payment_intent ) : '';
+                if (! empty($payment_intent_id)) {
+                    $payment_id = $dbhandler->get_value('TRANSACTIONS', 'id', $payment_intent_id, 'transaction_id');
+                    if (! empty($payment_id)) {
+                        $dbhandler->update_row('TRANSACTIONS', 'id', $payment_id, array(
+                            'payment_status'         => 'refunded',
+                            'transaction_updated_at' => current_time('mysql'),
+                        ), '', '%d');
+                    } else {
+                        error_log( 'Stripe webhook: No transaction found for refunded charge on intent ' . $payment_intent_id );
                     }
                 }
                 break;

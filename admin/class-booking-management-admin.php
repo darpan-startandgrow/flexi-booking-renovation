@@ -16427,10 +16427,16 @@ class Booking_Management_Admin {
 
 				if ( $sent ) {
 					$data['status'] = true;
-				} elseif ( ! empty( $copied_files ) ) {
-					foreach ( $copied_files as $file ) {
-						if ( file_exists( $file ) ) {
-							unlink( $file );
+				} else {
+					// Update the email log entry to reflect failure
+					if ( ! empty( $mail_id ) ) {
+						$dbhandler->update_row( 'EMAILS', 'id', $mail_id, array( 'status' => 0, 'error_message' => __( 'wp_mail returned false on resend.', 'service-booking' ) ) );
+					}
+					if ( ! empty( $copied_files ) ) {
+						foreach ( $copied_files as $file ) {
+							if ( file_exists( $file ) ) {
+								unlink( $file );
+							}
 						}
 					}
 				}
