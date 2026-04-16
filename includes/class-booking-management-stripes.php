@@ -242,6 +242,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
 
             return $token;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
+            error_log( 'Stripe create_one_time_token failed: ' . $e->getMessage() );
             return false;
         }
     }// end create_one_time_token()
@@ -304,7 +305,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
             $paymentIntent->capture( array( 'amount_to_capture' => $amount ) );
             return $paymentIntent;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
-            // Handle API errors
+            error_log( 'Stripe capture_payment failed for intent ' . $paymentIntentId . ': ' . $e->getMessage() );
             return false;
         }
     }// end capture_payment()
@@ -321,8 +322,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
             $paymentIntent->cancel();
             return $paymentIntent;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
-            // Handle API errors
-            error_log( 'Cancel payment failed: ' . $e->getMessage() );
+            error_log( 'Stripe cancel_payment_intent failed for intent ' . $paymentIntentId . ': ' . $e->getMessage() );
             ( new BM_Request() )->save_payment_error(
                 $booking_key,
                 $e->getMessage()
@@ -343,7 +343,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
             $refund = $charge->refund();
             return $refund;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
-            // Handle API errors
+            error_log( 'Stripe refund_charge failed for charge ' . $chargeId . ': ' . $e->getMessage() );
             return false;
         }
     }// end refund_charge()
@@ -365,7 +365,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
 
             return $refund;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
-            // Handle invalid refund request
+            error_log( 'Stripe create_refund failed for charge ' . $chargeId . ': ' . $e->getMessage() );
             return false;
         }
     }// end create_refund()
@@ -409,6 +409,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
 
             return $charge->refunded === false;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
+            error_log( 'Stripe is_refund_possible check failed for charge ' . $chargeId . ': ' . $e->getMessage() );
             return false;
         }
     }// end is_refund_possible()
@@ -425,6 +426,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
             $refund = $stripe->refunds->retrieve( $refundId, array() );
             return $refund;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
+            error_log( 'Stripe get_refund failed for refund ' . $refundId . ': ' . $e->getMessage() );
             return false;
         }
     }// end is_refund_possible()
@@ -508,6 +510,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
 
             return $checkout_session->url;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
+            error_log( 'Stripe create_payment_session failed: ' . $e->getMessage() );
             return false;
         }
     }// end create_payment_session()
@@ -523,6 +526,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
             $customer = \Stripe\Customer::retrieve( $customerId );
             return $customer;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
+            error_log( 'Stripe get_customer failed for ' . $customerId . ': ' . $e->getMessage() );
             return false;
         }
     }// end get_customer()
@@ -562,6 +566,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
             $customer = \Stripe\Customer::delete( $customerId );
             return true;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
+            error_log( 'Stripe remove_customer failed for ' . $customerId . ': ' . $e->getMessage() );
             return false;
         }
     }// end remove_customer()
@@ -577,6 +582,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
             $paymentIntent = \Stripe\PaymentIntent::retrieve( $paymentIntentId );
             return $paymentIntent;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
+            error_log( 'Stripe get_payment_intent failed for ' . $paymentIntentId . ': ' . $e->getMessage() );
             return false;
         }
     }// end get_payment_intent()
@@ -592,7 +598,7 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
             $paymentIntent = \Stripe\PaymentIntent::update( $paymentIntentId, $params );
             return $paymentIntent;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
-            // Handle API errors
+            error_log( 'Stripe update_payment_intent failed for ' . $paymentIntentId . ': ' . $e->getMessage() );
             return false;
         }
     }// end update_payment_intent()

@@ -4,7 +4,7 @@ $bmrequests  = new BM_Request();
 $pagenum     = filter_input( INPUT_GET, 'pagenum' );
 $pagenum     = isset( $pagenum ) ? absint( $pagenum ) : 1;
 $limit_param = filter_input( INPUT_GET, 'limit', FILTER_VALIDATE_INT );
-$limit_param = $limit_param ? min( $limit_param, 100 ) : 0;
+$limit_param = $limit_param ? max( 1, min( $limit_param, 200 ) ) : 0;
 $limit_opt   = $dbhandler->get_global_option_value( 'bm_shared_extras_per_page' );
 $limit       = $limit_param ? $limit_param : ( ! empty( $limit_opt ) ? (int) $limit_opt : 10 );
 $offset      = ( ( $pagenum - 1 ) * $limit );
@@ -229,12 +229,7 @@ if ( ! empty( $all_services ) ) {
         <!-- Dynamic Pagination -->
         <div class="bm-dynamic-pagination" style="margin-left:auto;display:flex;align-items:center;gap:6px;">
             <label for="shared_extras_items_per_page" style="font-size:13px;color:#3c434a;"><?php esc_html_e( 'Items per page:', 'service-booking' ); ?></label>
-            <select id="shared_extras_items_per_page" name="shared_extras_items_per_page" style="min-width:80px;">
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
+            <input type="number" id="shared_extras_items_per_page" name="shared_extras_items_per_page" min="1" max="200" value="<?php echo esc_attr( $limit ); ?>" style="width:70px;" />
         </div>
     </div>
 

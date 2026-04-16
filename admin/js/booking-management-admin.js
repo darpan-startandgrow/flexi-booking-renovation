@@ -14223,27 +14223,70 @@ function bm_bulk_update_state(tableId) {
 
 // ===== DYNAMIC PAGINATION FOR ALL TABLES WITH BULK ACTIONS =====
 jQuery(document).ready(function() {
-    // Restore saved pagination values from localStorage for all dropdowns on the page.
-    jQuery('.bm-dynamic-pagination select[id$="_items_per_page"]').each(function() {
-        var el = jQuery(this);
-        var id = el.attr('id'); // e.g. "order_items_per_page"
-        var storageKey = 'bm_' + id;
-        var saved = localStorage.getItem(storageKey);
-        if (saved) {
-            el.val(saved);
-        }
-    });
+    var BM_PAGINATION_MIN = 1;
+    var BM_PAGINATION_MAX = 200;
 
-    // Single delegated change handler for all pagination dropdowns.
-    jQuery(document).on('change', '.bm-dynamic-pagination select[id$="_items_per_page"]', function() {
+    function bmClampPagination(val) {
+        val = parseInt(val, 10);
+        if (isNaN(val) || val < BM_PAGINATION_MIN) return BM_PAGINATION_MIN;
+        if (val > BM_PAGINATION_MAX) return BM_PAGINATION_MAX;
+        return val;
+    }
+
+    function bmApplyPagination(value) {
+        value = bmClampPagination(value);
+        var url = new URL(window.location);
+        url.searchParams.set('limit', value);
+        url.searchParams.delete('pagenum');
+        window.location.href = url.toString();
+    }
+
+    // On initial load: if localStorage has a saved value and URL lacks ?limit=, redirect to apply it.
+    var bmPaginationRedirecting = false;
+    jQuery('.bm-dynamic-pagination input[id$="_items_per_page"]').each(function() {
         var el = jQuery(this);
         var id = el.attr('id');
         var storageKey = 'bm_' + id;
-        var value = el.val();
+        var saved = localStorage.getItem(storageKey);
+        if (saved) {
+            var clamped = bmClampPagination(saved);
+            el.val(clamped);
+            var url = new URL(window.location);
+            if (!url.searchParams.has('limit')) {
+                localStorage.setItem(storageKey, clamped);
+                bmPaginationRedirecting = true;
+                bmApplyPagination(clamped);
+                return false;
+            }
+        }
+    });
+
+    if (bmPaginationRedirecting) {
+        return;
+    }
+
+    // Handle Enter key on pagination input to apply immediately.
+    jQuery(document).on('keydown', '.bm-dynamic-pagination input[id$="_items_per_page"]', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            var el = jQuery(this);
+            var id = el.attr('id');
+            var storageKey = 'bm_' + id;
+            var value = bmClampPagination(el.val());
+            el.val(value);
+            localStorage.setItem(storageKey, value);
+            bmApplyPagination(value);
+        }
+    });
+
+    // Handle blur (focus lost) on pagination input to apply.
+    jQuery(document).on('change', '.bm-dynamic-pagination input[id$="_items_per_page"]', function() {
+        var el = jQuery(this);
+        var id = el.attr('id');
+        var storageKey = 'bm_' + id;
+        var value = bmClampPagination(el.val());
+        el.val(value);
         localStorage.setItem(storageKey, value);
-        var url = new URL(window.location);
-        url.searchParams.set('limit', value);
-        url.searchParams.delete('pagenum'); // Reset to first page.
-        window.location.href = url.toString();
+        bmApplyPagination(value);
     });
 });

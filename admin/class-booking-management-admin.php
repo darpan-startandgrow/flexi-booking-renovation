@@ -15152,6 +15152,27 @@ class Booking_Management_Admin {
 				);
 			}
 
+			// If only admin email needed (customer already sent), still log the admin attempt.
+			if ( ! $need_customer && ( $need_admin ) ) {
+				$error_msg = array();
+				if ( ! empty( $admin_mail_error ) ) {
+					$error_msg['admin'] = $admin_mail_error;
+				}
+				$mail_data = array(
+					'module_type'   => 'BOOKING',
+					'module_id'     => $order_id,
+					'mail_type'     => $mail_type,
+					'template_id'   => $template_id,
+					'process_id'    => $process_id,
+					'mail_to'       => $bm_mail->bm_get_admin_email(),
+					'mail_sub'      => isset( $admin_email_subject ) ? wp_kses_post( $admin_email_subject ) : wp_kses_post( $subject ),
+					'mail_body'     => isset( $admin_email_message ) ? wp_kses_post( stripslashes( $admin_email_message ) ) : '',
+					'mail_lang'     => $language,
+					'status'        => $mail_to_admin ? 1 : 0,
+					'error_message' => ! empty( $error_msg ) ? maybe_serialize( $error_msg ) : '',
+				);
+			}
+
 			// Update mail_sent
 			$new_mail_sent = $current_mail_sent;
 			if ( $mail_to_admin && ! $mail_to_customer ) {
@@ -15165,10 +15186,6 @@ class Booking_Management_Admin {
 			if ( $new_mail_sent != $current_mail_sent ) {
 				$dbhandler->update_row( 'BOOKING', 'id', $order_id, array( 'mail_sent' => $new_mail_sent ), '', '%d' );
 			}
-
-			// Log customer email if attempted
-			/**if ( $need_customer && ! empty( $mail_data ) ) {
-			}*/
 
 			if ( ! empty( $mail_data ) ) {
 				$mail_data = $bmrequests->sanitize_request( $mail_data, 'EMAILS' );
@@ -15446,6 +15463,27 @@ class Booking_Management_Admin {
 				);
 			}
 
+			// If only admin email needed (customer already sent), still log the admin attempt.
+			if ( ! $need_customer && $need_admin ) {
+				$error_msg = array();
+				if ( ! empty( $admin_mail_error ) ) {
+					$error_msg['admin'] = $admin_mail_error;
+				}
+				$mail_data = array(
+					'module_type'   => 'BOOKING',
+					'module_id'     => $order_id,
+					'mail_type'     => $mail_type,
+					'template_id'   => $template_id,
+					'process_id'    => $process_id,
+					'mail_to'       => $bm_mail->bm_get_admin_email(),
+					'mail_sub'      => isset( $admin_email_subject ) ? wp_kses_post( $admin_email_subject ) : wp_kses_post( $subject ),
+					'mail_body'     => isset( $admin_email_message ) ? wp_kses_post( stripslashes( $admin_email_message ) ) : '',
+					'mail_lang'     => $language,
+					'status'        => $mail_to_admin ? 1 : 0,
+					'error_message' => ! empty( $error_msg ) ? maybe_serialize( $error_msg ) : '',
+				);
+			}
+
 			// Update mail_sent
 			$new_mail_sent = $current_mail_sent;
 			if ( $mail_to_admin && ! $mail_to_customer ) {
@@ -15459,10 +15497,6 @@ class Booking_Management_Admin {
 			if ( $new_mail_sent != $current_mail_sent ) {
 				$dbhandler->update_row( 'BOOKING', 'id', $order_id, array( 'mail_sent' => $new_mail_sent ), '', '%d' );
 			}
-
-			// Log customer email if attempted
-			/**if ( $need_customer && ! empty( $mail_data ) ) {
-			}*/
 
 			if ( ! empty( $mail_data ) ) {
 				$mail_data = $bmrequests->sanitize_request( $mail_data, 'EMAILS' );
@@ -15740,6 +15774,27 @@ class Booking_Management_Admin {
 				);
 			}
 
+			// If only admin email needed (customer already sent), still log the admin attempt.
+			if ( ! $need_customer && $need_admin ) {
+				$error_msg = array();
+				if ( ! empty( $admin_mail_error ) ) {
+					$error_msg['admin'] = $admin_mail_error;
+				}
+				$mail_data = array(
+					'module_type'   => 'BOOKING',
+					'module_id'     => $order_id,
+					'mail_type'     => $mail_type,
+					'template_id'   => $template_id,
+					'process_id'    => $process_id,
+					'mail_to'       => $bm_mail->bm_get_admin_email(),
+					'mail_sub'      => isset( $admin_email_subject ) ? wp_kses_post( $admin_email_subject ) : wp_kses_post( $subject ),
+					'mail_body'     => isset( $admin_email_message ) ? wp_kses_post( stripslashes( $admin_email_message ) ) : '',
+					'mail_lang'     => $language,
+					'status'        => $mail_to_admin ? 1 : 0,
+					'error_message' => ! empty( $error_msg ) ? maybe_serialize( $error_msg ) : '',
+				);
+			}
+
 			// Update mail_sent
 			$new_mail_sent = $current_mail_sent;
 			if ( $mail_to_admin && ! $mail_to_customer ) {
@@ -15753,10 +15808,6 @@ class Booking_Management_Admin {
 			if ( $new_mail_sent != $current_mail_sent ) {
 				$dbhandler->update_row( 'BOOKING', 'id', $order_id, array( 'mail_sent' => $new_mail_sent ), '', '%d' );
 			}
-
-			// Log customer email if attempted
-			/**if ( $need_customer && ! empty( $mail_data ) ) {
-			}*/
 
 			if ( ! empty( $mail_data ) ) {
 				$mail_data = $bmrequests->sanitize_request( $mail_data, 'EMAILS' );
@@ -16037,6 +16088,27 @@ class Booking_Management_Admin {
 				);
 			}
 
+			// If only admin email needed (customer already sent), still log the admin attempt.
+			if ( ! $need_customer && $need_admin ) {
+				$error_msg = array();
+				if ( ! empty( $admin_mail_error ) ) {
+					$error_msg['admin'] = $admin_mail_error;
+				}
+				$mail_data = array(
+					'module_type'   => 'FAILED_TRANSACTIONS',
+					'module_id'     => $order_id,
+					'mail_type'     => $mail_type,
+					'template_id'   => $template_id,
+					'process_id'    => $process_id,
+					'mail_to'       => $bm_mail->bm_get_admin_email(),
+					'mail_sub'      => isset( $admin_email_subject ) ? wp_kses_post( $admin_email_subject ) : wp_kses_post( $subject ),
+					'mail_body'     => isset( $admin_email_message ) ? wp_kses_post( stripslashes( $admin_email_message ) ) : '',
+					'mail_lang'     => $language,
+					'status'        => $mail_to_admin ? 1 : 0,
+					'error_message' => ! empty( $error_msg ) ? maybe_serialize( $error_msg ) : '',
+				);
+			}
+
 			// Update mail_sent in FAILED_TRANSACTIONS table
 			$new_mail_sent = $current_mail_sent;
 			if ( $mail_to_admin && ! $mail_to_customer ) {
@@ -16050,10 +16122,6 @@ class Booking_Management_Admin {
 			if ( $new_mail_sent != $current_mail_sent ) {
 				$dbhandler->update_row( 'FAILED_TRANSACTIONS', 'id', $order_id, array( 'mail_sent' => $new_mail_sent ), '', '%d' );
 			}
-
-			// Log customer email if attempted
-			/**if ( $need_customer && ! empty( $mail_data ) ) {
-			}*/
 
 			if ( ! empty( $mail_data ) ) {
 				$mail_data = $bmrequests->sanitize_request( $mail_data, 'EMAILS' );
@@ -16427,10 +16495,16 @@ class Booking_Management_Admin {
 
 				if ( $sent ) {
 					$data['status'] = true;
-				} elseif ( ! empty( $copied_files ) ) {
-					foreach ( $copied_files as $file ) {
-						if ( file_exists( $file ) ) {
-							unlink( $file );
+				} else {
+					// Update the email log entry to reflect failure
+					if ( ! empty( $mail_id ) ) {
+						$dbhandler->update_row( 'EMAILS', 'id', $mail_id, array( 'status' => 0, 'error_message' => __( 'wp_mail returned false on resend.', 'service-booking' ) ) );
+					}
+					if ( ! empty( $copied_files ) ) {
+						foreach ( $copied_files as $file ) {
+							if ( file_exists( $file ) ) {
+								unlink( $file );
+							}
 						}
 					}
 				}
