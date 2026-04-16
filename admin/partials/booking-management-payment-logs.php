@@ -5,7 +5,7 @@ $bm_activator = new Booking_Management_Activator();
 $pagenum      = filter_input( INPUT_GET, 'pagenum' );
 $pagenum      = isset( $pagenum ) ? absint( $pagenum ) : 1;
 $limit_param  = filter_input( INPUT_GET, 'limit', FILTER_VALIDATE_INT );
-$limit_param  = $limit_param ? min( $limit_param, 100 ) : 0;
+$limit_param  = $limit_param ? max( 1, min( $limit_param, 200 ) ) : 0;
 $limit        = $limit_param ? $limit_param : ( ! empty( $dbhandler->get_global_option_value( 'bm_payment_logs_per_page' ) ) ? $dbhandler->get_global_option_value( 'bm_payment_logs_per_page' ) : 20 );
 $offset       = ( ( $pagenum - 1 ) * $limit );
 
@@ -134,12 +134,7 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
             <!-- Dynamic Pagination -->
             <div class="bm-dynamic-pagination" style="margin-left:auto;display:flex;align-items:center;gap:6px;">
                 <label for="payment_log_items_per_page" style="font-size:13px;color:#3c434a;"><?php esc_html_e( 'Items per page:', 'service-booking' ); ?></label>
-                <select id="payment_log_items_per_page" name="payment_log_items_per_page" style="min-width:80px;">
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
+                <input type="number" id="payment_log_items_per_page" name="payment_log_items_per_page" min="1" max="200" value="<?php echo esc_attr( $limit ); ?>" style="width:70px;" />
             </div>
         </div>
         <input type="hidden" name="pagenum" value="<?php echo esc_attr( $pagenum ); ?>" />
