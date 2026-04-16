@@ -14,32 +14,40 @@ $transactions_table = esc_sql( $bm_activator->get_db_table_name( 'TRANSACTIONS' 
 $failed_table       = esc_sql( $bm_activator->get_db_table_name( 'FAILED_TRANSACTIONS' ) );
 $customers_table    = esc_sql( $bm_activator->get_db_table_name( 'CUSTOMERS' ) );
 
-// Build WHERE conditions
-$where = array( '1=1' );
+// Build WHERE conditions (shared, column-unambiguous)
+$where_common = array( '1=1' );
+// Separate date conditions per table because TRANSACTIONS uses transaction_created_at, FAILED_TRANSACTIONS uses created_at.
+$where_t_extra = '';
+$where_f_extra = '';
 
 $search_val        = isset( $_REQUEST['s'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['s'] ) ) : '';
 $booking_id_filter = isset( $_REQUEST['booking_id'] ) ? absint( $_REQUEST['booking_id'] ) : 0;
 $payment_filter    = isset( $_REQUEST['payment_status'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['payment_status'] ) ) : 'all';
 
 if ( ! empty( $search_val ) ) {
-	$search  = '%' . $dbhandler->esc_like( $search_val ) . '%';
-	$where[] = $dbhandler->prepare_sql( '(b.service_name LIKE %s OR c.customer_email LIKE %s)', $search, $search );
+	$search          = '%' . $dbhandler->esc_like( $search_val ) . '%';
+	$where_common[]  = $dbhandler->prepare_sql( '(b.service_name LIKE %s OR cust.customer_email LIKE %s)', $search, $search );
 }
 if ( ! empty( $booking_id_filter ) ) {
-	$where[] = $dbhandler->prepare_sql( 'b.id = %d', $booking_id_filter );
+	$where_common[] = $dbhandler->prepare_sql( 'b.id = %d', $booking_id_filter );
 }
 if ( ! empty( $payment_filter ) && $payment_filter !== 'all' ) {
-	$where[] = $dbhandler->prepare_sql( 'payment_status = %s', $payment_filter );
+	$where_common[] = $dbhandler->prepare_sql( 'payment_status = %s', $payment_filter );
 }
 $month_filter = isset( $_REQUEST['m'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['m'] ) ) : '';
 if ( ! empty( $month_filter ) ) {
-	$year    = absint( substr( $month_filter, 0, 4 ) );
-	$month   = absint( substr( $month_filter, 4, 2 ) );
-	$where[] = $dbhandler->prepare_sql( '(YEAR(created_at) = %d AND MONTH(created_at) = %d)', $year, $month );
+	$year           = absint( substr( $month_filter, 0, 4 ) );
+	$month          = absint( substr( $month_filter, 4, 2 ) );
+	// Transactions table uses transaction_created_at; failed_transactions uses created_at.
+	$where_t_extra  = $dbhandler->prepare_sql( ' AND (YEAR(t.transaction_created_at) = %d AND MONTH(t.transaction_created_at) = %d)', $year, $month );
+	$where_f_extra  = $dbhandler->prepare_sql( ' AND (YEAR(f.created_at) = %d AND MONTH(f.created_at) = %d)', $year, $month );
 }
 
-$where_sql = implode( ' AND ', $where );
+$where_sql          = implode( ' AND ', $where_common );
+$where_t_sql        = $where_sql . $where_t_extra;
+$where_f_sql        = $where_sql . $where_f_extra;
 
+// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- all dynamic parts are esc_sql table names or prepare_sql built strings.
 $success_sql = "SELECT
     t.id,
     t.booking_id,
@@ -58,8 +66,9 @@ $success_sql = "SELECT
 FROM $transactions_table t
 LEFT JOIN $bookings_table b ON t.booking_id = b.id
 LEFT JOIN $customers_table cust ON t.customer_id = cust.id
-WHERE $where_sql";
+WHERE $where_t_sql";
 
+// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- all dynamic parts are esc_sql table names or prepare_sql built strings.
 $failed_sql = "SELECT
     f.id,
     b.id as booking_id,
@@ -78,17 +87,18 @@ $failed_sql = "SELECT
 FROM $failed_table f
 LEFT JOIN $bookings_table b ON f.booking_key = b.booking_key
 LEFT JOIN $customers_table cust ON f.customer_id = cust.id
-WHERE $where_sql";
+WHERE $where_f_sql";
 
 // Combine with UNION
+// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- subqueries built with prepare_sql above.
 $union_sql    = $dbhandler->prepare_sql( "( $success_sql ) UNION ( $failed_sql ) ORDER BY created_at DESC LIMIT %d OFFSET %d", $limit, $offset );
 $payment_logs = $dbhandler->get_results_raw( $union_sql ) ?? array();
 
-// Total count
+// Total count — include cust join so search by customer_email works.
 // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- where_sql is built via prepare_sql() above.
-$total_success = $dbhandler->get_var_raw( "SELECT COUNT(*) FROM $transactions_table t LEFT JOIN $bookings_table b ON t.booking_id = b.id WHERE $where_sql" );
+$total_success = $dbhandler->get_var_raw( "SELECT COUNT(*) FROM $transactions_table t LEFT JOIN $bookings_table b ON t.booking_id = b.id LEFT JOIN $customers_table cust ON t.customer_id = cust.id WHERE $where_t_sql" );
 // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- where_sql is built via prepare_sql() above.
-$total_failed  = $dbhandler->get_var_raw( "SELECT COUNT(*) FROM $failed_table f LEFT JOIN $bookings_table b ON f.booking_key = b.booking_key WHERE $where_sql" );
+$total_failed  = $dbhandler->get_var_raw( "SELECT COUNT(*) FROM $failed_table f LEFT JOIN $bookings_table b ON f.booking_key = b.booking_key LEFT JOIN $customers_table cust ON f.customer_id = cust.id WHERE $where_f_sql" );
 $total         = intval( $total_success ) + intval( $total_failed );
 $num_of_pages  = ceil( $total / $limit );
 $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequests->bm_get_page_url(), 'list' );
@@ -112,9 +122,13 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
                 <option value="all"><?php esc_html_e( 'All statuses', 'service-booking' ); ?></option>
                 <option value="succeeded" <?php selected( $payment_filter, 'succeeded' ); ?>><?php esc_html_e( 'Succeeded', 'service-booking' ); ?></option>
                 <option value="free" <?php selected( $payment_filter, 'free' ); ?>><?php esc_html_e( 'Free', 'service-booking' ); ?></option>
+                <option value="pending" <?php selected( $payment_filter, 'pending' ); ?>><?php esc_html_e( 'Pending', 'service-booking' ); ?></option>
                 <option value="requires_capture" <?php selected( $payment_filter, 'requires_capture' ); ?>><?php esc_html_e( 'Requires Capture', 'service-booking' ); ?></option>
-                <option value="cancelled" <?php selected( $payment_filter, 'cancelled' ); ?>><?php esc_html_e( 'Canceled', 'service-booking' ); ?></option>
                 <option value="requires_payment_method" <?php selected( $payment_filter, 'requires_payment_method' ); ?>><?php esc_html_e( 'Requires Payment Method', 'service-booking' ); ?></option>
+                <option value="failed" <?php selected( $payment_filter, 'failed' ); ?>><?php esc_html_e( 'Failed', 'service-booking' ); ?></option>
+                <option value="canceled" <?php selected( $payment_filter, 'canceled' ); ?>><?php esc_html_e( 'Canceled (Stripe)', 'service-booking' ); ?></option>
+                <option value="cancelled" <?php selected( $payment_filter, 'cancelled' ); ?>><?php esc_html_e( 'Cancelled (Admin)', 'service-booking' ); ?></option>
+                <option value="refunded" <?php selected( $payment_filter, 'refunded' ); ?>><?php esc_html_e( 'Refunded', 'service-booking' ); ?></option>
             </select>
             <button type="submit" class="button"><?php esc_html_e( 'Filter', 'service-booking' ); ?></button>
             <a href="<?php echo esc_url( admin_url( 'admin.php?page=bm_payment_logs' ) ); ?>" class="button"><?php esc_html_e( 'Reset', 'service-booking' ); ?></a>
@@ -173,14 +187,18 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
                         $customer_display = esc_html( $log->customer_name . ' <' . $log->customer_email . '>' );
                     }
 
-                    // Payment status
+                    // Payment status with full color coverage
                     $status = $log->payment_status;
-                    if ( $status == 'succeeded' || $status == 'free' ) {
-                        $status_display = '<span style="color:green;">' . esc_html( $status ) . '</span>';
-                    } elseif ( $status == 'requires_capture' ) {
+                    if ( $status === 'succeeded' || $status === 'free' ) {
+                        $status_display = '<span style="color:green;font-weight:600;">' . esc_html( $status ) . '</span>';
+                    } elseif ( $status === 'requires_capture' || $status === 'pending' || $status === 'requires_payment_method' ) {
                         $status_display = '<span style="color:orange;">' . esc_html( $status ) . '</span>';
-                    } elseif ( $status == 'canceled' ) {
-                        $status_display = '<span style="color:red;">' . esc_html( $status ) . '</span>';
+                    } elseif ( $status === 'canceled' || $status === 'cancelled' ) {
+                        $status_display = '<span style="color:#c00;font-weight:600;">' . esc_html( $status ) . '</span>';
+                    } elseif ( $status === 'failed' ) {
+                        $status_display = '<span style="color:red;font-weight:600;">' . esc_html__( 'Failed', 'service-booking' ) . '</span>';
+                    } elseif ( $status === 'refunded' ) {
+                        $status_display = '<span style="color:#0073aa;font-weight:600;">' . esc_html__( 'Refunded', 'service-booking' ) . '</span>';
                     } else {
                         $status_display = esc_html( $status );
                     }
@@ -191,11 +209,18 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
                         $refund_display = esc_html( $log->refund_status );
                     }
 
-                    // Error
-                    $error_display = ! empty( $log->error_message ) ? esc_html( $log->error_message ) : '—';
+                    // Error — display meaningfully
+                    $error_display = '—';
+                    if ( ! empty( $log->error_message ) ) {
+                        $error_display = '<span style="color:red;" title="' . esc_attr( $log->error_message ) . '">' . esc_html( mb_strimwidth( $log->error_message, 0, 80, '…' ) ) . '</span>';
+                    }
 
-                    // Source
-                    $source_display = $log->source == 'transaction' ? esc_html__( 'Success', 'service-booking' ) : esc_html__( 'Failed', 'service-booking' );
+                    // Source label
+                    if ( $log->source === 'transaction' ) {
+                        $source_display = '<span style="color:green;">' . esc_html__( 'Payment record', 'service-booking' ) . '</span>';
+                    } else {
+                        $source_display = '<span style="color:#c00;">' . esc_html__( 'Failed/Pending record', 'service-booking' ) . '</span>';
+                    }
                     ?>
                     <tr>
                         <td style="text-align:center;"><input type="checkbox" class="bm-bulk-row-check payment_log-row-check" data-table="payment_log" value="<?php echo esc_attr( $log->id ); ?>"></td>

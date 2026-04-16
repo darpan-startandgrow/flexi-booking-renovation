@@ -15086,9 +15086,11 @@ class BM_Request {
 			$email_type = esc_html__( 'New request', 'service-booking' );
 		} elseif ( $type == 'voucher_redeem' ) {
 			$email_type = esc_html__( 'Voucher redeem', 'service-booking' );
+		} elseif ( $type == 'failed_order_refund' ) {
+			$email_type = esc_html__( 'Failed order refund', 'service-booking' );
 		}
 
-		return $email_type;
+		return ! empty( $email_type ) ? $email_type : esc_html( $type );
 	}//end bm_fetch_email_type()
 
 
