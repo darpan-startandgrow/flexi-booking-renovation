@@ -16085,7 +16085,7 @@ class BM_Request {
 
 		$bm_activator   = new Booking_Management_Activator();
 		$booking_table  = esc_sql( $bm_activator->get_db_table_name( 'BOOKING' ) );
-		$extra_sc_table = esc_sql( $bm_activator->get_db_table_name( 'EXTRASVCBOOKINGCOUNT' ) );
+		$extra_sc_table = esc_sql( $bm_activator->get_db_table_name( 'EXTRASLOTCOUNT' ) );
 		$extra_table    = esc_sql( $bm_activator->get_db_table_name( 'EXTRA' ) );
 
 		$columns = '
