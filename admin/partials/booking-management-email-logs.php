@@ -34,16 +34,26 @@ if ( ! empty( $booking_id_filter ) ) {
 	$where['e.module_id'] = array( '=' => $booking_id_filter );
 }
 
+// Email type filter
+$mail_type_filter = isset( $_REQUEST['mail_type'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['mail_type'] ) ) : 'all';
+if ( ! empty( $mail_type_filter ) && $mail_type_filter !== 'all' ) {
+	$where['e.mail_type'] = array( '=' => $mail_type_filter );
+}
+
 // Month filter
 $month_filter = isset( $_REQUEST['m'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['m'] ) ) : '';
 if ( ! empty( $month_filter ) ) {
-	$year        = absint( substr( $month_filter, 0, 4 ) );
-	$month       = absint( substr( $month_filter, 4, 2 ) );
-	$additional .= $dbhandler->prepare_sql(
-		' AND YEAR(e.created_at) = %d AND MONTH(e.created_at) = %d',
-		$year,
-		$month
-	);
+	// Accept both YYYYMM and YYYY-MM formats.
+	$clean_month = str_replace( '-', '', $month_filter );
+	$year        = absint( substr( $clean_month, 0, 4 ) );
+	$month       = absint( substr( $clean_month, 4, 2 ) );
+	if ( $year > 0 && $month > 0 && $month <= 12 ) {
+		$additional .= $dbhandler->prepare_sql(
+			' AND YEAR(e.created_at) = %d AND MONTH(e.created_at) = %d',
+			$year,
+			$month
+		);
+	}
 }
 
 // If we have additional raw SQL but no WHERE conditions, add a dummy always-true condition
@@ -132,6 +142,19 @@ $pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmreque
                 <option value="1" <?php selected( $status_filter, '1' ); ?>><?php esc_html_e( 'Success', 'service-booking' ); ?></option>
                 <option value="0" <?php selected( $status_filter, '0' ); ?>><?php esc_html_e( 'Failed', 'service-booking' ); ?></option>
             </select>
+            <select name="mail_type">
+                <option value="all"><?php esc_html_e( 'All email types', 'service-booking' ); ?></option>
+                <option value="new_order" <?php selected( $mail_type_filter, 'new_order' ); ?>><?php esc_html_e( 'New order', 'service-booking' ); ?></option>
+                <option value="cancel_order" <?php selected( $mail_type_filter, 'cancel_order' ); ?>><?php esc_html_e( 'Cancel order', 'service-booking' ); ?></option>
+                <option value="refund_order" <?php selected( $mail_type_filter, 'refund_order' ); ?>><?php esc_html_e( 'Refund order', 'service-booking' ); ?></option>
+                <option value="approved_order" <?php selected( $mail_type_filter, 'approved_order' ); ?>><?php esc_html_e( 'Approved order', 'service-booking' ); ?></option>
+                <option value="failed_order" <?php selected( $mail_type_filter, 'failed_order' ); ?>><?php esc_html_e( 'Failed order', 'service-booking' ); ?></option>
+                <option value="gift_voucher" <?php selected( $mail_type_filter, 'gift_voucher' ); ?>><?php esc_html_e( 'Gift voucher', 'service-booking' ); ?></option>
+                <option value="new_request" <?php selected( $mail_type_filter, 'new_request' ); ?>><?php esc_html_e( 'New request', 'service-booking' ); ?></option>
+                <option value="voucher_redeem" <?php selected( $mail_type_filter, 'voucher_redeem' ); ?>><?php esc_html_e( 'Voucher redeem', 'service-booking' ); ?></option>
+                <option value="failed_order_refund" <?php selected( $mail_type_filter, 'failed_order_refund' ); ?>><?php esc_html_e( 'Failed order refund', 'service-booking' ); ?></option>
+            </select>
+            <input type="month" name="m" value="<?php echo esc_attr( $month_filter ); ?>" placeholder="<?php esc_attr_e( 'Month', 'service-booking' ); ?>" style="min-width:140px;" />
             <input type="text" name="booking_id" placeholder="<?php esc_attr_e( 'Booking ID', 'service-booking' ); ?>" value="<?php echo esc_attr( $booking_id_filter ? $booking_id_filter : '' ); ?>" size="5" />
             <button type="submit" class="button"><?php esc_html_e( 'Filter', 'service-booking' ); ?></button>
             <a href="<?php echo esc_url( admin_url( 'admin.php?page=bm_email_logs' ) ); ?>" class="button"><?php esc_html_e( 'Reset', 'service-booking' ); ?></a>
