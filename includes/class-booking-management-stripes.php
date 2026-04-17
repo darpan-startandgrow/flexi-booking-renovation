@@ -299,13 +299,20 @@ class Booking_Management_Stripes extends Booking_Management_Payment_Gateway {
      *
      * @author Darpan
      */
-    protected function capture_payment( $paymentIntentId, $amount ) {
+    protected function capture_payment( $paymentIntentId, $amount, $booking_key = '' ) {
         try {
             $paymentIntent = \Stripe\PaymentIntent::retrieve( $paymentIntentId );
             $paymentIntent->capture( array( 'amount_to_capture' => $amount ) );
             return $paymentIntent;
         } catch ( \Stripe\Exception\ApiErrorException $e ) {
             error_log( 'Stripe capture_payment failed for intent ' . $paymentIntentId . ': ' . $e->getMessage() );
+            if ( ! empty( $booking_key ) ) {
+                ( new BM_Request() )->save_payment_error(
+                    $booking_key,
+                    $e->getMessage(),
+                    array( 'intent' => $paymentIntentId, 'amount' => $amount )
+                );
+            }
             return false;
         }
     }// end capture_payment()

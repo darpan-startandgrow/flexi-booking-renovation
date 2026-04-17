@@ -36,7 +36,11 @@ if ( ! empty( $search_val ) ) {
 	);
 }
 if ( ! empty( $booking_id_filter ) ) {
-	$where_common[] = $dbhandler->prepare_sql( 'b.id = %d', $booking_id_filter );
+	// TRANSACTIONS: joined via t.booking_id = b.id, so b.id = booking_id_filter is equivalent to t.booking_id = booking_id_filter.
+	// FAILED_TRANSACTIONS: joined via f.booking_key = b.booking_key, so b.id = booking_id_filter works when a booking exists.
+	// Using b.id in both sub-queries correctly filters either by direct booking ID.
+	$where_t_extra .= $dbhandler->prepare_sql( ' AND b.id = %d', $booking_id_filter );
+	$where_f_extra .= $dbhandler->prepare_sql( ' AND b.id = %d', $booking_id_filter );
 }
 if ( ! empty( $payment_filter ) && $payment_filter !== 'all' ) {
 	if ( $payment_filter === 'failed' ) {

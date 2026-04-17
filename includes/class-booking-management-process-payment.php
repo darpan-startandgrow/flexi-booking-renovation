@@ -49,8 +49,8 @@ class Booking_Management_Process_Payment extends Booking_Management_Stripes {
         return $this->create_refund( $chargeId, $amount );
     }
 
-    public function capturePayment( $paymentIntentId, $amount ) {
-        return $this->capture_payment( $paymentIntentId, $amount );
+    public function capturePayment( $paymentIntentId, $amount, $booking_key = '' ) {
+        return $this->capture_payment( $paymentIntentId, $amount, $booking_key );
     }
 
     public function cancelPaymentIntent( $paymentIntentId, $booking_key ) {
