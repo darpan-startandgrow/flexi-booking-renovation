@@ -2265,15 +2265,9 @@ class Booking_API
             ob_end_clean();
 
             $mail_to_customer = $bm_mail->bm_send_invoice_to_email($template_subject, $template_body, (int) $order_id, $email);
-            $send_success     = is_array( $mail_to_customer ) ? ( $mail_to_customer['success'] ?? false ) : (bool) $mail_to_customer;
-            $send_error       = is_array( $mail_to_customer ) ? ( $mail_to_customer['error'] ?? '' ) : '';
-
-            $mail_data['status']        = $send_success ? 1 : 0;
-            $mail_data['error_message'] = ! empty( $send_error ) ? maybe_serialize( array( 'invoice' => $send_error ) ) : '';
-            $mail_data['created_at']    = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
-            $dbhandler->insert_row('EMAILS', $mail_data);
-
-            if ( $send_success ) {
+            if ($mail_to_customer) {
+                $mail_data['created_at'] = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
+                $dbhandler->insert_row('EMAILS', $mail_data);
                 $status = true;
             }
         }
