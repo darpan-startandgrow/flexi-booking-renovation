@@ -5640,7 +5640,9 @@ class Booking_Management_Public {
 				$log_mail_to = isset( $customer_email ) ? $customer_email : '';
 				$log_subject = isset( $template_subject ) ? wp_kses_post( $template_subject ) : wp_kses_post( $subject );
 				$log_body    = isset( $template_body ) ? wp_kses_post( stripslashes( $template_body ) ) : '';
-				$log_status  = $mail_to_customer ? 1 : 0;
+				// If admin email was also required and failed, mark this log entry as failed.
+				$admin_also_sent = ( $need_admin && $bm_admin_notification == 1 );
+				$log_status      = ( $mail_to_customer && ( ! $admin_also_sent || $mail_to_admin ) ) ? 1 : 0;
 			} else {
 				$admin_emails = $bm_mail->bm_get_admin_email();
 				$log_mail_to  = $admin_emails;
@@ -6234,7 +6236,9 @@ class Booking_Management_Public {
 				$log_mail_to = isset( $customer_email ) ? $customer_email : '';
 				$log_subject = isset( $template_subject ) ? wp_kses_post( $template_subject ) : wp_kses_post( $subject );
 				$log_body    = isset( $template_body ) ? wp_kses_post( stripslashes( $template_body ) ) : '';
-				$log_status  = $mail_to_customer ? 1 : 0;
+				// If admin email was also required and failed, mark this log entry as failed.
+				$admin_also_sent = ( $need_admin && $bm_admin_notification == 1 );
+				$log_status      = ( $mail_to_customer && ( ! $admin_also_sent || $mail_to_admin ) ) ? 1 : 0;
 			} else {
 				$admin_emails = $bm_mail->bm_get_admin_email();
 				$log_mail_to  = $admin_emails;
@@ -6758,7 +6762,9 @@ class Booking_Management_Public {
 				$log_mail_to = isset( $customer_email ) ? $customer_email : '';
 				$log_subject = isset( $template_subject ) ? wp_kses_post( $template_subject ) : wp_kses_post( $subject );
 				$log_body    = isset( $template_body ) ? wp_kses_post( stripslashes( $template_body ) ) : '';
-				$log_status  = $mail_to_customer ? 1 : 0;
+				// If admin email was also required and failed, mark this log entry as failed.
+				$admin_also_sent = ( $need_admin && $bm_admin_notification == 1 );
+				$log_status      = ( $mail_to_customer && ( ! $admin_also_sent || $mail_to_admin ) ) ? 1 : 0;
 			} else {
 				$admin_emails = $bm_mail->bm_get_admin_email();
 				$log_mail_to  = $admin_emails;

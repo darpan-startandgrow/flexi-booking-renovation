@@ -14,9 +14,10 @@ $transactions_table = esc_sql( $bm_activator->get_db_table_name( 'TRANSACTIONS' 
 $failed_table       = esc_sql( $bm_activator->get_db_table_name( 'FAILED_TRANSACTIONS' ) );
 $customers_table    = esc_sql( $bm_activator->get_db_table_name( 'CUSTOMERS' ) );
 
-// Build WHERE conditions (shared, column-unambiguous)
+// Build WHERE conditions
+// Common conditions that apply identically to both subqueries.
 $where_common = array( '1=1' );
-// Separate date conditions per table because TRANSACTIONS uses transaction_created_at, FAILED_TRANSACTIONS uses created_at.
+// Per-table extra conditions (search, status, month differ between tables).
 $where_t_extra = '';
 $where_f_extra = '';
 
@@ -26,21 +27,38 @@ $payment_filter    = isset( $_REQUEST['payment_status'] ) ? sanitize_text_field(
 
 if ( ! empty( $search_val ) ) {
 	$search          = '%' . $dbhandler->esc_like( $search_val ) . '%';
-	$where_common[]  = $dbhandler->prepare_sql( '(b.service_name LIKE %s OR cust.customer_email LIKE %s)', $search, $search );
+	$where_t_extra  .= $dbhandler->prepare_sql( ' AND (b.service_name LIKE %s OR cust.customer_email LIKE %s)', $search, $search );
+	// For failed transactions also search inside serialized booking_data / customer_data
+	// because the BOOKING / CUSTOMERS JOINs may return NULL.
+	$where_f_extra  .= $dbhandler->prepare_sql(
+		' AND (b.service_name LIKE %s OR cust.customer_email LIKE %s OR f.booking_data LIKE %s OR f.customer_data LIKE %s)',
+		$search, $search, $search, $search
+	);
 }
 if ( ! empty( $booking_id_filter ) ) {
-	$where_common[] = $dbhandler->prepare_sql( 'b.id = %d', $booking_id_filter );
+	// TRANSACTIONS: joined via t.booking_id = b.id, so b.id = booking_id_filter is equivalent to t.booking_id = booking_id_filter.
+	// FAILED_TRANSACTIONS: joined via f.booking_key = b.booking_key, so b.id = booking_id_filter works when a booking exists.
+	// Using b.id in both sub-queries correctly filters either by direct booking ID.
+	$where_t_extra .= $dbhandler->prepare_sql( ' AND b.id = %d', $booking_id_filter );
+	$where_f_extra .= $dbhandler->prepare_sql( ' AND b.id = %d', $booking_id_filter );
 }
 if ( ! empty( $payment_filter ) && $payment_filter !== 'all' ) {
-	$where_common[] = $dbhandler->prepare_sql( 'payment_status = %s', $payment_filter );
+	if ( $payment_filter === 'failed' ) {
+		// 'failed' in TRANSACTIONS: payment_status = 'failed' (webhook-reported).
+		// All FAILED_TRANSACTIONS records represent failures — no extra filter needed.
+		$where_t_extra .= $dbhandler->prepare_sql( ' AND t.payment_status = %s', 'failed' );
+	} else {
+		$where_t_extra .= $dbhandler->prepare_sql( ' AND t.payment_status = %s', $payment_filter );
+		$where_f_extra .= $dbhandler->prepare_sql( ' AND f.payment_status = %s', $payment_filter );
+	}
 }
 $month_filter = isset( $_REQUEST['m'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['m'] ) ) : '';
 if ( ! empty( $month_filter ) ) {
 	$year           = absint( substr( $month_filter, 0, 4 ) );
 	$month          = absint( substr( $month_filter, 4, 2 ) );
 	// Transactions table uses transaction_created_at; failed_transactions uses created_at.
-	$where_t_extra  = $dbhandler->prepare_sql( ' AND (YEAR(t.transaction_created_at) = %d AND MONTH(t.transaction_created_at) = %d)', $year, $month );
-	$where_f_extra  = $dbhandler->prepare_sql( ' AND (YEAR(f.created_at) = %d AND MONTH(f.created_at) = %d)', $year, $month );
+	$where_t_extra .= $dbhandler->prepare_sql( ' AND (YEAR(t.transaction_created_at) = %d AND MONTH(t.transaction_created_at) = %d)', $year, $month );
+	$where_f_extra .= $dbhandler->prepare_sql( ' AND (YEAR(f.created_at) = %d AND MONTH(f.created_at) = %d)', $year, $month );
 }
 
 $where_sql          = implode( ' AND ', $where_common );
@@ -61,6 +79,8 @@ $success_sql = "SELECT
     t.transaction_id,
     NULL as refund_status,
     NULL as error_message,
+    NULL as raw_booking_data,
+    NULL as raw_customer_data,
     'transaction' as source,
     t.transaction_created_at as created_at
 FROM $transactions_table t
@@ -82,6 +102,8 @@ $failed_sql = "SELECT
     f.transaction_id,
     f.refund_status,
     f.error_message,
+    f.booking_data as raw_booking_data,
+    f.customer_data as raw_customer_data,
     'failed' as source,
     f.created_at
 FROM $failed_table f
@@ -174,6 +196,27 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
             <tbody>
                 <?php
                 foreach ( $payment_logs as $log ) {
+                    // For failed transactions, parse serialized data to fill missing fields.
+                    $parsed_booking  = null;
+                    $parsed_customer = null;
+                    if ( $log->source === 'failed' ) {
+                        if ( ! empty( $log->raw_booking_data ) ) {
+                            $parsed_booking = maybe_unserialize( $log->raw_booking_data );
+                        }
+                        if ( ! empty( $log->raw_customer_data ) ) {
+                            $parsed_customer = maybe_unserialize( $log->raw_customer_data );
+                        }
+                    }
+
+                    // Service name — fallback to serialized booking_data.
+                    $service_display = $log->service_name ?? '';
+                    if ( empty( $service_display ) && is_array( $parsed_booking ) ) {
+                        $service_display = $parsed_booking['service_name'] ?? '';
+                        if ( empty( $service_display ) && ! empty( $parsed_booking['service_id'] ) ) {
+                            $service_display = '#' . $parsed_booking['service_id'];
+                        }
+                    }
+
                     // Booking link
                     $booking_display = '—';
                     if ( ! empty( $log->booking_id ) ) {
@@ -181,15 +224,47 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
                         $booking_display = '<a href="' . esc_url( $booking_url ) . '">' . esc_html( $log->booking_id ) . '</a>';
                     }
 
-                    // Customer
+                    // Customer — fallback to serialized customer_data.
                     $customer_display = '—';
                     if ( ! empty( $log->customer_email ) ) {
                         $customer_display = esc_html( $log->customer_name . ' <' . $log->customer_email . '>' );
+                    } elseif ( is_array( $parsed_customer ) ) {
+                        $billing = isset( $parsed_customer['billing_details'] ) ? $parsed_customer['billing_details'] : $parsed_customer;
+                        $cust_first = $billing['billing_first_name'] ?? '';
+                        $cust_last  = $billing['billing_last_name'] ?? '';
+                        $cust_email = $billing['billing_email'] ?? '';
+                        $cust_name  = trim( $cust_first . ' ' . $cust_last );
+                        if ( ! empty( $cust_email ) ) {
+                            $customer_display = esc_html( ( ! empty( $cust_name ) ? $cust_name . ' <' . $cust_email . '>' : $cust_email ) );
+                        } elseif ( ! empty( $cust_name ) ) {
+                            $customer_display = esc_html( $cust_name );
+                        }
+                    }
+
+                    // Amount — fallback to booking_data total_cost for failed transactions.
+                    $display_amount = (float) ( $log->amount ?? 0 );
+                    if ( $display_amount <= 0 && is_array( $parsed_booking ) ) {
+                        $display_amount = (float) ( $parsed_booking['total_cost'] ?? ( $parsed_booking['subtotal'] ?? 0 ) );
+                    }
+
+                    // Currency — fallback for failed transactions.
+                    $display_currency = $log->currency ?? '';
+
+                    // Payment method — for failed transactions default to Stripe.
+                    $display_method = $log->payment_method ?? '';
+                    if ( empty( $display_method ) && $log->source === 'failed' ) {
+                        $display_method = 'Stripe';
                     }
 
                     // Payment status with full color coverage
                     $status = $log->payment_status;
-                    if ( $status === 'succeeded' || $status === 'free' ) {
+                    if ( $log->source === 'failed' ) {
+                        // All records in FAILED_TRANSACTIONS represent failures.
+                        $status_display = '<span style="color:red;font-weight:600;">' . esc_html__( 'Failed', 'service-booking' ) . '</span>';
+                        if ( ! empty( $status ) && $status !== 'failed' ) {
+                            $status_display .= ' <small style="color:#666;">(' . esc_html( $status ) . ')</small>';
+                        }
+                    } elseif ( $status === 'succeeded' || $status === 'free' ) {
                         $status_display = '<span style="color:green;font-weight:600;">' . esc_html( $status ) . '</span>';
                     } elseif ( $status === 'requires_capture' || $status === 'pending' || $status === 'requires_payment_method' ) {
                         $status_display = '<span style="color:orange;">' . esc_html( $status ) . '</span>';
@@ -209,10 +284,37 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
                         $refund_display = esc_html( $log->refund_status );
                     }
 
-                    // Error — display meaningfully
+                    // Error — unserialize and display meaningfully
                     $error_display = '—';
                     if ( ! empty( $log->error_message ) ) {
-                        $error_display = '<span style="color:red;" title="' . esc_attr( $log->error_message ) . '">' . esc_html( mb_strimwidth( $log->error_message, 0, 80, '…' ) ) . '</span>';
+                        $maybe_error = maybe_unserialize( $log->error_message );
+                        if ( is_array( $maybe_error ) ) {
+                            // Error from save_payment_error(): array with 'error', 'context', 'time'.
+                            $error_text = '';
+                            if ( isset( $maybe_error['error'] ) ) {
+                                $error_text = $maybe_error['error'];
+                                if ( ! empty( $maybe_error['context'] ) && is_array( $maybe_error['context'] ) ) {
+                                    $ctx_parts = array();
+                                    foreach ( $maybe_error['context'] as $ck => $cv ) {
+                                        $ctx_parts[] = $ck . ': ' . $cv;
+                                    }
+                                    $error_text .= ' [' . implode( ', ', $ctx_parts ) . ']';
+                                }
+                            } else {
+                                // Generic serialized array — show key:value pairs.
+                                $parts = array();
+                                foreach ( $maybe_error as $ek => $ev ) {
+                                    if ( is_array( $ev ) || is_object( $ev ) ) {
+                                        $ev = wp_json_encode( $ev );
+                                    }
+                                    $parts[] = ucfirst( $ek ) . ': ' . $ev;
+                                }
+                                $error_text = implode( ' | ', $parts );
+                            }
+                            $error_display = '<span style="color:red;" title="' . esc_attr( $error_text ) . '">' . esc_html( mb_strimwidth( $error_text, 0, 80, '…' ) ) . '</span>';
+                        } elseif ( is_string( $maybe_error ) && ! empty( $maybe_error ) ) {
+                            $error_display = '<span style="color:red;" title="' . esc_attr( $maybe_error ) . '">' . esc_html( mb_strimwidth( $maybe_error, 0, 80, '…' ) ) . '</span>';
+                        }
                     }
 
                     // Source label
@@ -226,12 +328,12 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
                         <td style="text-align:center;"><input type="checkbox" class="bm-bulk-row-check payment_log-row-check" data-table="payment_log" value="<?php echo esc_attr( $log->id ); ?>"></td>
                         <td style="text-align:center;"><?php echo esc_html( $log->id ); ?></td>
                         <td style="text-align:center;"><?php echo wp_kses_post( $booking_display ); ?></td>
-                        <td style="text-align:center;"><?php echo esc_html( $log->service_name ?? '' ); ?></td>
+                        <td style="text-align:center;"><?php echo esc_html( $service_display ); ?></td>
                         <td style="text-align:center;"><?php echo wp_kses_post( $customer_display ); ?></td>
-                        <td style="text-align:center;"><?php echo esc_html( number_format( (float) ( $log->amount ?? 0 ), 2 ) ); ?></td>
-                        <td style="text-align:center;"><?php echo esc_html( $log->currency ?? '' ); ?></td>
+                        <td style="text-align:center;"><?php echo esc_html( number_format( $display_amount, 2 ) ); ?></td>
+                        <td style="text-align:center;"><?php echo esc_html( $display_currency ); ?></td>
                         <td style="text-align:center;"><?php echo wp_kses_post( $status_display ); ?></td>
-                        <td style="text-align:center;"><?php echo esc_html( $log->payment_method ?? '' ); ?></td>
+                        <td style="text-align:center;"><?php echo esc_html( $display_method ); ?></td>
                         <td style="text-align:center;"><?php echo esc_html( $log->transaction_id ?? '' ); ?></td>
                         <td style="text-align:center;"><?php echo wp_kses_post( $refund_display ); ?></td>
                         <td style="text-align:center;"><?php echo wp_kses_post( $error_display ); ?></td>

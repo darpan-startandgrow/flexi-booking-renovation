@@ -40,7 +40,7 @@ abstract class Booking_Management_Payment_Gateway {
 	abstract protected function get_invoice( $invoiceId );
 	abstract protected function create_price( $currency, $unitAmount, $product );
 	abstract protected function get_price( $priceId );
-	abstract protected function capture_payment( $paymentIntentId, $amount );
+	abstract protected function capture_payment( $paymentIntentId, $amount, $booking_key = '' );
 	abstract protected function cancel_payment_intent( $paymentIntentId, $booking_key );
 	abstract protected function refund_charge( $chargeId );
 	abstract protected function get_token( $token );

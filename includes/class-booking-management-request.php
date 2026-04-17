@@ -13662,7 +13662,8 @@ class BM_Request {
 			}
 		}
 
-		$transaction_data['error_message'] = $this->get_payment_error( $booking_key );
+		$error_data                        = $this->get_payment_error( $booking_key );
+		$transaction_data['error_message'] = ! empty( $error_data ) ? maybe_serialize( $error_data ) : '';
 
 		// Idempotency guard: only insert if this transaction_id isn't already recorded
 		// as a failed transaction. Prevents duplicate entries on repeated calls.
@@ -13985,8 +13986,9 @@ class BM_Request {
 				$booking_type      = $dbhandler->get_value( 'BOOKING', 'booking_type', $booking_id, 'id' );
 
 				if ( $payment_processor->isConnected() && ( $booking_type == 'on_request' ) && ( $booking_is_active == 1 ) && ! empty( $transaction_id ) ) {
+					$booking_key     = $dbhandler->get_value( 'BOOKING', 'booking_key', $booking_id, 'id' );
 					$capture_amount  = $capture_amount * 100;
-					$approve_payment = $payment_processor->capturePayment( $paymentIntentId, $capture_amount );
+					$approve_payment = $payment_processor->capturePayment( $paymentIntentId, $capture_amount, $booking_key );
 
 					if ( $approve_payment ) {
 						$approved       = true;
