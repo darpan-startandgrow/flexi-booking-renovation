@@ -47,7 +47,7 @@ if ( ! empty( $month_filter ) ) {
 	$clean_month = str_replace( '-', '', $month_filter );
 	$year        = absint( substr( $clean_month, 0, 4 ) );
 	$month       = absint( substr( $clean_month, 4, 2 ) );
-	if ( $year > 0 && $month > 0 && $month <= 12 ) {
+	if ( $year >= 2000 && $year <= 2100 && $month > 0 && $month <= 12 ) {
 		$additional .= $dbhandler->prepare_sql(
 			' AND YEAR(e.created_at) = %d AND MONTH(e.created_at) = %d',
 			$year,

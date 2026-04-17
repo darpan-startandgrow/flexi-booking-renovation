@@ -300,19 +300,16 @@ $pagination    = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $bmrequ
                                 // Generic serialized array — show key:value pairs.
                                 $parts = array();
                                 foreach ( $maybe_error as $ek => $ev ) {
-                                    if ( ! is_scalar( $ev ) ) {
-                                        continue;
+                                    if ( is_array( $ev ) || is_object( $ev ) ) {
+                                        $ev = wp_json_encode( $ev );
                                     }
                                     $parts[] = ucfirst( $ek ) . ': ' . $ev;
                                 }
                                 $error_text = implode( ' | ', $parts );
                             }
                             $error_display = '<span style="color:red;" title="' . esc_attr( $error_text ) . '">' . esc_html( mb_strimwidth( $error_text, 0, 80, '…' ) ) . '</span>';
-                        } else {
-                            $error_str = (string) $maybe_error;
-                            if ( strtolower( $error_str ) !== 'array' && ! empty( $error_str ) ) {
-                                $error_display = '<span style="color:red;" title="' . esc_attr( $error_str ) . '">' . esc_html( mb_strimwidth( $error_str, 0, 80, '…' ) ) . '</span>';
-                            }
+                        } elseif ( is_string( $maybe_error ) && ! empty( $maybe_error ) ) {
+                            $error_display = '<span style="color:red;" title="' . esc_attr( $maybe_error ) . '">' . esc_html( mb_strimwidth( $maybe_error, 0, 80, '…' ) ) . '</span>';
                         }
                     }
 
