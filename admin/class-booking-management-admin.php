@@ -92,9 +92,9 @@ class Booking_Management_Admin {
 			wp_enqueue_style( 'flexi-daterangepicker', plugin_dir_url( __FILE__ ) . 'css/booking-management-daterangepicker.css', array(), $this->version, 'all' );
 			wp_enqueue_style( 'flexi-service-booking-planner', plugin_dir_url( __FILE__ ) . 'css/booking-management-service-booking-planner.css', array(), $this->version, 'all' );
 			wp_enqueue_style( 'flexi-single-service-booking-planner', plugin_dir_url( __FILE__ ) . 'css/booking-management-single-service-booking-planner.css', array(), $this->version, 'all' );
-            if ( $screen->base === 'flexibooking_page_bm_booking_planner' ) {
-                wp_enqueue_style( 'flexi-booking-planner', plugin_dir_url( __FILE__ ) . 'css/booking-management-booking-planner.css', array(), $this->version, 'all' );
-            }
+			if ( $screen->base == 'flexibooking_page_bm_booking_planner' ) {
+				wp_enqueue_style( 'flexi-booking-planner', plugin_dir_url( __FILE__ ) . 'css/booking-management-booking-planner.css', array(), $this->version, 'all' );
+			}
             if ( $screen->base == 'toplevel_page_bm_home' ) {
                 wp_enqueue_style( 'dashboard-css', plugin_dir_url( __FILE__ ) . 'css/booking-management-dashboard.css', array(), $this->version, 'all' );
             }
@@ -206,7 +206,7 @@ class Booking_Management_Admin {
 			wp_enqueue_script( 'single-service-planner', plugin_dir_url( __FILE__ ) . 'js/booking-management-single-service-booking-planner.js', array( 'jquery', 'jquery-moment', 'fullcalendar-moment', 'jquery-fullcalendar', 'jquery-daterangepicker' ), $this->version, true );
 			wp_enqueue_script( 'service-planner', plugin_dir_url( __FILE__ ) . 'js/booking-management-service-booking-planner.js', array( 'jquery', 'jquery-moment', 'fullcalendar-moment', 'jquery-fullcalendar', 'jquery-daterangepicker' ), $this->version, true );
 
-			if ( $screen->base === 'flexibooking_page_bm_booking_planner' ) {
+			if ( $screen->base == 'flexibooking_page_bm_booking_planner' ) {
 				wp_enqueue_script( 'jquery-ui-draggable' );
 				wp_enqueue_script( 'jquery-ui-resizable' );
 				wp_enqueue_script( 'jquery-ui-droppable' );
