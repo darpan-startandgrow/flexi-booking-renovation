@@ -92,6 +92,9 @@ class Booking_Management_Admin {
 			wp_enqueue_style( 'flexi-daterangepicker', plugin_dir_url( __FILE__ ) . 'css/booking-management-daterangepicker.css', array(), $this->version, 'all' );
 			wp_enqueue_style( 'flexi-service-booking-planner', plugin_dir_url( __FILE__ ) . 'css/booking-management-service-booking-planner.css', array(), $this->version, 'all' );
 			wp_enqueue_style( 'flexi-single-service-booking-planner', plugin_dir_url( __FILE__ ) . 'css/booking-management-single-service-booking-planner.css', array(), $this->version, 'all' );
+			if ( $screen->base == 'flexibooking_page_bm_booking_planner' ) {
+				wp_enqueue_style( 'flexi-booking-planner', plugin_dir_url( __FILE__ ) . 'css/booking-management-booking-planner.css', array(), $this->version, 'all' );
+			}
             if ( $screen->base == 'toplevel_page_bm_home' ) {
                 wp_enqueue_style( 'dashboard-css', plugin_dir_url( __FILE__ ) . 'css/booking-management-dashboard.css', array(), $this->version, 'all' );
             }
@@ -202,6 +205,19 @@ class Booking_Management_Admin {
 			wp_enqueue_script( 'jquery-daterangepicker', plugin_dir_url( __FILE__ ) . 'js/booking-management-daterangepicker.js', array( 'jquery', 'jquery-fullcalendar', 'fullcalendar-moment', 'jquery-moment' ), $this->version, true );
 			wp_enqueue_script( 'single-service-planner', plugin_dir_url( __FILE__ ) . 'js/booking-management-single-service-booking-planner.js', array( 'jquery', 'jquery-moment', 'fullcalendar-moment', 'jquery-fullcalendar', 'jquery-daterangepicker' ), $this->version, true );
 			wp_enqueue_script( 'service-planner', plugin_dir_url( __FILE__ ) . 'js/booking-management-service-booking-planner.js', array( 'jquery', 'jquery-moment', 'fullcalendar-moment', 'jquery-fullcalendar', 'jquery-daterangepicker' ), $this->version, true );
+
+			if ( $screen->base == 'flexibooking_page_bm_booking_planner' ) {
+				wp_enqueue_script( 'jquery-ui-draggable' );
+				wp_enqueue_script( 'jquery-ui-resizable' );
+				wp_enqueue_script( 'jquery-ui-droppable' );
+				wp_enqueue_script(
+					'booking-planner',
+					plugin_dir_url( __FILE__ ) . 'js/booking-management-booking-planner.js',
+					array( 'jquery', 'jquery-ui-draggable', 'jquery-ui-resizable', 'jquery-ui-droppable' ),
+					$this->version,
+					true
+				);
+			}
 
 			if ( $screen->base == 'toplevel_page_bm_home' ) {
 				wp_enqueue_script( 'dashboard-js', plugin_dir_url( __FILE__ ) . 'js/booking-management-dashboard.js', array( 'jquery' ), $this->version, false );
@@ -685,6 +701,7 @@ class Booking_Management_Admin {
         add_submenu_page( 'bm_home', __( 'Orders', 'service-booking' ), __( 'Orders', 'service-booking' ), 'manage_options', 'bm_all_orders', array( $this, 'bm_all_orders' ) );
         add_submenu_page( '', __( 'Add Order', 'service-booking' ), __( 'Add Order', 'service-booking' ), 'manage_options', 'bm_add_order', array( $this, 'bm_add_order' ) );
         add_submenu_page( 'bm_home', __( 'Service Booking Planner', 'service-booking' ), __( 'Service Booking Planner', 'service-booking' ), 'manage_options', 'bm_service_booking_planner', array( $this, 'bm_service_booking_planner' ) );
+        add_submenu_page( 'bm_home', __( 'Booking Planner', 'service-booking' ), __( 'Booking Planner', 'service-booking' ), 'manage_options', 'bm_booking_planner', array( $this, 'bm_booking_planner' ) );
         add_submenu_page( '', __( 'Single Order Page', 'service-booking' ), __( 'Single Order Page', 'service-booking' ), 'manage_options', 'bm_single_order', array( $this, 'bm_single_order' ) );
         add_submenu_page( 'bm_home', __( 'Single Service Booking Planner', 'service-booking' ), __( 'Single Service Booking Planner', 'service-booking' ), 'manage_options', 'bm_single_service_booking_planner', array( $this, 'bm_single_service_booking_planner' ) );
         add_submenu_page( 'bm_home', __( 'Customers', 'service-booking' ), __( 'Customers', 'service-booking' ), 'manage_options', 'bm_all_customers', array( $this, 'bm_all_customers' ) );
@@ -852,6 +869,11 @@ class Booking_Management_Admin {
 	public function bm_service_booking_planner() {
 		include 'partials/booking-management-service-booking-planner-shortcode.php';
 	}//end bm_service_booking_planner()
+
+
+	public function bm_booking_planner() {
+		include 'partials/booking-management-booking-planner.php';
+	}//end bm_booking_planner()
 
 
 	public function bm_single_service_booking_planner() {
