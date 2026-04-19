@@ -837,7 +837,7 @@
                     detailInfoCol('Date',         formatFullDate(d)) +
                     detailInfoCol('Time',         sanitizeHtml(matchSlot ? matchSlot.time_display : timeSlot)) +
                     detailInfoCol('Price',        sanitizeHtml(formatPrice(res.service_price))) +
-                    detailInfoCol('Availability', res.max_capacity + '/' + res.max_capacity + ' spots <span class="bm-planner-detail__info-badge" style="background:' + avail.bg + ';color:' + avail.color + '">' + (avail.label.split(' ')[0]) + '</span>') +
+                    detailInfoCol('Availability', res.available_capacity + '/' + res.max_capacity + ' spots <span class="bm-planner-detail__info-badge" style="background:' + avail.bg + ';color:' + avail.color + '">' + (avail.label.split(' ')[0]) + '</span>') +
                 '</div>';
 
             var tableHead =
@@ -853,8 +853,8 @@
                 res.bookings.forEach(function (b) {
                     var oSt    = sanitizeHtml(b.order_status   || '');
                     var pSt    = sanitizeHtml(b.payment_status || '');
-                    var oStCls = 'bm-planner-booking-status--' + (b.order_status || 'pending').toLowerCase().replace(/\s+/, '-');
-                    var pStCls = 'bm-planner-payment-status--' + (b.payment_status || 'unpaid').toLowerCase().replace(/\s+/, '-');
+                    var oStCls = 'bm-planner-booking-status--' + (b.order_status || 'pending').toLowerCase().replace(/\s+/g, '-');
+                    var pStCls = 'bm-planner-payment-status--' + (b.payment_status || 'unpaid').toLowerCase().replace(/\s+/g, '-');
                     tableBody += '<tr>' +
                         '<td><a href="#" class="bm-planner-order-ref">' + sanitizeHtml(b.order_ref || '') + ' \u2197</a></td>' +
                         '<td>' + sanitizeHtml(b.customer_last_name || '') + '</td>' +
