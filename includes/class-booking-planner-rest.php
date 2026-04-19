@@ -263,6 +263,60 @@ class Booking_Planner_REST {
 				),
 			)
 		);
+
+		// GET /planner-week
+		register_rest_route(
+			self::NAMESPACE,
+			'/planner-week',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_planner_week' ),
+				'permission_callback' => array( $this, 'admin_permission_check' ),
+				'args'                => array(
+					'start_date'  => array(
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'end_date'    => array(
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'service_id'  => array(
+						'required'          => false,
+						'sanitize_callback' => 'absint',
+					),
+					'category_id' => array(
+						'required'          => false,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		// GET /slot-bookings
+		register_rest_route(
+			self::NAMESPACE,
+			'/slot-bookings',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_slot_bookings' ),
+				'permission_callback' => array( $this, 'admin_permission_check' ),
+				'args'                => array(
+					'service_id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+					'date'       => array(
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'time_slot'  => array(
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
 	}
 
 	// -------------------------------------------------------------------------
@@ -1043,5 +1097,340 @@ class Booking_Planner_REST {
 			$dbhandler->rollback_transaction();
 			return new WP_Error( 'booking_error', $e->getMessage(), array( 'status' => 500 ) );
 		}
+	}
+
+	// -------------------------------------------------------------------------
+	// GET /planner-week
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Bulk-fetch services + slot availability for a date range.
+	 *
+	 * Returns:
+	 *   services[]          – array of service objects
+	 *   slots{}             – map service_id → date → [{slot_id,from,to,time_display,max_capacity,available_capacity,booking_count}]
+	 *   summary{}           – { total_services, total_bookings }
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_planner_week( WP_REST_Request $request ) {
+		$params     = $request->get_query_params();
+		$start_date = sanitize_text_field( $params['start_date'] );
+		$end_date   = sanitize_text_field( $params['end_date'] );
+
+		if ( ! $this->validate_date( $start_date ) || ! $this->validate_date( $end_date ) ) {
+			return new WP_Error(
+				'invalid_date',
+				__( 'start_date and end_date must be in Y-m-d format.', 'service-booking' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$dbhandler  = new BM_DBhandler();
+		$bmrequests = new BM_Request();
+
+		// Build service filter.
+		$svc_where = array( 'service_status' => 1 );
+		if ( ! empty( $params['category_id'] ) ) {
+			$svc_where['service_category'] = absint( $params['category_id'] );
+		}
+		if ( ! empty( $params['service_id'] ) ) {
+			$svc_where['id'] = absint( $params['service_id'] );
+		}
+
+		$raw_services = $dbhandler->get_all_result(
+			'SERVICE',
+			'*',
+			$svc_where,
+			'results',
+			0,
+			false,
+			'service_position',
+			false
+		);
+
+		if ( empty( $raw_services ) ) {
+			return rest_ensure_response(
+				array(
+					'services' => array(),
+					'slots'    => array(),
+					'summary'  => array( 'total_services' => 0, 'total_bookings' => 0 ),
+				)
+			);
+		}
+
+		// Build service list + category name map.
+		$services      = array();
+		$service_ids   = array();
+		$cat_name_cache = array();
+
+		foreach ( $raw_services as $svc ) {
+			$service_ids[] = (int) $svc->id;
+
+			$cat_name = '';
+			$cat_id   = (int) $svc->service_category;
+			if ( $cat_id > 0 ) {
+				if ( ! isset( $cat_name_cache[ $cat_id ] ) ) {
+					$cat_name_cache[ $cat_id ] = (string) $dbhandler->get_value( 'CATEGORY', 'cat_name', $cat_id );
+				}
+				$cat_name = $cat_name_cache[ $cat_id ];
+			}
+
+			$services[] = array(
+				'id'               => (int) $svc->id,
+				'service_name'     => $svc->service_name,
+				'service_duration' => $svc->service_duration,
+				'default_price'    => $svc->default_price,
+				'service_category' => $cat_id,
+				'category_name'    => $cat_name,
+				'service_image'    => $svc->service_image,
+				'service_position' => (int) $svc->service_position,
+			);
+		}
+
+		// Pre-fetch all bookings in the range for all services in one query.
+		global $wpdb;
+		$bm_activator = new Booking_Management_Activator();
+		$bkg_table    = $bm_activator->get_db_table_name( 'BOOKING' );
+		$ids_ph       = implode( ',', array_fill( 0, count( $service_ids ), '%d' ) );
+		$query_args   = array_merge( $service_ids, array( $start_date, $end_date ) );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$raw_bookings = $wpdb->get_results(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT service_id, booking_date, booking_slots FROM {$bkg_table}
+				 WHERE is_active = 1
+				   AND service_id IN ({$ids_ph})
+				   AND booking_date BETWEEN %s AND %s",
+				$query_args
+			)
+		);
+
+		// Build booking-count lookup: [ "svcId_date_fromTime" => count ].
+		$bkg_count = array();
+		$total_bookings = 0;
+		if ( ! empty( $raw_bookings ) ) {
+			foreach ( $raw_bookings as $bkg ) {
+				$slots = maybe_unserialize( $bkg->booking_slots );
+				$from  = is_array( $slots ) && isset( $slots['from'] ) ? $slots['from'] : '';
+				if ( ! $from ) {
+					continue;
+				}
+				$key = (int) $bkg->service_id . '_' . $bkg->booking_date . '_' . $from;
+				$bkg_count[ $key ] = isset( $bkg_count[ $key ] ) ? $bkg_count[ $key ] + 1 : 1;
+				$total_bookings++;
+			}
+		}
+
+		// Build slot map per service per date.
+		$slots_map = array();
+
+		// Generate all dates in range.
+		$dates    = array();
+		$cur_date = new DateTime( $start_date );
+		$end_dt   = new DateTime( $end_date );
+		while ( $cur_date <= $end_dt ) {
+			$dates[] = $cur_date->format( 'Y-m-d' );
+			$cur_date->modify( '+1 day' );
+		}
+
+		foreach ( $services as $svc ) {
+			$svc_id              = $svc['id'];
+			$slots_map[ $svc_id ] = array();
+
+			foreach ( $dates as $date ) {
+				$slot_data = $bmrequests->bm_fetch_service_time_slot_cap_left_min_cap_array_by_service_id_date(
+					$svc_id,
+					$date
+				);
+
+				if ( empty( $slot_data ) ) {
+					$slots_map[ $svc_id ][ $date ] = array();
+					continue;
+				}
+
+				$day_slots = array();
+				foreach ( $slot_data as $slot ) {
+					$from        = isset( $slot['from'] ) ? $slot['from'] : ( isset( $slot['slot_id'] ) ? $slot['slot_id'] : '' );
+					$to          = isset( $slot['to'] )   ? $slot['to']   : '';
+					$max_cap     = isset( $slot['max_cap'] )  ? (int) $slot['max_cap']  : 0;
+					$cap_left    = isset( $slot['cap_left'] ) ? (int) $slot['cap_left'] : 0;
+					$bkg_key     = $svc_id . '_' . $date . '_' . $from;
+					$bkg_cnt     = isset( $bkg_count[ $bkg_key ] ) ? $bkg_count[ $bkg_key ] : 0;
+
+					$day_slots[] = array(
+						'slot_id'            => $from,
+						'from'               => $from,
+						'to'                 => $to,
+						'time_display'       => $from . ( $to ? ' - ' . $to : '' ),
+						'max_capacity'       => $max_cap,
+						'available_capacity' => $cap_left,
+						'booking_count'      => $bkg_cnt,
+					);
+				}
+				$slots_map[ $svc_id ][ $date ] = $day_slots;
+			}
+		}
+
+		return rest_ensure_response(
+			array(
+				'services' => $services,
+				'slots'    => $slots_map,
+				'summary'  => array(
+					'total_services' => count( $services ),
+					'total_bookings' => $total_bookings,
+				),
+			)
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// GET /slot-bookings
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Return bookings for a specific service + date + time slot.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_slot_bookings( WP_REST_Request $request ) {
+		$params     = $request->get_query_params();
+		$service_id = absint( $params['service_id'] );
+		$date       = sanitize_text_field( $params['date'] );
+		$time_slot  = sanitize_text_field( $params['time_slot'] );
+
+		if ( ! $this->validate_date( $date ) ) {
+			return new WP_Error(
+				'invalid_date',
+				__( 'The date must be in Y-m-d format.', 'service-booking' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		if ( ! $this->validate_time( $time_slot ) ) {
+			return new WP_Error(
+				'invalid_time',
+				__( 'The time_slot must be in HH:MM format.', 'service-booking' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$dbhandler  = new BM_DBhandler();
+		$bmrequests = new BM_Request();
+
+		// Get service info.
+		$service = $dbhandler->get_row( 'SERVICE', $service_id );
+		if ( empty( $service ) ) {
+			return new WP_Error(
+				'service_not_found',
+				__( 'Service not found.', 'service-booking' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		// Fetch bookings for this slot via JOIN.
+		$columns = 'b.id, b.service_id, b.booking_key, b.total_svc_slots, b.base_svc_price, b.extra_svc_cost, b.total_cost, b.order_status, b.booking_slots, c.customer_name, c.customer_email, t.payment_status, t.payment_method';
+
+		$joins = array(
+			array(
+				'type'  => 'LEFT',
+				'table' => 'CUSTOMERS',
+				'alias' => 'c',
+				'on'    => 'b.customer_id = c.id',
+			),
+			array(
+				'type'  => 'LEFT',
+				'table' => 'TRANSACTIONS',
+				'alias' => 't',
+				'on'    => 'b.id = t.booking_id AND t.is_active = 1',
+			),
+		);
+
+		$where_clauses = array(
+			'b.service_id'   => array( '=' => $service_id ),
+			'b.booking_date' => array( '=' => $date ),
+			'b.is_active'    => array( '=' => 1 ),
+		);
+
+		$all_bookings = $dbhandler->get_results_with_join(
+			array( 'BOOKING', 'b' ),
+			$columns,
+			$joins,
+			$where_clauses,
+			'results',
+			0,
+			false,
+			'b.id',
+			false
+		);
+
+		// Filter to the requested time slot.
+		$response_bookings = array();
+		if ( ! empty( $all_bookings ) ) {
+			foreach ( $all_bookings as $bkg ) {
+				$slots = maybe_unserialize( $bkg->booking_slots );
+				$from  = is_array( $slots ) && isset( $slots['from'] ) ? $slots['from'] : '';
+				if ( $from !== $time_slot ) {
+					continue;
+				}
+
+				// Derive last name from customer_name.
+				$customer_name = $bkg->customer_name ?: '';
+				$name_parts    = explode( ' ', trim( $customer_name ) );
+				$last_name     = count( $name_parts ) > 1 ? end( $name_parts ) : $customer_name;
+
+				// Extra participants: bookings over base price.
+				$base_price  = (float) $bkg->base_svc_price;
+				$extra_cost  = (float) $bkg->extra_svc_cost;
+				$extra_pax   = ( $base_price > 0 ) ? (int) round( $extra_cost / $base_price ) : 0;
+
+				$response_bookings[] = array(
+					'id'                 => (int) $bkg->id,
+					'order_ref'          => $bkg->booking_key,
+					'customer_name'      => $customer_name,
+					'customer_last_name' => $last_name,
+					'customer_email'     => $bkg->customer_email,
+					'total_svc_slots'    => (int) $bkg->total_svc_slots,
+					'extra_participants' => $extra_pax,
+					'order_status'       => $bkg->order_status,
+					'payment_status'     => $bkg->payment_status,
+					'payment_method'     => $bkg->payment_method,
+					'total_cost'         => $bkg->total_cost,
+				);
+			}
+		}
+
+		// Get slot capacity info.
+		$slot_data     = $bmrequests->bm_fetch_service_time_slot_cap_left_min_cap_array_by_service_id_date( $service_id, $date );
+		$max_capacity  = 0;
+		$avail_capacity = 0;
+		if ( ! empty( $slot_data ) ) {
+			foreach ( $slot_data as $slot ) {
+				$from = isset( $slot['from'] ) ? $slot['from'] : ( isset( $slot['slot_id'] ) ? $slot['slot_id'] : '' );
+				if ( $from === $time_slot ) {
+					$max_capacity   = isset( $slot['max_cap'] )  ? (int) $slot['max_cap']  : 0;
+					$avail_capacity = isset( $slot['cap_left'] ) ? (int) $slot['cap_left'] : 0;
+					break;
+				}
+			}
+		}
+
+		return rest_ensure_response(
+			array(
+				'service_id'          => $service_id,
+				'service_name'        => $service->service_name,
+				'service_price'       => $service->default_price,
+				'service_duration'    => $service->service_duration,
+				'date'                => $date,
+				'time_slot'           => $time_slot,
+				'max_capacity'        => $max_capacity,
+				'available_capacity'  => $avail_capacity,
+				'bookings'            => $response_bookings,
+				'booking_count'       => count( $response_bookings ),
+			)
+		);
 	}
 }

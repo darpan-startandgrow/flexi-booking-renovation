@@ -1,19 +1,19 @@
 /**
- * Booking Planner – Modern SPA-like Engine
+ * Booking Planner – 3-view SPA (Home · Service Planner · Time Planner)
  *
  * Architecture:
- *   State ─► render() ─► DOM
- *   Events ─► setState() ─► batched render via requestAnimationFrame
- *   API calls use optimistic updates with automatic rollback on failure
+ *   State ──► render() ──► DOM (innerHTML string-building)
+ *   Events ──► setState() ──► batched render via requestAnimationFrame
+ *   API calls use $.when() for parallel requests
  *
  * @since 1.0.0
  */
 (function ($) {
     'use strict';
 
-    /* ------------------------------------------------------------------ */
-    /*  BOOTSTRAP                                                          */
-    /* ------------------------------------------------------------------ */
+    /* ===================================================================== */
+    /*  BOOTSTRAP                                                             */
+    /* ===================================================================== */
 
     var $root = $('#bm-planner-root');
     if (!$root.length) { return; }
@@ -21,40 +21,36 @@
     var NONCE    = $root.data('nonce') || '';
     var REST_URL = ($root.data('rest-url') || '').replace(/\/+$/, '');
 
-    /** Pixels per hour in service planner. */
-    var HOUR_PX = 120;
+    /* ===================================================================== */
+    /*  CONSTANTS                                                             */
+    /* ===================================================================== */
 
-    /* ------------------------------------------------------------------ */
-    /*  HELPERS                                                            */
-    /* ------------------------------------------------------------------ */
+    var VIEWS = { HOME: 'home', SERVICE: 'service-planner', TIME: 'time-planner' };
+
+    var CATEGORY_COLORS = [
+        { solid: '#2563EB', light: '#EFF6FF' },
+        { solid: '#9333EA', light: '#FAF5FF' },
+        { solid: '#16A34A', light: '#F0FDF4' },
+        { solid: '#6B7280', light: '#F9FAFB' },
+        { solid: '#EA580C', light: '#FFF7ED' },
+        { solid: '#DB2777', light: '#FDF2F8' },
+        { solid: '#0D9488', light: '#F0FDFA' },
+        { solid: '#4F46E5', light: '#EEF2FF' }
+    ];
+
+    var AVAIL_HIGH   = { color: '#16A34A', bg: '#F0FDF4', label: 'High availability',   threshold: 0.5 };
+    var AVAIL_MEDIUM = { color: '#D97706', bg: '#FFFBEB', label: 'Medium availability',  threshold: 0.2 };
+    var AVAIL_LOW    = { color: '#DC2626', bg: '#FEF2F2', label: 'Low availability',     threshold: 0 };
+
+    var HOUR_HEIGHT  = 80;   // px per hour in Time Planner
+    var GRID_START_H = 7;    // timeline starts at 07:00
+    var GRID_END_H   = 22;   // timeline ends at 22:00
+
+    /* ===================================================================== */
+    /*  HELPERS                                                               */
+    /* ===================================================================== */
 
     function pad(n) { return n < 10 ? '0' + n : '' + n; }
-
-    function formatDateISO(d) {
-        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-    }
-
-    function formatDate(d) {
-        var days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-        var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-        return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
-    }
-
-    function addDays(d, n) {
-        var r = new Date(d);
-        r.setDate(r.getDate() + n);
-        return r;
-    }
-
-    function timeToMinutes(t) {
-        if (!t) { return 0; }
-        var p = t.split(':');
-        return parseInt(p[0], 10) * 60 + parseInt(p[1] || '0', 10);
-    }
-
-    function minutesToTime(m) {
-        return pad(Math.floor(m / 60)) + ':' + pad(m % 60);
-    }
 
     function sanitizeHtml(str) {
         if (str == null) { return ''; }
@@ -66,31 +62,105 @@
             .replace(/'/g, '&#039;');
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  STATE                                                              */
-    /* ------------------------------------------------------------------ */
+    function formatISO(d) {
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+
+    function addDays(d, n) {
+        var r = new Date(d); r.setDate(r.getDate() + n); return r;
+    }
+
+    function getMondayOfWeek(d) {
+        var day  = d.getDay();
+        var diff = day === 0 ? -6 : 1 - day;
+        return addDays(d, diff);
+    }
+
+    function getWeekDates() {
+        var dates = [];
+        for (var i = 0; i < 7; i++) { dates.push(addDays(State.weekStart, i)); }
+        return dates;
+    }
+
+    function formatWeekRange(dates) {
+        var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var s  = dates[0];
+        var e  = dates[6];
+        if (s.getMonth() === e.getMonth()) {
+            return mo[s.getMonth()] + ' ' + s.getDate() + ' \u2013 ' + e.getDate() + ', ' + e.getFullYear();
+        }
+        return mo[s.getMonth()] + ' ' + s.getDate() + ' \u2013 ' + mo[e.getMonth()] + ' ' + e.getDate() + ', ' + e.getFullYear();
+    }
+
+    function formatFullDate(d) {
+        var days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+    }
+
+    function timeToMinutes(t) {
+        if (!t) { return 0; }
+        var p = t.split(':');
+        return parseInt(p[0], 10) * 60 + parseInt(p[1] || '0', 10);
+    }
+
+    function formatDuration(mins) {
+        mins = parseInt(mins, 10) || 0;
+        if (mins < 60) { return mins + ' min'; }
+        var h = Math.floor(mins / 60);
+        var m = mins % 60;
+        if (m === 0) { return h + ' h'; }
+        return h + 'h ' + m + 'min';
+    }
+
+    function formatPrice(p) {
+        var n = parseFloat(p) || 0;
+        return '\u20ac' + (n % 1 === 0 ? n.toFixed(0) : n.toFixed(2));
+    }
+
+    function getAvailInfo(available, max) {
+        if (!max) { return AVAIL_HIGH; }
+        var ratio = available / max;
+        if (ratio > AVAIL_HIGH.threshold)   { return AVAIL_HIGH; }
+        if (ratio > AVAIL_MEDIUM.threshold) { return AVAIL_MEDIUM; }
+        return AVAIL_LOW;
+    }
+
+    var _catColorMap = {};
+    function buildCategoryColorMap(cats) {
+        _catColorMap = {};
+        (cats || []).forEach(function (c, i) {
+            _catColorMap[c.id] = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+        });
+    }
+    function getCatColor(catId) {
+        return _catColorMap[catId] || CATEGORY_COLORS[3];
+    }
+
+    /* ===================================================================== */
+    /*  STATE                                                                 */
+    /* ===================================================================== */
+
+    var today     = new Date();
+    var todayISO  = formatISO(today);
 
     var State = {
-        currentDate: new Date(),
-        activeView:  'service',
-        services:    [],
-        categories:  [],
-        bookings:    [],
-        filters:     { services: [], categories: [] },
-        ui:          { loading: false, modalOpen: false },
-        timeRange:   { start: 8, end: 22 }
+        view:      VIEWS.HOME,
+        weekStart: getMondayOfWeek(today),
+        data:      { services: [], slots: {}, categories: [], summary: {} },
+        filter:    { cat: 0, svc: 0 },
+        display:   { showDuration: true, showCategory: true, showPrice: true, maxSlots: 5, days: 7 },
+        loading:   false,
+        _autoHide: false,
+        _displayOpen: false,
+        _dayView:  null
     };
 
     var _renderScheduled = false;
-
     function setState(partial) {
-        for (var key in partial) {
-            if (!partial.hasOwnProperty(key)) { continue; }
-            if (key === 'filters' || key === 'ui') {
-                State[key] = $.extend({}, State[key], partial[key]);
-            } else {
-                State[key] = partial[key];
-            }
+        for (var k in partial) {
+            if (!partial.hasOwnProperty(k)) { continue; }
+            State[k] = partial[k];
         }
         if (!_renderScheduled) {
             _renderScheduled = true;
@@ -101,99 +171,81 @@
         }
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  API LAYER                                                          */
-    /* ------------------------------------------------------------------ */
+    /* ===================================================================== */
+    /*  API                                                                   */
+    /* ===================================================================== */
 
     var API = {
-        _ajax: function (method, path, data) {
-            var opts = {
-                url:    REST_URL + path,
-                method: method,
-                beforeSend: function (xhr) {
-                    xhr.setRequestHeader('X-WP-Nonce', NONCE);
-                },
+        _get: function (path, params) {
+            return $.ajax({
+                url:    REST_URL + '/' + path,
+                method: 'GET',
+                data:   params || {},
+                beforeSend: function (xhr) { xhr.setRequestHeader('X-WP-Nonce', NONCE); },
                 dataType: 'json'
-            };
-            if (data && (method === 'POST' || method === 'PUT')) {
-                opts.contentType = 'application/json';
-                opts.data = JSON.stringify(data);
-            } else if (data) {
-                opts.data = data;
-            }
-            return $.ajax(opts);
-        },
-
-        fetchServices: function () {
-            return API._ajax('GET', '/services');
-        },
-        fetchCategories: function () {
-            return API._ajax('GET', '/categories');
-        },
-        fetchBookings: function (startDate, endDate) {
-            return API._ajax('GET', '/bookings', {
-                start_date: formatDateISO(startDate),
-                end_date:   formatDateISO(endDate)
             });
         },
-        fetchTimeslots: function (serviceId, date) {
-            return API._ajax('GET', '/timeslots', {
-                service_id: serviceId,
-                date:       formatDateISO(date)
-            });
+        fetchCategories:  function ()            { return API._get('categories'); },
+        fetchPlannerWeek: function (start, end, opts) {
+            var p = $.extend({ start_date: start, end_date: end }, opts || {});
+            return API._get('planner-week', p);
         },
-        fetchReservations: function (serviceId, date, timeSlot) {
-            return API._ajax('GET', '/reservations', {
-                service_id: serviceId,
-                date:       formatDateISO(date),
-                time_slot:  timeSlot
-            });
-        },
-        createBooking: function (data) {
-            return API._ajax('POST', '/bookings', data);
-        },
-        updateBooking: function (id, data) {
-            return API._ajax('PUT', '/bookings/' + id, data);
-        },
-        deleteBooking: function (id) {
-            return API._ajax('DELETE', '/bookings/' + id);
-        },
-        checkAvailability: function (serviceId, date) {
-            return API._ajax('GET', '/availability', {
-                service_id: serviceId,
-                date:       formatDateISO(date)
-            });
+        fetchSlotBookings: function (svcId, date, timeSlot) {
+            return API._get('slot-bookings', { service_id: svcId, date: date, time_slot: timeSlot });
         }
     };
 
-    /* ------------------------------------------------------------------ */
-    /*  TOAST NOTIFICATIONS                                                */
-    /* ------------------------------------------------------------------ */
+    /* ===================================================================== */
+    /*  DATA LOADING                                                          */
+    /* ===================================================================== */
+
+    function loadWeekData() {
+        setState({ loading: true });
+        var dates = getWeekDates();
+        var start = formatISO(dates[0]);
+        var end   = formatISO(dates[6]);
+        var opts  = {};
+        if (State.filter.cat) { opts.category_id = State.filter.cat; }
+        if (State.filter.svc) { opts.service_id  = State.filter.svc; }
+
+        $.when(API.fetchCategories(), API.fetchPlannerWeek(start, end, opts))
+            .then(function (catRes, weekRes) {
+                var cats  = (catRes[0]  && catRes[0].categories)  || [];
+                var svcs  = (weekRes[0] && weekRes[0].services)   || [];
+                var slots = (weekRes[0] && weekRes[0].slots)      || {};
+                var summ  = (weekRes[0] && weekRes[0].summary)    || {};
+                buildCategoryColorMap(cats);
+                setState({
+                    loading: false,
+                    data: { services: svcs, slots: slots, categories: cats, summary: summ }
+                });
+            })
+            .fail(function () {
+                setState({ loading: false });
+                Toast.show('Failed to load planner data.', 'error');
+            });
+    }
+
+    /* ===================================================================== */
+    /*  TOAST                                                                 */
+    /* ===================================================================== */
 
     var Toast = {
-        _container: null,
-
-        _ensureContainer: function () {
-            if (!this._container || !document.body.contains(this._container[0])) {
-                this._container = $('<div class="bmp-toast-container"></div>');
-                $('body').append(this._container);
+        _c: null,
+        _ensure: function () {
+            if (!this._c || !document.body.contains(this._c[0])) {
+                this._c = $('<div class="bm-planner-toast-wrap"></div>');
+                $('body').append(this._c);
             }
-            return this._container;
+            return this._c;
         },
-
-        show: function (message, type) {
-            type = type || 'info';
-            var $c = this._ensureContainer();
-            var $t = $('<div class="bmp-toast ' + sanitizeHtml(type) + '">' + sanitizeHtml(message) + '</div>');
-            $t.css({ opacity: 0, transform: 'translateX(100%)' });
+        show: function (msg, type) {
+            var $c = this._ensure();
+            var $t = $('<div class="bm-planner-toast ' + sanitizeHtml(type || 'info') + '">' + sanitizeHtml(msg) + '</div>');
             $c.append($t);
-
-            requestAnimationFrame(function () {
-                $t.css({ opacity: 1, transform: 'translateX(0)', transition: 'all .3s ease' });
-            });
-
+            setTimeout(function () { $t.addClass('visible'); }, 10);
             var dismiss = function () {
-                $t.css({ opacity: 0, transform: 'translateX(100%)' });
+                $t.removeClass('visible');
                 setTimeout(function () { $t.remove(); }, 350);
             };
             $t.on('click', dismiss);
@@ -201,1145 +253,820 @@
         }
     };
 
-    /* ------------------------------------------------------------------ */
-    /*  MODAL SYSTEM                                                       */
-    /* ------------------------------------------------------------------ */
+    /* ===================================================================== */
+    /*  TOOLTIP                                                               */
+    /* ===================================================================== */
+
+    var Tooltip = {
+        _el: null,
+        _timer: null,
+        show: function (data, x, y) {
+            this.hide();
+            var avail = getAvailInfo(data.available_capacity, data.max_capacity);
+            var cat   = getCatColor(data.service_category);
+            var booked = data.max_capacity ? data.max_capacity - data.available_capacity : data.booking_count;
+
+            var html  =
+                '<div class="bm-planner-tooltip__inner" style="border-left:4px solid ' + cat.solid + '">' +
+                '<div class="bm-planner-tooltip__hdr">' +
+                    '<span class="bm-planner-tooltip__cat" style="background:' + cat.light + ';color:' + cat.solid + '">' + sanitizeHtml(data.category_name || '') + '</span>' +
+                    '<span class="bm-planner-tooltip__avail-badge" style="background:' + avail.bg + ';color:' + avail.color + '">' + avail.label + '</span>' +
+                '</div>' +
+                '<div class="bm-planner-tooltip__body">' +
+                    '<h4 class="bm-planner-tooltip__name">' + sanitizeHtml(data.service_name) + '</h4>' +
+                    '<div class="bm-planner-tooltip__row"><span>\u23f1 Time</span><span>' + sanitizeHtml(data.time_display) + '</span></div>' +
+                    '<div class="bm-planner-tooltip__row"><span>\ud83d\udcc5 Duration</span><span>' + sanitizeHtml(formatDuration(data.service_duration)) + '</span></div>' +
+                    '<div class="bm-planner-tooltip__row"><span>\ud83d\udc65 Available slots</span><span style="color:' + avail.color + ';font-weight:600">' + data.available_capacity + ' of ' + data.max_capacity + '</span></div>' +
+                    '<div class="bm-planner-tooltip__row"><span>\ud83d\udc64 Participants</span><span>' + booked + '</span></div>' +
+                    '<div class="bm-planner-tooltip__row"><span>Price</span><span>' + sanitizeHtml(formatPrice(data.service_price)) + '</span></div>' +
+                '</div>' +
+                '<div class="bm-planner-tooltip__ftr">' +
+                    '<span>' + data.booking_count + ' booking' + (data.booking_count !== 1 ? 's' : '') + '</span>' +
+                    '<a href="#" class="bm-planner-tooltip__link"' +
+                        ' data-action="view-details"' +
+                        ' data-svc-id="' + parseInt(data.service_id, 10) + '"' +
+                        ' data-date="' + sanitizeHtml(data.date) + '"' +
+                        ' data-from="' + sanitizeHtml(data.slot_from) + '"' +
+                    '>View details \u2197</a>' +
+                '</div>' +
+                '</div>';
+
+            this._el = $('<div class="bm-planner-tooltip" style="position:fixed;z-index:9000">' + html + '</div>');
+            $('body').append(this._el);
+            this.position(x, y);
+        },
+        position: function (x, y) {
+            if (!this._el) { return; }
+            var w = this._el.outerWidth() || 300;
+            var h = this._el.outerHeight() || 200;
+            var vw = $(window).width();
+            var vh = $(window).height();
+            var left = x + 12;
+            var top  = y - h / 2;
+            if (left + w > vw - 10) { left = x - w - 12; }
+            if (top < 10)           { top  = 10; }
+            if (top + h > vh - 10)  { top  = vh - h - 10; }
+            this._el.css({ left: left, top: top });
+        },
+        hide: function () {
+            clearTimeout(this._timer);
+            if (this._el) { this._el.remove(); this._el = null; }
+        },
+        scheduleHide: function (delay) {
+            var self = this;
+            this._timer = setTimeout(function () { self.hide(); }, delay || 200);
+        },
+        cancelHide: function () {
+            clearTimeout(this._timer);
+        }
+    };
+
+    /* ===================================================================== */
+    /*  MODAL                                                                 */
+    /* ===================================================================== */
 
     var $currentModal = null;
 
-    function openModal(contentHtml, title) {
+    function openModal(innerHtml) {
         closeModal();
-        var $overlay = $('<div class="bmp-modal-overlay"></div>');
-        var $modal = $(
-            '<div class="bmp-modal">' +
-                '<div class="bmp-modal-header">' +
-                    '<h2 class="bmp-modal-title">' + sanitizeHtml(title || '') + '</h2>' +
-                    '<button class="bmp-modal-close" type="button" aria-label="Close">&times;</button>' +
-                '</div>' +
-                '<div class="bmp-modal-body">' + contentHtml + '</div>' +
-            '</div>'
-        );
-        $overlay.append($modal);
-        $root.append($overlay);
-        $currentModal = $overlay;
-
-        requestAnimationFrame(function () {
-            $overlay.addClass('visible');
-        });
-
-        $overlay.on('click', function (e) {
-            if ($(e.target).is($overlay)) { closeModal(); }
+        var $ov = $('<div class="bmp-modal-overlay"></div>');
+        $ov.html('<div class="bmp-modal">' + innerHtml + '</div>');
+        $('body').append($ov);
+        $currentModal = $ov;
+        setTimeout(function () { $ov.addClass('visible'); }, 10);
+        $ov.on('click', function (e) {
+            if ($(e.target).is($ov)) { closeModal(); }
         });
     }
 
     function closeModal() {
-        if (!$currentModal || !$currentModal.length) { return; }
+        if (!$currentModal) { return; }
         $currentModal.removeClass('visible');
-        var $m = $currentModal;
-        $currentModal = null;
+        var $m = $currentModal; $currentModal = null;
         setTimeout(function () { $m.remove(); }, 280);
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  SERVICE COLOUR MAP                                                 */
-    /* ------------------------------------------------------------------ */
+    /* ===================================================================== */
+    /*  RENDER: HOME                                                          */
+    /* ===================================================================== */
 
-    var _svcColorMap = {};
-    var _colorIdx    = 0;
-    var NUM_COLORS   = 8;
-
-    function getServiceColor(serviceId) {
-        var id = parseInt(serviceId, 10);
-        if (_svcColorMap[id] === undefined) {
-            _svcColorMap[id] = _colorIdx % NUM_COLORS;
-            _colorIdx++;
-        }
-        return 'svc-color-' + _svcColorMap[id];
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  BOOKING HELPERS                                                    */
-    /* ------------------------------------------------------------------ */
-
-    function findBookingById(id) {
-        var nid = parseInt(id, 10);
-        for (var i = 0; i < State.bookings.length; i++) {
-            if (parseInt(State.bookings[i].id, 10) === nid) { return State.bookings[i]; }
-        }
-        return null;
-    }
-
-    function getBookingsForService(serviceId) {
-        var sid = parseInt(serviceId, 10);
-        var iso = formatDateISO(State.currentDate);
-        return State.bookings.filter(function (b) {
-            return parseInt(b.service_id, 10) === sid && b.booking_date === iso;
-        });
-    }
-
-    function getBookingsForHour(hour) {
-        var iso = formatDateISO(State.currentDate);
-        return State.bookings.filter(function (b) {
-            if (b.booking_date !== iso) { return false; }
-            var slots = b.booking_slots || {};
-            var fromMin = timeToMinutes(slots.from || '');
-            return Math.floor(fromMin / 60) === hour;
-        });
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  BOOKING BLOCK RENDERER (Service Planner)                          */
-    /* ------------------------------------------------------------------ */
-
-    function renderBookingBlock(booking, startH, totalHours, gridWidth) {
-        var slots   = booking.booking_slots || {};
-        var fromMin = timeToMinutes(slots.from || '');
-        var toMin   = timeToMinutes(slots.to   || '');
-        if (fromMin >= toMin) { toMin = fromMin + 60; }
-
-        var startMin  = startH * 60;
-        var totalMin  = totalHours * 60;
-        var left      = ((fromMin - startMin) / totalMin) * 100;
-        var width     = ((toMin - fromMin) / totalMin) * 100;
-
-        // Clamp to grid boundaries
-        if (left < 0)            { width += left; left = 0; }
-        if (left + width > 100)  { width = 100 - left; }
-        if (width <= 0)          { return ''; }
-
-        var colorClass    = getServiceColor(booking.service_id);
-        var statusAttr    = booking.order_status ? ' data-status="' + sanitizeHtml(booking.order_status) + '"' : '';
-        var customerName  = booking.customer_name || '';
-        var displayName   = booking.service_display_name || booking.service_name || '';
-        var timeStr       = (slots.from || '') + ' – ' + (slots.to || '');
-
-        return '<div class="bmp-booking ' + colorClass + '"' + statusAttr +
-            ' data-booking-id="' + parseInt(booking.id, 10) + '"' +
-            ' style="left:' + left.toFixed(3) + '%;width:' + width.toFixed(3) + '%;position:absolute;top:4px;bottom:4px;"' +
-            ' title="' + sanitizeHtml(displayName) + ' | ' + sanitizeHtml(customerName) + ' | ' + sanitizeHtml(timeStr) + '">' +
-            '<div class="bmp-booking-title">' + sanitizeHtml(displayName) + '</div>' +
-            '<div class="bmp-booking-time">'  + sanitizeHtml(timeStr) + '</div>' +
-            (customerName ? '<div class="bmp-booking-customer">' + sanitizeHtml(customerName) + '</div>' : '') +
-            '<div class="bmp-resize-handle ui-resizable-e"></div>' +
-            '</div>';
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  TIME BOOKING CARD RENDERER (Time Planner)                         */
-    /* ------------------------------------------------------------------ */
-
-    function renderTimeBookingCard(booking) {
-        var slots  = booking.booking_slots || {};
-        var status = booking.order_status || 'pending';
-        var colorClass = getServiceColor(booking.service_id);
-
-        return '<div class="bmp-time-booking-card ' + colorClass + '"' +
-            ' data-booking-id="' + parseInt(booking.id, 10) + '"' +
-            ' data-status="' + sanitizeHtml(status) + '">' +
-            '<div class="bmp-time-card-service">' + sanitizeHtml(booking.service_display_name || booking.service_name || '') + '</div>' +
-            '<div class="bmp-time-card-customer">' + sanitizeHtml(booking.customer_name || '') + '</div>' +
-            '<div class="bmp-time-card-meta">' +
-                '<span>' + sanitizeHtml(slots.from || '') + '–' + sanitizeHtml(slots.to || '') + '</span>' +
-                '<span class="bmp-time-card-status status-' + sanitizeHtml(status) + '">' + sanitizeHtml(status) + '</span>' +
+    function renderHome() {
+        return '<div class="bm-planner-home">' +
+            '<div class="bm-planner-home__header">' +
+                '<div class="bm-planner-home__icon">' +
+                    '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' +
+                '</div>' +
+                '<h1 class="bm-planner-home__title">Service Booking Planner</h1>' +
+                '<p class="bm-planner-home__subtitle">Manage your service bookings with two optimized views</p>' +
             '</div>' +
-            '</div>';
+            '<div class="bm-planner-home__cards">' +
+                renderHomeCard('service-planner', 'green',
+                    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>',
+                    'Service Planner',
+                    'Services as rows, days as columns. See weekly availability at a glance.'
+                ) +
+                renderHomeCard('time-planner', 'blue',
+                    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+                    'Time Planner',
+                    'Hourly vertical timeline. Spot conflicts and gaps across all services.'
+                ) +
+            '</div>' +
+        '</div>';
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  CURRENT TIME LINE                                                  */
-    /* ------------------------------------------------------------------ */
-
-    function renderCurrentTimeLine(startH, totalHours, gridWidth) {
-        var now = new Date();
-        var iso = formatDateISO(State.currentDate);
-        if (formatDateISO(now) !== iso) { return ''; }
-
-        var currentMin = now.getHours() * 60 + now.getMinutes();
-        var startMin   = startH * 60;
-        var totalMin   = totalHours * 60;
-        if (currentMin < startMin || currentMin > startMin + totalMin) { return ''; }
-
-        var left = ((currentMin - startMin) / totalMin) * 100;
-        return '<div class="bmp-current-time-line" style="left:' + left.toFixed(2) + '%;position:absolute;top:0;bottom:0;"></div>';
+    function renderHomeCard(view, color, iconSvg, title, desc) {
+        return '<div class="bm-planner-home__card" data-view="' + view + '">' +
+            '<div class="bm-planner-home__card-icon bm-planner-home__card-icon--' + color + '">' + iconSvg + '</div>' +
+            '<h2 class="bm-planner-home__card-title">' + sanitizeHtml(title) + '</h2>' +
+            '<p class="bm-planner-home__card-desc">' + sanitizeHtml(desc) + '</p>' +
+        '</div>';
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  RENDER: TOOLBAR                                                    */
-    /* ------------------------------------------------------------------ */
+    /* ===================================================================== */
+    /*  RENDER: NAV BAR                                                       */
+    /* ===================================================================== */
+
+    function renderNav() {
+        var spCls = State.view === VIEWS.SERVICE ? ' bm-planner-nav__tab--active' : '';
+        var tpCls = State.view === VIEWS.TIME    ? ' bm-planner-nav__tab--active' : '';
+        return '<div class="bm-planner-nav">' +
+            '<button class="bm-planner-nav__tab' + spCls + '" data-nav="service-planner">' +
+                '<span class="bm-planner-nav__tab-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg></span>' +
+                ' Service Planner' +
+            '</button>' +
+            '<button class="bm-planner-nav__tab' + tpCls + '" data-nav="time-planner">' +
+                '<span class="bm-planner-nav__tab-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span>' +
+                ' Time Planner' +
+            '</button>' +
+        '</div>';
+    }
+
+    /* ===================================================================== */
+    /*  RENDER: TOOLBAR                                                       */
+    /* ===================================================================== */
 
     function renderToolbar() {
-        var svcActive  = State.activeView === 'service' ? ' active' : '';
-        var timeActive = State.activeView === 'time'    ? ' active' : '';
+        var dates    = getWeekDates();
+        var rangeStr = formatWeekRange(dates);
+        var isSP     = State.view === VIEWS.SERVICE;
+        var isTP     = State.view === VIEWS.TIME;
+
+        var catOpts = '<option value="0">All Categories</option>';
+        (State.data.categories || []).forEach(function (c) {
+            var sel = State.filter.cat === parseInt(c.id, 10) ? ' selected' : '';
+            catOpts += '<option value="' + parseInt(c.id, 10) + '"' + sel + '>' + sanitizeHtml(c.cat_name) + '</option>';
+        });
+
+        var svcOpts = '<option value="0">All Services</option>';
+        (State.data.services || []).forEach(function (s) {
+            var sel = State.filter.svc === parseInt(s.id, 10) ? ' selected' : '';
+            svcOpts += '<option value="' + parseInt(s.id, 10) + '"' + sel + '>' + sanitizeHtml(s.service_name) + '</option>';
+        });
+
+        var autoCls  = State._autoHide ? ' bm-planner-tp__auto-btn--active' : '';
 
         return '<div class="bmp-toolbar">' +
             '<div class="bmp-toolbar-left">' +
-                '<div class="bmp-view-switcher">' +
-                    '<button class="bmp-view-btn' + svcActive + '" data-view="service">Service Planner</button>' +
-                    '<button class="bmp-view-btn' + timeActive + '" data-view="time">Time Planner</button>' +
-                '</div>' +
-            '</div>' +
-            '<div class="bmp-toolbar-center">' +
-                '<div class="bmp-date-nav">' +
-                    '<button class="bmp-date-nav-btn" data-dir="-1" title="Previous day">&#9664;</button>' +
-                    '<button class="bmp-date-display" id="bmp-date-display-btn">' + sanitizeHtml(formatDate(State.currentDate)) + '</button>' +
-                    '<button class="bmp-date-nav-btn" data-dir="1" title="Next day">&#9654;</button>' +
-                    '<button class="bmp-today-btn">Today</button>' +
-                '</div>' +
+                '<button class="bmp-nav-btn" data-week="-1" title="Previous week">&#9664;</button>' +
+                '<span class="bmp-date-display">' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' +
+                    ' ' + sanitizeHtml(rangeStr) +
+                '</span>' +
+                ( isSP ? '<button class="bmp-today-btn" data-action="today">Today</button>' : '' ) +
+                '<button class="bmp-nav-btn" data-week="1" title="Next week">&#9654;</button>' +
+                ( isTP ? '<button class="bmp-today-btn" data-action="oggi">Oggi</button>' : '' ) +
+                ( isTP ? '<button class="bmp-today-btn" data-action="ora">\u23f1 Ora</button>' : '' ) +
+                ( isTP ? '<button class="bmp-today-btn' + autoCls + '" data-action="auto">Auto</button>' : '' ) +
             '</div>' +
             '<div class="bmp-toolbar-right">' +
-                buildFilterDropdown('service') +
-                buildFilterDropdown('category') +
+                '<select class="bmp-filter-select" data-filter="svc">' + svcOpts + '</select>' +
+                '<select class="bmp-filter-select" data-filter="cat">' + catOpts + '</select>' +
+                '<button class="bm-planner-display-btn" data-action="display">\u26a1 Display</button>' +
+            '</div>' +
+        '</div>' +
+        renderDisplayPanel();
+    }
+
+    function renderDisplayPanel() {
+        if (!State._displayOpen) { return ''; }
+        return '<div class="bm-planner-display-panel">' +
+            '<p class="bm-planner-display-panel__title">Display Settings</p>' +
+            '<p class="bm-planner-display-panel__subtitle">Customize what\'s shown in the planner</p>' +
+            '<div class="bm-planner-display-panel__section">' +
+                '<p class="bm-planner-display-panel__section-title">Information to show</p>' +
+                '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showDuration"' + (State.display.showDuration ? ' checked' : '') + '> Duration</label>' +
+                '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showCategory"' + (State.display.showCategory ? ' checked' : '') + '> Category</label>' +
+                '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showPrice"' + (State.display.showPrice ? ' checked' : '') + '> Price</label>' +
+            '</div>' +
+            '<div class="bm-planner-display-panel__section">' +
+                '<p class="bm-planner-display-panel__section-title">Max slots per cell: <strong>' + State.display.maxSlots + '</strong></p>' +
+                '<input type="range" class="bm-planner-display-panel__range" data-disp-range="maxSlots" min="1" max="20" value="' + State.display.maxSlots + '">' +
             '</div>' +
         '</div>';
     }
 
-    function buildFilterDropdown(type) {
-        var items, selected, key, label;
-        if (type === 'service') {
-            items = State.services; selected = State.filters.services; key = 'services'; label = 'Services';
-        } else {
-            items = State.categories; selected = State.filters.categories; key = 'categories'; label = 'Categories';
-        }
+    /* ===================================================================== */
+    /*  RENDER: FOOTER LEGEND                                                 */
+    /* ===================================================================== */
 
-        var panelHtml = '';
-        if (!items.length) {
-            panelHtml = '<p style="padding:8px 14px;color:#8c8f94;font-size:12px;">No items</p>';
-        } else {
-            var allChecked = selected.length === items.length ? ' checked' : '';
-            panelHtml += '<label class="bmp-filter-select-all">' +
-                '<input type="checkbox" data-filter-all="' + key + '"' + allChecked + '> Select All</label>';
-            for (var i = 0; i < items.length; i++) {
-                var item = items[i];
-                var id   = parseInt(item.id, 10);
-                var name = type === 'service' ? item.service_name : item.cat_name;
-                var chk  = selected.indexOf(id) !== -1 ? ' checked' : '';
-                panelHtml += '<label><input type="checkbox" data-filter-key="' + key +
-                    '" value="' + id + '"' + chk + '> ' + sanitizeHtml(name) + '</label>';
-            }
-        }
-
-        return '<div class="bmp-filter-dropdown" data-filter-type="' + type + '">' +
-            '<button class="bmp-filter-btn">' + label + ' &#9662;</button>' +
-            '<div class="bmp-filter-panel">' + panelHtml + '</div>' +
-            '</div>';
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  RENDER: SERVICE PLANNER                                            */
-    /* ------------------------------------------------------------------ */
-
-    function getFilteredServices() {
-        var svcs = State.services;
-        var sf   = State.filters.services;
-        var cf   = State.filters.categories;
-        return svcs.filter(function (s) {
-            return sf.indexOf(parseInt(s.id, 10)) !== -1 &&
-                   cf.indexOf(parseInt(s.service_category, 10)) !== -1;
+    function renderFooter() {
+        var catDots = '';
+        (State.data.categories || []).forEach(function (c) {
+            var col = getCatColor(c.id);
+            catDots += '<span class="bm-planner-footer__item"><span class="bm-planner-footer__dot" style="background:' + col.solid + '"></span> ' + sanitizeHtml(c.cat_name) + '</span>';
         });
+        return '<div class="bm-planner-footer">' +
+            '<div class="bm-planner-footer__left">' + catDots + '</div>' +
+            '<div class="bm-planner-footer__right">' +
+                '<span class="bm-planner-footer__item"><span class="bm-planner-footer__dot" style="background:#16A34A"></span> High</span>' +
+                '<span class="bm-planner-footer__item"><span class="bm-planner-footer__dot" style="background:#D97706"></span> Medium</span>' +
+                '<span class="bm-planner-footer__item"><span class="bm-planner-footer__dot" style="background:#DC2626"></span> Low</span>' +
+            '</div>' +
+        '</div>';
     }
+
+    /* ===================================================================== */
+    /*  RENDER: SERVICE PLANNER                                               */
+    /* ===================================================================== */
 
     function renderServicePlanner() {
-        var startH    = State.timeRange.start;
-        var endH      = State.timeRange.end;
-        var totalHours = endH - startH;
-        var gridWidth = totalHours * HOUR_PX;
-        var filtered  = getFilteredServices();
+        if (State._dayView) { return renderDayView(State._dayView.date); }
 
-        /* -- Time labels -- */
-        var timeLabels = '';
-        for (var h = startH; h < endH; h++) {
-            var now = new Date();
-            var isCurrent = h === now.getHours() && formatDateISO(State.currentDate) === formatDateISO(now);
-            timeLabels += '<div class="bmp-time-label' + (isCurrent ? ' current-hour' : '') +
-                '" style="min-width:' + HOUR_PX + 'px;max-width:' + HOUR_PX + 'px;">' + pad(h) + ':00</div>';
-        }
+        var dates    = getWeekDates();
+        var services = State.data.services || [];
+        var slots    = State.data.slots    || {};
+        var maxSlots = State.display.maxSlots;
 
-        /* -- Rows -- */
-        var rows = '';
-        for (var si = 0; si < filtered.length; si++) {
-            var svc        = filtered[si];
-            var svcBkgs    = getBookingsForService(svc.id);
-            var bkgHtml    = '';
-            for (var bi = 0; bi < svcBkgs.length; bi++) {
-                bkgHtml += renderBookingBlock(svcBkgs[bi], startH, totalHours, gridWidth);
-            }
+        var dayAbbr = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
 
-            /* -- Hour cells -- */
-            var cells = '';
-            for (var ch = startH; ch < endH; ch++) {
-                cells += '<div class="bmp-cell" data-service-id="' + parseInt(svc.id, 10) +
-                    '" data-hour="' + ch + '" style="min-width:' + HOUR_PX + 'px;max-width:' + HOUR_PX + 'px;height:100%;"></div>';
-            }
-
-            rows += '<div class="bmp-resource-row" data-service-id="' + parseInt(svc.id, 10) + '">' +
-                '<div class="bmp-resource-label">' +
-                    '<span class="bmp-resource-name">' + sanitizeHtml(svc.service_name) + '</span>' +
-                    '<span class="bmp-resource-meta">' + sanitizeHtml(svc.service_duration || '') + ' min</span>' +
-                '</div>' +
-                '<div class="bmp-timeline" style="width:' + gridWidth + 'px;min-width:' + gridWidth + 'px;position:relative;display:flex;">' +
-                    cells +
-                    bkgHtml +
-                    renderCurrentTimeLine(startH, totalHours, gridWidth) +
-                '</div>' +
+        var headCells = '<div class="bm-planner-sp__corner">Services</div>';
+        dates.forEach(function (d) {
+            var iso     = formatISO(d);
+            var isToday = iso === todayISO;
+            var todayCls = isToday ? ' bm-planner-sp__day-header--today' : '';
+            var numCls   = isToday ? ' bm-planner-sp__day-num--today'   : '';
+            headCells += '<div class="bm-planner-sp__day-header' + todayCls + '">' +
+                '<div class="bm-planner-sp__day-abbr">' + dayAbbr[d.getDay()] + '</div>' +
+                '<div class="bm-planner-sp__day-num' + numCls + '" data-action="day-click" data-date="' + sanitizeHtml(iso) + '">' + d.getDate() + '</div>' +
             '</div>';
-        }
-
-        if (!filtered.length) {
-            rows = '<div style="padding:40px;text-align:center;color:var(--bmp-text-muted);">No services match the current filters.</div>';
-        }
-
-        return '<div class="bmp-grid-container">' +
-            '<div class="bmp-grid-header">' +
-                '<div class="bmp-resource-header">Resource</div>' +
-                '<div class="bmp-time-labels" style="width:' + gridWidth + 'px;min-width:' + gridWidth + 'px;">' + timeLabels + '</div>' +
-            '</div>' +
-            '<div class="bmp-grid-body">' + rows + '</div>' +
-        '</div>' +
-        renderSummaryBar();
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  RENDER: TIME PLANNER                                               */
-    /* ------------------------------------------------------------------ */
-
-    function renderTimePlanner() {
-        var startH    = State.timeRange.start;
-        var endH      = State.timeRange.end;
-        var iso       = formatDateISO(State.currentDate);
-
-        var rows = '';
-        for (var h = startH; h < endH; h++) {
-            var halfBookings = getBookingsForHourOrHalf(h, false);
-            var halfPlusBookings = getBookingsForHourOrHalf(h, true);
-
-            var cardsHtml = '';
-            for (var i = 0; i < halfBookings.length; i++) { cardsHtml += renderTimeBookingCard(halfBookings[i]); }
-            var cardsHalfHtml = '';
-            for (var j = 0; j < halfPlusBookings.length; j++) { cardsHalfHtml += renderTimeBookingCard(halfPlusBookings[j]); }
-
-            rows += '<div class="bmp-time-row">' +
-                '<div class="bmp-time-label-cell">' + pad(h) + ':00</div>' +
-                '<div class="bmp-time-slot-row">' + cardsHtml + '</div>' +
-            '</div>';
-
-            if (halfPlusBookings.length) {
-                rows += '<div class="bmp-time-row" style="border-top:1px dashed var(--bmp-border-light);">' +
-                    '<div class="bmp-time-label-cell" style="color:var(--bmp-text-muted);font-weight:400;">' + pad(h) + ':30</div>' +
-                    '<div class="bmp-time-slot-row">' + cardsHalfHtml + '</div>' +
-                '</div>';
-            }
-        }
-
-        if (!rows) {
-            rows = '<div style="padding:40px;text-align:center;color:var(--bmp-text-muted);">No bookings for this date.</div>';
-        }
-
-        return '<div class="bmp-grid-container">' +
-            '<div class="bmp-grid-body bmp-time-planner">' + rows + '</div>' +
-        '</div>' +
-        renderSummaryBar();
-    }
-
-    function getBookingsForHourOrHalf(hour, halfHour) {
-        var iso = formatDateISO(State.currentDate);
-        return State.bookings.filter(function (b) {
-            if (b.booking_date !== iso) { return false; }
-            var slots  = b.booking_slots || {};
-            var fromMin = timeToMinutes(slots.from || '');
-            var h      = Math.floor(fromMin / 60);
-            var m      = fromMin % 60;
-            if (h !== hour) { return false; }
-            return halfHour ? (m >= 30) : (m < 30);
         });
-    }
 
-    /* ------------------------------------------------------------------ */
-    /*  RENDER: SUMMARY BAR                                                */
-    /* ------------------------------------------------------------------ */
+        var gridStyle = 'grid-template-columns: 180px repeat(7, 1fr)';
 
-    function renderSummaryBar() {
-        var iso   = formatDateISO(State.currentDate);
-        var daily = State.bookings.filter(function (b) { return b.booking_date === iso; });
-        var completed = daily.filter(function (b) { return b.order_status === 'completed'; }).length;
-        var pending   = daily.filter(function (b) { return b.order_status === 'pending' || b.order_status === 'processing'; }).length;
+        var rows = '';
+        if (!services.length) {
+            rows = '<div class="bm-planner-sp__empty">No services found.</div>';
+        } else {
+            services.forEach(function (svc) {
+                var catCol = getCatColor(svc.service_category);
+                var svcSlots = slots[svc.id] || {};
 
-        return '<div class="bmp-summary-bar">' +
-            '<span class="bmp-summary-item">Total: <strong class="bmp-summary-count">' + daily.length + '</strong></span>' +
-            '<span class="bmp-summary-item">Completed: <strong class="bmp-summary-count">' + completed + '</strong></span>' +
-            '<span class="bmp-summary-item">Pending: <strong class="bmp-summary-count">' + pending + '</strong></span>' +
+                var cells = '<div class="bm-planner-sp__svc-cell">' +
+                    '<div class="bm-planner-sp__svc-dot" style="background:' + catCol.solid + '"></div>' +
+                    '<div class="bm-planner-sp__svc-info">' +
+                        '<span class="bm-planner-sp__svc-name" data-action="svc-info" data-svc-id="' + parseInt(svc.id, 10) + '">' + sanitizeHtml(svc.service_name) + '</span>' +
+                        '<span class="bm-planner-sp__svc-meta">' +
+                            (State.display.showDuration ? '\u23f1 ' + sanitizeHtml(formatDuration(svc.service_duration)) + ' ' : '') +
+                            (State.display.showPrice    ? '\u00b7 ' + sanitizeHtml(formatPrice(svc.default_price)) : '') +
+                        '</span>' +
+                    '</div>' +
+                '</div>';
+
+                dates.forEach(function (d) {
+                    var iso       = formatISO(d);
+                    var isToday   = iso === todayISO;
+                    var daySlots  = svcSlots[iso] || [];
+                    var todayCls  = isToday ? ' bm-planner-sp__cell--today' : '';
+                    var shown     = daySlots.slice(0, maxSlots);
+                    var remaining = daySlots.length - shown.length;
+
+                    var innerHtml = '';
+                    if (!daySlots.length) {
+                        innerHtml = '<span class="bm-planner-sp__no-slots">\u2013</span>';
+                    } else {
+                        shown.forEach(function (slot) {
+                            var avail = getAvailInfo(slot.available_capacity, slot.max_capacity);
+                            innerHtml += '<div class="bm-planner-sp__slot-entry"' +
+                                ' data-action="slot-hover"' +
+                                ' data-svc-id="' + parseInt(svc.id, 10) + '"' +
+                                ' data-date="' + sanitizeHtml(iso) + '"' +
+                                ' data-from="' + sanitizeHtml(slot.from) + '">' +
+                                '<span class="bm-planner-sp__slot-time">' + sanitizeHtml(slot.time_display) + '</span>' +
+                                '<span class="bm-planner-sp__slot-avail">' +
+                                    '<span class="bm-planner-sp__avail-dot" style="color:' + avail.color + '">\u25cf</span>' +
+                                    '<span class="bm-planner-sp__avail-count">' + slot.available_capacity + '</span>' +
+                                '</span>' +
+                            '</div>';
+                        });
+                        if (remaining > 0) {
+                            innerHtml += '<span class="bm-planner-sp__slot-more">+' + remaining + ' more</span>';
+                        }
+                    }
+
+                    cells += '<div class="bm-planner-sp__cell' + todayCls + '">' + innerHtml + '</div>';
+                });
+
+                rows += '<div class="bm-planner-sp__row" style="' + gridStyle + '">' + cells + '</div>';
+            });
+        }
+
+        return '<div class="bm-planner-sp__grid">' +
+            '<div class="bm-planner-sp__grid-head" style="' + gridStyle + '">' + headCells + '</div>' +
+            '<div class="bm-planner-sp__grid-body">' + rows + '</div>' +
         '</div>';
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  MAIN RENDER                                                        */
-    /* ------------------------------------------------------------------ */
+    function renderDayView(dateISO) {
+        var d      = new Date(dateISO + 'T00:00:00');
+        var slots  = State.data.slots  || {};
+        var svcs   = State.data.services || [];
 
-    function render() {
-        var html = renderToolbar();
+        var sections = '';
+        svcs.forEach(function (svc) {
+            var daySl  = (slots[svc.id] || {})[dateISO] || [];
+            if (!daySl.length) { return; }
+            var catCol = getCatColor(svc.service_category);
 
-        if (State.ui.loading) {
-            html += '<div class="bm-planner-loading"><div class="bm-planner-spinner"></div><span>Loading&hellip;</span></div>';
-        } else if (State.activeView === 'service') {
-            html += renderServicePlanner();
-        } else {
-            html += renderTimePlanner();
+            var cards = daySl.map(function (slot) {
+                var avail = getAvailInfo(slot.available_capacity, slot.max_capacity);
+                return '<div class="bm-planner-sp__day-card"' +
+                    ' style="border-color:' + catCol.solid + ';background:' + catCol.light + '"' +
+                    ' data-action="slot-click"' +
+                    ' data-svc-id="' + parseInt(svc.id, 10) + '"' +
+                    ' data-date="' + sanitizeHtml(dateISO) + '"' +
+                    ' data-from="' + sanitizeHtml(slot.from) + '">' +
+                    '<div class="bm-planner-sp__day-card-time" style="color:' + catCol.solid + '">' + sanitizeHtml(slot.time_display) + '</div>' +
+                    '<div class="bm-planner-sp__day-card-avail" style="color:' + avail.color + '">\u25cf ' + slot.available_capacity + ' / ' + slot.max_capacity + '</div>' +
+                    '<div class="bm-planner-sp__day-card-bookings">' + slot.booking_count + ' booking' + (slot.booking_count !== 1 ? 's' : '') + '</div>' +
+                '</div>';
+            }).join('');
+
+            sections += '<div class="bm-planner-sp__day-section">' +
+                '<div class="bm-planner-sp__day-section-header">' +
+                    '<span class="bm-planner-sp__svc-dot" style="background:' + catCol.solid + ';width:10px;height:10px;border-radius:50%;display:inline-block"></span>' +
+                    sanitizeHtml(svc.service_name) +
+                '</div>' +
+                '<div class="bm-planner-sp__day-cards">' + cards + '</div>' +
+            '</div>';
+        });
+
+        if (!sections) {
+            sections = '<p style="color:#6B7280;padding:24px 0;">No slots available on this day.</p>';
         }
 
-        /* Preserve scroll position across re-renders */
-        var $body = $root.find('.bmp-grid-body');
-        var scrollLeft = $body.scrollLeft();
-        var scrollTop  = $body.scrollTop();
+        return '<div class="bm-planner-sp__day-view">' +
+            '<div class="bm-planner-sp__day-view-header">' +
+                '<button class="bmp-today-btn" data-action="back-to-week">\u2190 Week View</button>' +
+                '<span class="bm-planner-sp__day-full">' + sanitizeHtml(formatFullDate(d)) + '</span>' +
+            '</div>' +
+            sections +
+        '</div>';
+    }
+
+    /* ===================================================================== */
+    /*  RENDER: TIME PLANNER                                                  */
+    /* ===================================================================== */
+
+    function renderTimePlanner() {
+        var dates    = getWeekDates();
+        var services = State.data.services || [];
+        var slotsMap = State.data.slots    || {};
+        var dayAbbr  = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+        var hours    = [];
+        for (var h = GRID_START_H; h <= GRID_END_H; h++) { hours.push(h); }
+        var totalHours = GRID_END_H - GRID_START_H;
+
+        var headCells = '<div class="bm-planner-tp__time-corner"></div>';
+        dates.forEach(function (d) {
+            var iso    = formatISO(d);
+            var isTod  = iso === todayISO;
+            var todCls = isTod ? ' bm-planner-tp__day-header--today' : '';
+            var numCls = isTod ? ' bm-planner-tp__day-num--today'    : '';
+            headCells += '<div class="bm-planner-tp__day-header' + todCls + '">' +
+                '<div class="bm-planner-tp__day-abbr">' + dayAbbr[d.getDay()] + '</div>' +
+                '<div class="bm-planner-tp__day-num' + numCls + '">' + d.getDate() + '</div>' +
+            '</div>';
+        });
+
+        var timeColHtml = '';
+        hours.forEach(function (h) {
+            var topPx = (h - GRID_START_H) * HOUR_HEIGHT;
+            timeColHtml += '<div class="bm-planner-tp__time-label" style="top:' + topPx + 'px">' + pad(h) + ':00</div>';
+        });
+
+        var gridH = totalHours * HOUR_HEIGHT;
+
+        var dayCols = '';
+        dates.forEach(function (d) {
+            var iso    = formatISO(d);
+            var isTod  = iso === todayISO;
+            var todCls = isTod ? ' bm-planner-tp__day-col--today' : '';
+
+            var lines = '';
+            hours.forEach(function (h) {
+                var topPx = (h - GRID_START_H) * HOUR_HEIGHT;
+                lines += '<div class="bm-planner-tp__hour-line" style="top:' + topPx + 'px"></div>';
+            });
+
+            var allCards = [];
+            services.forEach(function (svc) {
+                var daySl = (slotsMap[svc.id] || {})[iso] || [];
+                var catCol = getCatColor(svc.service_category);
+                daySl.forEach(function (slot) {
+                    var fromMin = timeToMinutes(slot.from);
+                    var toMin   = timeToMinutes(slot.to || slot.from);
+                    if (toMin <= fromMin) { toMin = fromMin + 60; }
+                    var startMin = GRID_START_H * 60;
+                    if (toMin <= startMin || fromMin >= GRID_END_H * 60) { return; }
+                    var top    = ((fromMin - startMin) / 60) * HOUR_HEIGHT;
+                    var height = Math.max(24, ((toMin - fromMin) / 60) * HOUR_HEIGHT - 4);
+                    var avail  = getAvailInfo(slot.available_capacity, slot.max_capacity);
+                    allCards.push({
+                        svcId:    svc.id,
+                        svcName:  svc.service_name,
+                        catName:  svc.category_name || '',
+                        catCol:   catCol,
+                        avail:    avail,
+                        slot:     slot,
+                        svc:      svc,
+                        fromMin:  fromMin,
+                        toMin:    toMin,
+                        top:      top,
+                        height:   height,
+                        date:     iso
+                    });
+                });
+            });
+
+            allCards.sort(function (a, b) { return a.fromMin - b.fromMin; });
+            var cols = [];
+            allCards.forEach(function (card) {
+                var placed = false;
+                for (var ci = 0; ci < cols.length; ci++) {
+                    if (cols[ci].toMin <= card.fromMin) {
+                        card._col = ci;
+                        cols[ci].toMin = card.toMin;
+                        placed = true;
+                        break;
+                    }
+                }
+                if (!placed) {
+                    card._col = cols.length;
+                    cols.push({ toMin: card.toMin });
+                }
+            });
+            var numCols = cols.length || 1;
+
+            var cardsHtml = allCards.map(function (card) {
+                var leftPct  = (card._col / numCols) * 100;
+                var widthPct = (1 / numCols) * 100;
+                return '<div class="bm-planner-tp__card"' +
+                    ' style="top:' + card.top.toFixed(0) + 'px;height:' + card.height.toFixed(0) + 'px;' +
+                    'left:' + leftPct.toFixed(1) + '%;width:' + widthPct.toFixed(1) + '%;' +
+                    'background:' + card.catCol.light + ';border-left:3px solid ' + card.catCol.solid + '"' +
+                    ' data-action="slot-hover"' +
+                    ' data-svc-id="' + parseInt(card.svcId, 10) + '"' +
+                    ' data-date="' + sanitizeHtml(card.date) + '"' +
+                    ' data-from="' + sanitizeHtml(card.slot.from) + '">' +
+                    '<div class="bm-planner-tp__card-name" style="color:' + card.catCol.solid + '">' + sanitizeHtml(card.svcName) + '</div>' +
+                    '<div class="bm-planner-tp__card-time">' + sanitizeHtml(card.slot.time_display) + '</div>' +
+                    '<div class="bm-planner-tp__card-meta">' +
+                        '<span class="bm-planner-tp__card-avail" style="color:' + card.avail.color + '">\u25cf ' + card.slot.available_capacity + '</span>' +
+                        '<span class="bm-planner-tp__card-price">' + sanitizeHtml(formatPrice(card.svc.default_price)) + '</span>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            var nowLine = '';
+            if (isTod) {
+                var now     = new Date();
+                var nowMin  = now.getHours() * 60 + now.getMinutes();
+                var startMn = GRID_START_H * 60;
+                if (nowMin >= startMn && nowMin <= GRID_END_H * 60) {
+                    var nowTop = ((nowMin - startMn) / 60) * HOUR_HEIGHT;
+                    nowLine = '<div class="bm-planner-tp__now-line" id="bm-planner-tp-now" style="top:' + nowTop.toFixed(0) + 'px"></div>';
+                }
+            }
+
+            dayCols += '<div class="bm-planner-tp__day-col' + todCls + '" style="height:' + gridH + 'px;position:relative">' +
+                lines + cardsHtml + nowLine +
+            '</div>';
+        });
+
+        var gridStyle = 'grid-template-columns: 60px repeat(7, 1fr)';
+
+        return '<div class="bm-planner-tp__grid">' +
+            '<div class="bm-planner-tp__grid-head" style="' + gridStyle + '">' + headCells + '</div>' +
+            '<div class="bm-planner-tp__grid-body" id="bm-planner-tp-body" style="' + gridStyle + '">' +
+                '<div class="bm-planner-tp__time-col" style="height:' + gridH + 'px;position:relative">' + timeColHtml + '</div>' +
+                dayCols +
+            '</div>' +
+        '</div>';
+    }
+
+    /* ===================================================================== */
+    /*  MAIN RENDER                                                           */
+    /* ===================================================================== */
+
+    function render() {
+        var html = '';
+
+        if (State.loading) {
+            var frame = State.view === VIEWS.HOME ? '' : (renderNav() + renderToolbar());
+            html = frame + '<div class="bm-planner-loading"><div class="bm-planner-spinner"></div><span>Loading\u2026</span></div>';
+        } else if (State.view === VIEWS.HOME) {
+            html = renderHome();
+        } else if (State.view === VIEWS.SERVICE) {
+            html = renderNav() + renderToolbar() + renderServicePlanner() + renderFooter();
+        } else if (State.view === VIEWS.TIME) {
+            html = renderNav() + renderToolbar() + renderTimePlanner() + renderFooter();
+        }
+
+        var $body    = $root.find('.bm-planner-sp__grid-body, #bm-planner-tp-body');
+        var scrollTop = $body.length ? $body.scrollTop() : 0;
 
         $root.html(html);
 
-        /* Restore scroll */
-        var $newBody = $root.find('.bmp-grid-body');
-        if (scrollLeft || scrollTop) {
-            $newBody.scrollLeft(scrollLeft).scrollTop(scrollTop);
+        if (scrollTop) {
+            $root.find('.bm-planner-sp__grid-body, #bm-planner-tp-body').scrollTop(scrollTop);
         }
 
-        /* Post-render hooks */
-        initDragDrop();
-        initResize();
-        initDroppableCells();
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  DRAG AND DROP (jQuery UI draggable)                               */
-    /* ------------------------------------------------------------------ */
-
-    function initDragDrop() {
-        $root.find('.bmp-booking').each(function () {
-            var $block = $(this);
-            if ($block.data('ui-draggable')) { return; }
-
-            $block.draggable({
-                axis:        'x',
-                containment: $block.closest('.bmp-timeline')[0],
-                scroll:      false,
-                helper:      'original',
-                zIndex:      1000,
-                snap:        '.bmp-cell',
-                snapMode:    'inner',
-                snapTolerance: 10,
-                start: function () {
-                    $block.addClass('dragging');
-                },
-                stop: function (event, ui) {
-                    $block.removeClass('dragging');
-                    handleDragEnd($block, ui);
-                }
-            });
-        });
-    }
-
-    function handleDragEnd($block, ui) {
-        var bookingId = parseInt($block.data('booking-id'), 10);
-        var booking   = findBookingById(bookingId);
-        if (!booking) { return; }
-
-        var $timeline  = $block.closest('.bmp-timeline');
-        var startH     = State.timeRange.start;
-        var endH       = State.timeRange.end;
-        var totalHours = endH - startH;
-        var gridW      = $timeline.width();
-        if (!gridW) { return; }
-
-        var leftPct = parseFloat($block[0].style.left) / 100;
-        var startMin = startH * 60;
-        var totalMin = totalHours * 60;
-
-        var newFromMin = Math.round((leftPct * totalMin + startMin) / 15) * 15;
-        newFromMin = Math.max(startH * 60, Math.min(endH * 60 - 15, newFromMin));
-
-        var oldSlots = $.extend({}, booking.booking_slots || {});
-        var durMin   = timeToMinutes((oldSlots.to || '')) - timeToMinutes((oldSlots.from || ''));
-        if (durMin <= 0) { durMin = 60; }
-        var newToMin = newFromMin + durMin;
-        if (newToMin > endH * 60) {
-            newToMin   = endH * 60;
-            newFromMin = newToMin - durMin;
+        if (State.view === VIEWS.TIME && State._autoHide) {
+            scrollToNow();
         }
-
-        var newFrom = minutesToTime(newFromMin);
-        var newTo   = minutesToTime(newToMin);
-
-        /* Optimistic update */
-        booking.booking_slots = { from: newFrom, to: newTo };
-        render();
-
-        API.updateBooking(bookingId, {
-            booking_date:   booking.booking_date,
-            time_slot_from: newFrom,
-            time_slot_to:   newTo,
-            service_id:     booking.service_id
-        }).fail(function () {
-            booking.booking_slots = oldSlots;
-            render();
-            Toast.show('Failed to move booking. Change reverted.', 'error');
-        });
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  RESIZE (jQuery UI resizable)                                       */
-    /* ------------------------------------------------------------------ */
-
-    function initResize() {
-        $root.find('.bmp-booking').each(function () {
-            var $block = $(this);
-            if ($block.data('ui-resizable')) { return; }
-
-            $block.resizable({
-                handles:  'e',
-                minWidth: 20,
-                containment: $block.closest('.bmp-timeline')[0],
-                stop: function (event, ui) {
-                    handleResizeEnd($block, ui);
-                }
-            });
-        });
-    }
-
-    function handleResizeEnd($block, ui) {
-        var bookingId = parseInt($block.data('booking-id'), 10);
-        var booking   = findBookingById(bookingId);
-        if (!booking) { return; }
-
-        var $timeline  = $block.closest('.bmp-timeline');
-        var startH     = State.timeRange.start;
-        var endH       = State.timeRange.end;
-        var totalHours = endH - startH;
-        var gridW      = $timeline.width();
-        if (!gridW) { return; }
-
-        var widthPct = ui.size.width / gridW;
-        var totalMin = totalHours * 60;
-
-        var slots      = booking.booking_slots || {};
-        var fromMin    = timeToMinutes(slots.from || '');
-        var durMin     = Math.round((widthPct * totalMin) / 15) * 15;
-        if (durMin < 15) { durMin = 15; }
-        var newToMin   = fromMin + durMin;
-        if (newToMin > endH * 60) { newToMin = endH * 60; }
-
-        var oldTo  = slots.to;
-        var newTo  = minutesToTime(newToMin);
-
-        /* Optimistic update */
-        booking.booking_slots = { from: slots.from, to: newTo };
-        render();
-
-        API.updateBooking(bookingId, {
-            booking_date:   booking.booking_date,
-            time_slot_from: slots.from,
-            time_slot_to:   newTo,
-            service_id:     booking.service_id
-        }).fail(function () {
-            booking.booking_slots = { from: slots.from, to: oldTo };
-            render();
-            Toast.show('Failed to resize booking. Change reverted.', 'error');
-        });
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  DROPPABLE CELLS (cross-row drag)                                  */
-    /* ------------------------------------------------------------------ */
-
-    function initDroppableCells() {
-        $root.find('.bmp-cell').each(function () {
-            var $cell = $(this);
-            if ($cell.data('ui-droppable')) { return; }
-            $cell.droppable({
-                accept:    '.bmp-booking',
-                tolerance: 'pointer',
-                over: function () { $cell.addClass('droppable-hover'); },
-                out:  function () { $cell.removeClass('droppable-hover'); },
-                drop: function (event, ui) {
-                    $cell.removeClass('droppable-hover');
-                    var newServiceId = parseInt($cell.data('service-id'), 10);
-                    var $block       = ui.draggable;
-                    var bookingId    = parseInt($block.data('booking-id'), 10);
-                    var booking      = findBookingById(bookingId);
-                    if (!booking) { return; }
-                    var oldServiceId = parseInt(booking.service_id, 10);
-                    if (oldServiceId === newServiceId) { return; }
-
-                    /* Optimistic cross-row move */
-                    var oldSvc = findServiceById(oldServiceId);
-                    var newSvc = findServiceById(newServiceId);
-                    booking.service_id = newServiceId;
-                    if (newSvc) {
-                        booking.service_name = newSvc.service_name;
-                        booking.service_display_name = newSvc.service_name;
-                    }
-                    render();
-
-                    API.updateBooking(bookingId, {
-                        booking_date: booking.booking_date,
-                        service_id:   newServiceId
-                    }).fail(function () {
-                        booking.service_id   = oldServiceId;
-                        booking.service_name = oldSvc ? oldSvc.service_name : booking.service_name;
-                        booking.service_display_name = booking.service_name;
-                        render();
-                        Toast.show('Failed to reassign booking. Change reverted.', 'error');
-                    });
-                }
-            });
-        });
-    }
-
-    function findServiceById(id) {
-        var nid = parseInt(id, 10);
-        for (var i = 0; i < State.services.length; i++) {
-            if (parseInt(State.services[i].id, 10) === nid) { return State.services[i]; }
+    function scrollToNow() {
+        var $body = $root.find('#bm-planner-tp-body');
+        var $line = $root.find('#bm-planner-tp-now');
+        if ($body.length && $line.length) {
+            var targetTop = $line.position().top + $body.scrollTop() - 200;
+            $body.animate({ scrollTop: Math.max(0, targetTop) }, 300);
         }
-        return null;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  BOOKING DETAIL MODAL                                               */
-    /* ------------------------------------------------------------------ */
+    /* ===================================================================== */
+    /*  BOOKING DETAIL MODAL                                                  */
+    /* ===================================================================== */
 
-    function openBookingDetail(bookingId) {
-        var booking = findBookingById(bookingId);
-        if (!booking) { return; }
-
-        var slots  = booking.booking_slots || {};
-        var status = booking.order_status || '';
-
-        var html = '<dl style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin:0;">' +
-            field('Service',   booking.service_display_name || booking.service_name || '') +
-            field('Date',      booking.booking_date || '') +
-            field('From',      slots.from || '–') +
-            field('To',        slots.to   || '–') +
-            field('Customer',  booking.customer_name  || '–') +
-            field('Email',     booking.customer_email || '–') +
-            field('Status',    '<span class="bmp-status-badge bmp-status-' + sanitizeHtml(status) + '">' + sanitizeHtml(status) + '</span>') +
-            field('Payment',   booking.payment_status || '–') +
-            field('Total',     booking.total_cost ? '€' + booking.total_cost : '–') +
-            field('Booking #', booking.id) +
-        '</dl>' +
-        '<div class="bmp-modal-footer" style="margin-top:16px;padding-top:12px;border-top:1px solid var(--bmp-border);display:flex;gap:8px;justify-content:flex-end;">' +
-            '<button class="bmp-btn bmp-btn-secondary bmp-action-view-reservations" data-booking-id="' + parseInt(booking.id, 10) + '">View Reservations</button>' +
-            '<button class="bmp-btn bmp-btn-secondary bmp-action-edit-booking" data-booking-id="' + parseInt(booking.id, 10) + '">Edit</button>' +
-            '<button class="bmp-btn bmp-btn-danger bmp-action-delete-booking" data-booking-id="' + parseInt(booking.id, 10) + '">Cancel Booking</button>' +
-        '</div>';
-
-        openModal(html, 'Booking #' + booking.id);
-    }
-
-    function field(label, value) {
-        return '<div>' +
-            '<dt style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--bmp-text-muted);margin-bottom:2px;">' + sanitizeHtml(label) + '</dt>' +
-            '<dd style="margin:0;font-size:13px;color:var(--bmp-text);">' + (typeof value === 'number' ? value : value) + '</dd>' +
-        '</div>';
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  STATUS CHANGE                                                      */
-    /* ------------------------------------------------------------------ */
-
-    function changeBookingStatus(bookingId, newStatus) {
-        var booking   = findBookingById(bookingId);
-        if (!booking) { return; }
-        var oldStatus = booking.order_status;
-
-        /* Optimistic */
-        booking.order_status = newStatus;
-        render();
-        closeModal();
-
-        var slots = booking.booking_slots || {};
-        API.updateBooking(bookingId, {
-            booking_date:   booking.booking_date,
-            time_slot_from: slots.from,
-            time_slot_to:   slots.to,
-            service_id:     booking.service_id,
-            order_status:   newStatus
-        }).fail(function () {
-            booking.order_status = oldStatus;
-            render();
-            Toast.show('Status update failed. Reverted.', 'error');
-        }).done(function () {
-            Toast.show('Booking status updated.', 'success');
+    function openSlotDetailModal(svcId, date, timeSlot) {
+        var svc = null;
+        (State.data.services || []).forEach(function (s) {
+            if (parseInt(s.id, 10) === parseInt(svcId, 10)) { svc = s; }
         });
-    }
 
-    /* ------------------------------------------------------------------ */
-    /*  DELETE BOOKING                                                     */
-    /* ------------------------------------------------------------------ */
-
-    function deleteBooking(bookingId) {
-        var booking = findBookingById(bookingId);
-        if (!booking) { return; }
-        if (!confirm('Are you sure you want to cancel booking #' + bookingId + '?')) { return; }
-
-        /* Optimistic removal */
-        var idx = State.bookings.indexOf(booking);
-        State.bookings.splice(idx, 1);
-        render();
-        closeModal();
-
-        API.deleteBooking(bookingId)
-            .done(function () {
-                Toast.show('Booking #' + bookingId + ' cancelled.', 'success');
-            })
-            .fail(function () {
-                State.bookings.splice(idx, 0, booking);
-                render();
-                Toast.show('Failed to cancel booking. Reverted.', 'error');
-            });
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  EDIT BOOKING MODAL                                                 */
-    /* ------------------------------------------------------------------ */
-
-    function openEditBookingModal(bookingId) {
-        var booking = findBookingById(bookingId);
-        if (!booking) { return; }
-
-        var slots = booking.booking_slots || {};
-
-        var svcOptions = '';
-        for (var i = 0; i < State.services.length; i++) {
-            var s   = State.services[i];
-            var sel = parseInt(s.id, 10) === parseInt(booking.service_id, 10) ? ' selected' : '';
-            svcOptions += '<option value="' + parseInt(s.id, 10) + '"' + sel + '>' + sanitizeHtml(s.service_name) + '</option>';
-        }
-
-        var html = '<form id="bmp-edit-form" data-booking-id="' + parseInt(booking.id, 10) + '">' +
-            '<div class="bmp-form-group">' +
-                '<label class="bmp-form-label">Service</label>' +
-                '<select class="bmp-form-select" name="service_id">' + svcOptions + '</select>' +
+        var loadingHtml =
+            '<div class="bmp-modal-header">' +
+                '<h3 class="bmp-modal-title">' + sanitizeHtml(svc ? svc.service_name : 'Loading\u2026') + '</h3>' +
+                '<button class="bmp-modal-close" data-action="close-modal">&times;</button>' +
             '</div>' +
-            '<div class="bmp-form-group">' +
-                '<label class="bmp-form-label">Date</label>' +
-                '<input type="date" class="bmp-form-input" name="booking_date" value="' + sanitizeHtml(booking.booking_date || '') + '">' +
-            '</div>' +
-            '<div class="bmp-form-row">' +
-                '<div class="bmp-form-group">' +
-                    '<label class="bmp-form-label">From</label>' +
-                    '<input type="time" class="bmp-form-input" name="time_slot_from" value="' + sanitizeHtml(slots.from || '') + '">' +
-                '</div>' +
-                '<div class="bmp-form-group">' +
-                    '<label class="bmp-form-label">To</label>' +
-                    '<input type="time" class="bmp-form-input" name="time_slot_to" value="' + sanitizeHtml(slots.to || '') + '">' +
-                '</div>' +
-            '</div>' +
-            '<div class="bmp-form-group">' +
-                '<label class="bmp-form-label">Customer Name</label>' +
-                '<input type="text" class="bmp-form-input" name="customer_name" value="' + sanitizeHtml(booking.customer_name || '') + '">' +
-            '</div>' +
-            '<div class="bmp-modal-footer">' +
-                '<button type="button" class="bmp-btn bmp-btn-secondary bmp-modal-close-btn">Cancel</button>' +
-                '<button type="submit" class="bmp-btn bmp-btn-primary">Save Changes</button>' +
-            '</div>' +
-        '</form>';
+            '<div class="bmp-modal-body"><div class="bm-planner-loading"><div class="bm-planner-spinner"></div><span>Loading bookings\u2026</span></div></div>';
 
-        openModal(html, 'Edit Booking #' + booking.id);
-    }
+        openModal(loadingHtml);
 
-    function handleEditFormSubmit($form) {
-        var bookingId = parseInt($form.data('booking-id'), 10);
-        var booking   = findBookingById(bookingId);
-        if (!booking) { return; }
+        API.fetchSlotBookings(svcId, date, timeSlot).then(function (res) {
+            if (!$currentModal) { return; }
+            var avail = getAvailInfo(res.available_capacity, res.max_capacity);
+            var d     = new Date(date + 'T00:00:00');
+            var slotData   = (State.data.slots[svcId] || {})[date] || [];
+            var matchSlot  = null;
+            slotData.forEach(function (sl) { if (sl.from === timeSlot) { matchSlot = sl; } });
 
-        var data = {
-            service_id:     parseInt($form.find('[name="service_id"]').val(), 10),
-            booking_date:   $form.find('[name="booking_date"]').val(),
-            time_slot_from: $form.find('[name="time_slot_from"]').val(),
-            time_slot_to:   $form.find('[name="time_slot_to"]').val(),
-            customer_name:  $form.find('[name="customer_name"]').val()
-        };
+            var infoRow =
+                '<div class="bm-planner-detail__info-row">' +
+                    detailInfoCol('Date',         formatFullDate(d)) +
+                    detailInfoCol('Time',         sanitizeHtml(matchSlot ? matchSlot.time_display : timeSlot)) +
+                    detailInfoCol('Price',        sanitizeHtml(formatPrice(res.service_price))) +
+                    detailInfoCol('Availability', res.available_capacity + '/' + res.max_capacity + ' spots <span class="bm-planner-detail__info-badge" style="background:' + avail.bg + ';color:' + avail.color + '">' + (avail.label.split(' ')[0]) + '</span>') +
+                '</div>';
 
-        /* Optimistic */
-        var oldData = {
-            service_id:   booking.service_id,
-            booking_date: booking.booking_date,
-            booking_slots: $.extend({}, booking.booking_slots),
-            customer_name: booking.customer_name
-        };
-        var svc = findServiceById(data.service_id);
-        booking.service_id    = data.service_id;
-        booking.booking_date  = data.booking_date;
-        booking.booking_slots = { from: data.time_slot_from, to: data.time_slot_to };
-        booking.customer_name = data.customer_name;
-        if (svc) { booking.service_display_name = svc.service_name; }
-        closeModal();
-        render();
+            var tableHead =
+                '<thead><tr>' +
+                    '<th>Order Reference</th><th>Last Name</th><th>Participants</th>' +
+                    '<th>Extra Participants</th><th>Booking Status</th><th>Payment Status</th><th>Total</th>' +
+                '</tr></thead>';
 
-        API.updateBooking(bookingId, data)
-            .done(function () {
-                Toast.show('Booking updated.', 'success');
-                loadBookings();
-            })
-            .fail(function () {
-                booking.service_id    = oldData.service_id;
-                booking.booking_date  = oldData.booking_date;
-                booking.booking_slots = oldData.booking_slots;
-                booking.customer_name = oldData.customer_name;
-                var oldSvc = findServiceById(oldData.service_id);
-                if (oldSvc) { booking.service_display_name = oldSvc.service_name; }
-                render();
-                Toast.show('Save failed. Changes reverted.', 'error');
-            });
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  CREATE BOOKING MODAL                                               */
-    /* ------------------------------------------------------------------ */
-
-    function openCreateBookingModal(serviceId, hour) {
-        var svc = findServiceById(serviceId);
-
-        var fromDefault = pad(hour) + ':00';
-        var toDefault   = pad(hour + 1) + ':00';
-        var durMin      = svc && svc.service_duration ? parseInt(svc.service_duration, 10) : 60;
-        if (durMin > 0) { toDefault = minutesToTime(hour * 60 + durMin); }
-
-        var svcOptions = '';
-        for (var i = 0; i < State.services.length; i++) {
-            var s   = State.services[i];
-            var sel = parseInt(s.id, 10) === parseInt(serviceId, 10) ? ' selected' : '';
-            svcOptions += '<option value="' + parseInt(s.id, 10) + '"' + sel + '>' + sanitizeHtml(s.service_name) + '</option>';
-        }
-
-        var html = '<form id="bmp-create-form">' +
-            '<div class="bmp-form-group">' +
-                '<label class="bmp-form-label">Service</label>' +
-                '<select class="bmp-form-select" name="service_id">' + svcOptions + '</select>' +
-            '</div>' +
-            '<div class="bmp-form-group">' +
-                '<label class="bmp-form-label">Date</label>' +
-                '<input type="date" class="bmp-form-input" name="booking_date" value="' + sanitizeHtml(formatDateISO(State.currentDate)) + '">' +
-            '</div>' +
-            '<div class="bmp-form-row">' +
-                '<div class="bmp-form-group">' +
-                    '<label class="bmp-form-label">From</label>' +
-                    '<input type="time" class="bmp-form-input" name="time_slot_from" value="' + sanitizeHtml(fromDefault) + '">' +
-                '</div>' +
-                '<div class="bmp-form-group">' +
-                    '<label class="bmp-form-label">To</label>' +
-                    '<input type="time" class="bmp-form-input" name="time_slot_to" value="' + sanitizeHtml(toDefault) + '">' +
-                '</div>' +
-            '</div>' +
-            '<div class="bmp-form-group">' +
-                '<label class="bmp-form-label">Customer Name</label>' +
-                '<input type="text" class="bmp-form-input" name="customer_name" placeholder="Enter name">' +
-            '</div>' +
-            '<div class="bmp-form-group">' +
-                '<label class="bmp-form-label">Customer Email</label>' +
-                '<input type="email" class="bmp-form-input" name="customer_email" placeholder="Enter email">' +
-            '</div>' +
-            '<div class="bmp-modal-footer">' +
-                '<button type="button" class="bmp-btn bmp-btn-secondary bmp-modal-close-btn">Cancel</button>' +
-                '<button type="submit" class="bmp-btn bmp-btn-primary">Create Booking</button>' +
-            '</div>' +
-        '</form>';
-
-        openModal(html, 'New Booking');
-    }
-
-    function handleCreateFormSubmit($form) {
-        var $submit = $form.find('[type="submit"]').prop('disabled', true).text('Creating…');
-
-        var serviceId = parseInt($form.find('[name="service_id"]').val(), 10);
-        var svc = findServiceById(serviceId);
-        var durMin = svc && svc.service_duration ? parseInt(svc.service_duration, 10) : 60;
-        var fromMin = timeToMinutes($form.find('[name="time_slot_from"]').val());
-        var toMin   = timeToMinutes($form.find('[name="time_slot_to"]').val());
-        if (toMin <= fromMin) { toMin = fromMin + durMin; }
-        var totalSlots = Math.max(1, Math.round((toMin - fromMin) / (durMin || 60)));
-
-        var data = {
-            service_id:       serviceId,
-            booking_date:     $form.find('[name="booking_date"]').val(),
-            time_slot_from:   $form.find('[name="time_slot_from"]').val(),
-            time_slot_to:     minutesToTime(toMin),
-            total_svc_slots:  totalSlots,
-            customer_name:    $form.find('[name="customer_name"]').val(),
-            customer_email:   $form.find('[name="customer_email"]').val()
-        };
-
-        API.createBooking(data)
-            .done(function (resp) {
-                closeModal();
-                Toast.show('Booking created successfully.', 'success');
-                loadBookings();
-            })
-            .fail(function (xhr) {
-                $submit.prop('disabled', false).text('Create Booking');
-                var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Failed to create booking.';
-                Toast.show(msg, 'error');
-            });
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  VIEW RESERVATIONS                                                  */
-    /* ------------------------------------------------------------------ */
-
-    function openReservationsModal(bookingId) {
-        var booking = findBookingById(bookingId);
-        if (!booking) { return; }
-        var slots = booking.booking_slots || {};
-
-        openModal('<div class="bm-planner-loading"><div class="bm-planner-spinner"></div></div>', 'Reservations');
-
-        API.fetchReservations(booking.service_id, State.currentDate, slots.from || '')
-            .done(function (resp) {
-                var reservations = resp.reservations || [];
-                var tbody = '';
-                if (reservations.length) {
-                    for (var i = 0; i < reservations.length; i++) {
-                        var r = reservations[i];
-                        tbody += '<tr>' +
-                            '<td>' + sanitizeHtml(r.customer_name || '–') + '</td>' +
-                            '<td>' + sanitizeHtml(r.time_slot || '–') + '</td>' +
-                            '<td><span class="bmp-status-badge bmp-status-' + sanitizeHtml(r.order_status || '') + '">' + sanitizeHtml(r.order_status || '–') + '</span></td>' +
-                        '</tr>';
-                    }
-                } else {
-                    tbody = '<tr><td colspan="3" style="text-align:center;color:var(--bmp-text-muted);padding:20px;">No reservations found.</td></tr>';
-                }
-
-                var html = '<table class="bmp-res-table">' +
-                    '<thead><tr><th>Customer</th><th>Time Slot</th><th>Status</th></tr></thead>' +
-                    '<tbody>' + tbody + '</tbody>' +
-                '</table>';
-
-                if ($currentModal) {
-                    $currentModal.find('.bmp-modal-body').html(html);
-                }
-            })
-            .fail(function () {
-                if ($currentModal) {
-                    $currentModal.find('.bmp-modal-body').html('<p style="color:var(--bmp-danger);padding:16px;">Failed to load reservations.</p>');
-                }
-            });
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  DATA LOADING                                                       */
-    /* ------------------------------------------------------------------ */
-
-    function loadBookings() {
-        var d = State.currentDate;
-        setState({ ui: { loading: true } });
-        API.fetchBookings(d, d)
-            .done(function (resp) {
-                setState({
-                    bookings: (resp && resp.bookings) || [],
-                    ui: { loading: false }
+            var tableBody = '<tbody>';
+            if (!res.bookings || !res.bookings.length) {
+                tableBody += '<tr><td colspan="7" style="text-align:center;color:#6B7280;padding:24px">No bookings for this slot.</td></tr>';
+            } else {
+                res.bookings.forEach(function (b) {
+                    var oSt    = sanitizeHtml(b.order_status   || '');
+                    var pSt    = sanitizeHtml(b.payment_status || '');
+                    var oStCls = 'bm-planner-booking-status--' + (b.order_status || 'pending').toLowerCase().replace(/\s+/g, '-');
+                    var pStCls = 'bm-planner-payment-status--' + (b.payment_status || 'unpaid').toLowerCase().replace(/\s+/g, '-');
+                    tableBody += '<tr>' +
+                        '<td><a href="#" class="bm-planner-order-ref">' + sanitizeHtml(b.order_ref || '') + ' \u2197</a></td>' +
+                        '<td>' + sanitizeHtml(b.customer_last_name || '') + '</td>' +
+                        '<td>' + parseInt(b.total_svc_slots, 10) + '</td>' +
+                        '<td>' + parseInt(b.extra_participants, 10) + '</td>' +
+                        '<td><span class="' + oStCls + '">' + oSt + '</span></td>' +
+                        '<td><span class="' + pStCls + '">' + pSt + '</span></td>' +
+                        '<td>' + sanitizeHtml(formatPrice(b.total_cost)) + '</td>' +
+                    '</tr>';
                 });
-            })
-            .fail(function () {
-                setState({ bookings: [], ui: { loading: false } });
-                Toast.show('Failed to load bookings.', 'error');
-            });
+            }
+            tableBody += '</tbody>';
+
+            var bodyHtml =
+                '<div class="bmp-modal-header">' +
+                    '<h3 class="bmp-modal-title">' + sanitizeHtml(res.service_name || '') + '</h3>' +
+                    '<button class="bmp-modal-close" data-action="close-modal">&times;</button>' +
+                '</div>' +
+                '<div class="bmp-modal-body">' +
+                    infoRow +
+                    '<table class="bm-planner-bookings-table">' + tableHead + tableBody + '</table>' +
+                '</div>';
+
+            $currentModal.find('.bmp-modal').html(bodyHtml);
+        }).fail(function () {
+            if (!$currentModal) { return; }
+            $currentModal.find('.bmp-modal-body').html('<p style="color:#DC2626;padding:16px">Failed to load booking details.</p>');
+        });
     }
 
-    function changeDate(newDate) {
-        setState({ currentDate: newDate });
-        loadBookings();
+    function detailInfoCol(label, valueHtml) {
+        return '<div class="bm-planner-detail__info-col">' +
+            '<span class="bm-planner-detail__info-label">' + sanitizeHtml(label) + '</span>' +
+            '<span class="bm-planner-detail__info-value">' + valueHtml + '</span>' +
+        '</div>';
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  SCROLL TO CURRENT HOUR                                             */
-    /* ------------------------------------------------------------------ */
+    /* ===================================================================== */
+    /*  TOOLTIP DATA BUILDER                                                  */
+    /* ===================================================================== */
 
-    function scrollToCurrentTime() {
-        var now  = new Date();
-        var startH = State.timeRange.start;
-        var endH   = State.timeRange.end;
-        var h    = now.getHours();
-        if (h < startH) { h = startH; }
-        if (h > endH)   { h = endH; }
-        var leftPx = (h - startH) * HOUR_PX - 60;
-        $root.find('.bmp-grid-body').scrollLeft(Math.max(0, leftPx));
+    function buildTooltipData(svcId, date, slotFrom) {
+        var svc  = null;
+        (State.data.services || []).forEach(function (s) {
+            if (parseInt(s.id, 10) === parseInt(svcId, 10)) { svc = s; }
+        });
+        if (!svc) { return null; }
+
+        var daySl = (State.data.slots[svcId] || {})[date] || [];
+        var slot  = null;
+        daySl.forEach(function (s) { if (s.from === slotFrom) { slot = s; } });
+        if (!slot) { return null; }
+
+        return {
+            service_id:          svc.id,
+            service_name:        svc.service_name,
+            service_duration:    svc.service_duration,
+            service_price:       svc.default_price,
+            service_category:    svc.service_category,
+            category_name:       svc.category_name || '',
+            date:                date,
+            slot_from:           slotFrom,
+            time_display:        slot.time_display,
+            max_capacity:        slot.max_capacity,
+            available_capacity:  slot.available_capacity,
+            booking_count:       slot.booking_count
+        };
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  EVENT BINDING (delegated – survives re-renders)                   */
-    /* ------------------------------------------------------------------ */
+    /* ===================================================================== */
+    /*  NAVIGATION HELPERS                                                    */
+    /* ===================================================================== */
 
-    $root.on('click', '.bmp-view-btn', function () {
-        var view = $(this).data('view');
-        if (view && view !== State.activeView) {
-            setState({ activeView: view });
-        }
+    function navigateToView(view) {
+        try { localStorage.setItem('bm_planner_last_view', view); } catch (e) {}
+        if (view === State.view) { return; }
+        setState({ view: view, _dayView: null, _displayOpen: false });
+        if (view !== VIEWS.HOME) { loadWeekData(); }
+    }
+
+    function navigateWeek(delta) {
+        setState({ weekStart: addDays(State.weekStart, delta * 7), _dayView: null });
+        loadWeekData();
+    }
+
+    /* ===================================================================== */
+    /*  EVENT HANDLING                                                        */
+    /* ===================================================================== */
+
+    $root.on('click', '[data-view]', function () {
+        navigateToView($(this).data('view'));
     });
 
-    $root.on('click', '.bmp-date-nav-btn', function () {
-        var dir = parseInt($(this).data('dir'), 10);
-        changeDate(addDays(State.currentDate, dir));
+    $root.on('click', '[data-nav]', function () {
+        navigateToView($(this).data('nav'));
     });
 
-    $root.on('click', '.bmp-today-btn', function () {
-        changeDate(new Date());
-    });
-
-    /* Native date picker via hidden input */
-    $root.on('click', '#bmp-date-display-btn', function () {
-        var $btn = $(this);
-        var $dp  = $btn.next('.bmp-hidden-dp');
-        if (!$dp.length) {
-            $dp = $('<input type="date" class="bmp-hidden-dp" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;">')
-                .val(formatDateISO(State.currentDate));
-            $btn.after($dp);
-            $dp.on('change', function () {
-                var parts = $(this).val().split('-');
-                if (parts.length === 3) {
-                    changeDate(new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
-                }
-            });
-        }
-        $dp[0].showPicker ? $dp[0].showPicker() : $dp.trigger('click');
-    });
-
-    /* Filter dropdowns */
-    $root.on('click', '.bmp-filter-btn', function (e) {
+    $root.on('click', '[data-week]', function (e) {
         e.stopPropagation();
-        var $panel = $(this).siblings('.bmp-filter-panel');
-        var isOpen = $panel.hasClass('open');
-        $root.find('.bmp-filter-panel.open').removeClass('open');
-        if (!isOpen) { $panel.addClass('open'); }
+        navigateWeek(parseInt($(this).data('week'), 10));
     });
 
-    $(document).on('click', function () {
-        $root.find('.bmp-filter-panel.open').removeClass('open');
+    $root.on('click', '[data-action]', function (e) {
+        var action = $(this).data('action');
+
+        if (action === 'today' || action === 'oggi') {
+            setState({ weekStart: getMondayOfWeek(today), _dayView: null });
+            loadWeekData();
+        } else if (action === 'ora') {
+            scrollToNow();
+        } else if (action === 'auto') {
+            setState({ _autoHide: !State._autoHide });
+            if (State._autoHide) { scrollToNow(); }
+        } else if (action === 'display') {
+            e.stopPropagation();
+            setState({ _displayOpen: !State._displayOpen });
+        } else if (action === 'day-click') {
+            setState({ _dayView: { date: $(this).data('date') } });
+        } else if (action === 'back-to-week') {
+            setState({ _dayView: null });
+        } else if (action === 'close-modal') {
+            closeModal();
+        } else if (action === 'slot-click') {
+            var $el  = $(this);
+            openSlotDetailModal($el.data('svc-id'), $el.data('date'), $el.data('from'));
+        } else if (action === 'view-details') {
+            e.preventDefault();
+            var $el2 = $(this);
+            Tooltip.hide();
+            openSlotDetailModal($el2.data('svc-id'), $el2.data('date'), $el2.data('from'));
+        }
     });
 
-    $root.on('change', '[data-filter-all]', function () {
-        var key      = $(this).data('filter-all');
-        var checked  = $(this).prop('checked');
-        var items    = key === 'services' ? State.services : State.categories;
-        var ids      = items.map(function (item) { return parseInt(item.id, 10); });
-        var upd      = {};
-        upd[key]     = checked ? ids : [];
-        setState({ filters: upd });
+    $root.on('mouseenter', '[data-action="slot-hover"]', function (e) {
+        Tooltip.cancelHide();
+        var $el  = $(this);
+        var data = buildTooltipData($el.data('svc-id'), $el.data('date'), $el.data('from'));
+        if (data) { Tooltip.show(data, e.clientX, e.clientY); }
+    });
+    $root.on('mousemove', '[data-action="slot-hover"]', function (e) {
+        Tooltip.position(e.clientX, e.clientY);
+    });
+    $root.on('mouseleave', '[data-action="slot-hover"]', function () {
+        Tooltip.scheduleHide(300);
+    });
+    $('body').on('mouseenter', '.bm-planner-tooltip', function () { Tooltip.cancelHide(); });
+    $('body').on('mouseleave', '.bm-planner-tooltip', function () { Tooltip.scheduleHide(200); });
+
+    $root.on('change', '[data-filter]', function () {
+        var key = $(this).data('filter');
+        var val = parseInt($(this).val(), 10) || 0;
+        var f   = $.extend({}, State.filter);
+        f[key]  = val;
+        setState({ filter: f });
+        loadWeekData();
     });
 
-    $root.on('change', '[data-filter-key]', function () {
-        var key = $(this).data('filter-key');
-        var val = parseInt($(this).val(), 10);
-        var cur = (State.filters[key] || []).slice();
-        if ($(this).prop('checked')) {
-            if (cur.indexOf(val) === -1) { cur.push(val); }
+    $root.on('change', '[data-disp]', function () {
+        var key = $(this).data('disp');
+        var val = $(this).is(':checkbox') ? $(this).prop('checked') : $(this).val();
+        var d   = $.extend({}, State.display);
+        d[key]  = val;
+        setState({ display: d });
+    });
+    $root.on('input', '[data-disp-range]', function () {
+        var key = $(this).data('disp-range');
+        var d   = $.extend({}, State.display);
+        d[key]  = parseInt($(this).val(), 10);
+        setState({ display: d });
+    });
+
+    $(document).on('click.bm-planner-display', function (e) {
+        if (State._displayOpen && !$(e.target).closest('.bm-planner-display-panel, [data-action="display"]').length) {
+            setState({ _displayOpen: false });
+        }
+    });
+
+    $(document).on('keydown.bm-planner', function (e) {
+        if (e.key === 'Escape') {
+            closeModal();
+            Tooltip.hide();
+            if (State._displayOpen) { setState({ _displayOpen: false }); }
+        }
+    });
+
+    setInterval(function () {
+        if (State.view === VIEWS.TIME) {
+            var now    = new Date();
+            var nowMin = now.getHours() * 60 + now.getMinutes();
+            var startMn = GRID_START_H * 60;
+            var $line  = $root.find('#bm-planner-tp-now');
+            if ($line.length) {
+                var nowTop = ((nowMin - startMn) / 60) * HOUR_HEIGHT;
+                $line.css('top', nowTop.toFixed(0) + 'px');
+            }
+        }
+    }, 60000);
+
+    /* ===================================================================== */
+    /*  BOOT                                                                  */
+    /* ===================================================================== */
+
+    (function boot() {
+        var lastView;
+        try { lastView = localStorage.getItem('bm_planner_last_view'); } catch (e) {}
+        if (lastView === VIEWS.SERVICE || lastView === VIEWS.TIME) {
+            State.view = lastView;
+            render();
+            loadWeekData();
         } else {
-            cur = cur.filter(function (v) { return v !== val; });
+            render();
         }
-        var upd = {};
-        upd[key] = cur;
-        setState({ filters: upd });
-    });
+    })();
 
-    /* Booking click (detail modal) */
-    $root.on('click', '.bmp-booking, .bmp-time-booking-card', function (e) {
-        if ($(e.target).hasClass('bmp-resize-handle') || $(e.target).hasClass('ui-resizable-e')) { return; }
-        if ($(this).hasClass('ui-draggable-dragging')) { return; }
-        e.stopPropagation();
-        var bookingId = parseInt($(this).data('booking-id'), 10);
-        openBookingDetail(bookingId);
-    });
-
-    /* Empty cell click → create booking */
-    $root.on('click', '.bmp-cell', function (e) {
-        if ($(e.target).is('.bmp-booking') || $(e.target).closest('.bmp-booking').length) { return; }
-        var serviceId = parseInt($(this).data('service-id'), 10);
-        var hour      = parseInt($(this).data('hour'), 10);
-        openCreateBookingModal(serviceId, hour);
-    });
-
-    /* Modal actions */
-    $root.on('click', '.bmp-modal-close, .bmp-modal-close-btn', function () { closeModal(); });
-
-    $root.on('click', '.bmp-action-delete-booking', function () {
-        var bookingId = parseInt($(this).data('booking-id'), 10);
-        deleteBooking(bookingId);
-    });
-
-    $root.on('click', '.bmp-action-edit-booking', function () {
-        var bookingId = parseInt($(this).data('booking-id'), 10);
-        closeModal();
-        openEditBookingModal(bookingId);
-    });
-
-    $root.on('click', '.bmp-action-view-reservations', function () {
-        var bookingId = parseInt($(this).data('booking-id'), 10);
-        openReservationsModal(bookingId);
-    });
-
-    /* Edit form submit */
-    $root.on('submit', '#bmp-edit-form', function (e) {
-        e.preventDefault();
-        handleEditFormSubmit($(this));
-    });
-
-    /* Create form submit */
-    $root.on('submit', '#bmp-create-form', function (e) {
-        e.preventDefault();
-        handleCreateFormSubmit($(this));
-    });
-
-    /* Keyboard shortcuts */
-    $(document).on('keydown.bmp', function (e) {
-        var tag = (e.target.tagName || '').toLowerCase();
-        if (tag === 'input' || tag === 'textarea' || tag === 'select') { return; }
-
-        if (e.key === 'Escape') { closeModal(); return; }
-
-        if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            changeDate(addDays(State.currentDate, -1));
-        } else if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            changeDate(addDays(State.currentDate, 1));
-        } else if (e.key === 't' || e.key === 'T') {
-            changeDate(new Date());
-        }
-    });
-
-    /* ------------------------------------------------------------------ */
-    /*  INITIALIZATION                                                     */
-    /* ------------------------------------------------------------------ */
-
-    function init() {
-        setState({ ui: { loading: true } });
-
-        $.when(API.fetchServices(), API.fetchCategories())
-            .done(function (svcResp, catResp) {
-                /* $.when passes each result as [data, textStatus, jqXHR] */
-                var svcData = Array.isArray(svcResp) ? svcResp[0] : svcResp;
-                var catData = Array.isArray(catResp) ? catResp[0] : catResp;
-                var services   = (svcData && svcData.services)   || [];
-                var categories = (catData && catData.categories) || [];
-
-                /* Assign colour indices deterministically */
-                services.forEach(function (s) { getServiceColor(s.id); });
-
-                var allSvcIds = services.map(function (s) { return parseInt(s.id, 10); });
-                var allCatIds = categories.map(function (c) { return parseInt(c.id, 10); });
-
-                State.services             = services;
-                State.categories           = categories;
-                State.filters.services     = allSvcIds;
-                State.filters.categories   = allCatIds;
-                State.ui.loading           = false;
-
-                render();
-                loadBookings();
-
-                /* Scroll to current hour after first data render */
-                setTimeout(scrollToCurrentTime, 200);
-            })
-            .fail(function () {
-                setState({ ui: { loading: false } });
-                Toast.show('Failed to load planner data.', 'error');
-            });
-    }
-
-    init();
-
-}(jQuery));
+})(jQuery);
