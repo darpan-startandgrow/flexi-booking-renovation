@@ -629,7 +629,7 @@
                             '</div>';
                         });
                         if (remaining > 0) {
-                            innerHtml += '<button class="bm-planner-sp__slot-more" data-action="show-all-slots" data-svc-id="' + svcId + '" data-date="' + sanitizeHtml(iso) + '">+' + remaining + ' more</button>';
+                            innerHtml += '<button class="bm-planner-sp__slot-more" data-action="show-all-slots" data-svc-id="' + svcId + '" data-date="' + sanitizeHtml(iso) + '" aria-label="Show all ' + remaining + ' remaining slots">+' + remaining + ' more</button>';
                         }
                     }
 
@@ -691,6 +691,7 @@
                 var avail = getAvailInfo(slot.available_capacity, slot.max_capacity);
                 return '<button class="bm-planner-sp__day-card"' +
                     ' style="border-color:' + avail.color + ';background:' + avail.bg + '"' +
+                    ' aria-label="Slot at ' + sanitizeHtml(slot.time_display) + ', ' + slot.available_capacity + ' of ' + slot.max_capacity + ' available"' +
                     ' data-action="slot-click"' +
                     ' data-svc-id="' + parseInt(svc.id, 10) + '"' +
                     ' data-date="' + sanitizeHtml(dateISO) + '"' +
@@ -923,8 +924,8 @@
 
         /* Floating prev/next nav arrows */
         var floatingNav =
-            '<button class="bm-planner-tp__float-nav bm-planner-tp__float-nav--prev" data-week="-1" title="Previous week">&#9664;</button>' +
-            '<button class="bm-planner-tp__float-nav bm-planner-tp__float-nav--next" data-week="1" title="Next week">&#9654;</button>';
+            '<button class="bm-planner-tp__float-nav bm-planner-tp__float-nav--prev" data-week="-1" title="Previous week" aria-label="Previous week">&#9664;</button>' +
+            '<button class="bm-planner-tp__float-nav bm-planner-tp__float-nav--next" data-week="1" title="Next week" aria-label="Next week">&#9654;</button>';
 
         return '<div class="bm-planner-tp__wrap">' +
             floatingNav +
@@ -1334,7 +1335,7 @@
                     '<span class="bm-planner-allslots__time">' + sanitizeHtml(slot.time_display) + '</span>' +
                     '<span class="bm-planner-allslots__spots" style="color:' + avail.color + '">' + slot.available_capacity + '/' + slot.max_capacity + ' spots</span>' +
                     '<span class="bm-planner-allslots__booked">\u00b7 ' + booked + ' booking' + (booked !== 1 ? 's' : '') + '</span>' +
-                    '<a href="#" class="bm-planner-allslots__link" data-action="allslots-detail" data-svc-id="' + parseInt(svcId, 10) + '" data-date="' + sanitizeHtml(dateISO) + '" data-from="' + sanitizeHtml(slot.from) + '">\u2197</a>' +
+                    '<a href="#" class="bm-planner-allslots__link" data-action="allslots-detail" data-svc-id="' + parseInt(svcId, 10) + '" data-date="' + sanitizeHtml(dateISO) + '" data-from="' + sanitizeHtml(slot.from) + '" aria-label="View details for ' + sanitizeHtml(slot.time_display) + ' slot">\u2197</a>' +
                 '</div>';
             });
         }
@@ -1559,9 +1560,15 @@
 
     function toggleFullscreen() {
         if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(function () {});
+            document.documentElement.requestFullscreen().catch(function (err) {
+                /* eslint-disable-next-line no-console */
+                console.warn('Fullscreen not supported:', err.message);
+            });
         } else {
-            document.exitFullscreen().catch(function () {});
+            document.exitFullscreen().catch(function (err) {
+                /* eslint-disable-next-line no-console */
+                console.warn('Exit fullscreen failed:', err.message);
+            });
         }
     }
 

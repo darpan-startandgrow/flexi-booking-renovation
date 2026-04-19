@@ -1192,7 +1192,7 @@ flex-shrink: 0;
     position: relative;
 }
 .bm-planner-tp__float-nav {
-    position: fixed;
+    position: absolute;
     top: 50%;
     transform: translateY(-50%);
     z-index: 50;
