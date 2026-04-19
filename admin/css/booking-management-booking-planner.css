@@ -416,6 +416,7 @@ gap: 3px;
 .bm-planner-sp__no-slots {
 color: #d0d0d0;
 font-size: 13px;
+font-style: italic;
 display: flex;
 align-items: center;
 justify-content: center;
@@ -881,4 +882,208 @@ flex-shrink: 0;
 @media (max-width: 768px) {
 .bm-planner-detail__info-row { grid-template-columns: 1fr 1fr; }
 .bmp-toolbar { flex-direction: column; align-items: flex-start; }
+}
+
+/* ==========================================================================
+   SERVICE PLANNER: Category line in service cell
+   ========================================================================== */
+.bm-planner-sp__svc-category {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+/* ==========================================================================
+   SERVICE PLANNER: Booking count badge in slot entry
+   ========================================================================== */
+.bm-planner-sp__booking-count {
+    font-size: 10px;
+    color: #6B7280;
+    margin-left: 3px;
+}
+.bm-planner-sp__slot-price {
+    font-size: 10px;
+    color: #9CA3AF;
+    margin-left: 3px;
+}
+
+/* ==========================================================================
+   SERVICE PLANNER: Day View enhancements
+   ========================================================================== */
+.bm-planner-sp__day-view-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.bm-planner-sp__day-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: #F3F4F6;
+    color: #374151;
+}
+.bm-planner-sp__day-badge--today {
+    background: #2563EB;
+    color: #fff;
+}
+.bm-planner-sp__day-view-stats {
+    display: flex;
+    gap: 16px;
+    margin-left: auto;
+}
+.bm-planner-sp__day-stat {
+    font-size: 13px;
+    color: #6B7280;
+    font-weight: 500;
+    background: #F3F4F6;
+    padding: 4px 12px;
+    border-radius: 6px;
+}
+.bm-planner-sp__day-section-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: #111827;
+}
+.bm-planner-sp__day-section-meta {
+    font-size: 12px;
+    color: #6B7280;
+    margin-left: auto;
+}
+.bm-planner-sp__day-empty {
+    color: #6B7280;
+    padding: 24px 0;
+    text-align: center;
+}
+
+/* ==========================================================================
+   TIME PLANNER: Category badge on cards
+   ========================================================================== */
+.bm-planner-tp__card-top {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 2px;
+}
+.bm-planner-tp__card-cat {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.bm-planner-tp__card--compact .bm-planner-tp__card-time,
+.bm-planner-tp__card--compact .bm-planner-tp__card-meta {
+    display: none;
+}
+.bm-planner-tp__card--compact .bm-planner-tp__card-top {
+    margin-bottom: 0;
+}
+.bm-planner-tp__card--compact .bm-planner-tp__card-name {
+    font-size: 10px;
+}
+
+/* ==========================================================================
+   TIME PLANNER: Day View
+   ========================================================================== */
+.bm-planner-tp__day-view-wrap {
+    padding: 0 16px;
+}
+.bm-planner-tp__day-view-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+}
+.bm-planner-tp__day-view-grid {
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.bm-planner-tp__day-view-body {
+    display: flex;
+    overflow: auto;
+    max-height: calc(100vh - 280px);
+}
+.bm-planner-tp__day-view-body .bm-planner-tp__time-col {
+    width: 60px;
+    min-width: 60px;
+    position: sticky;
+    left: 0;
+    background: #fff;
+    border-right: 1px solid #E5E7EB;
+    z-index: 10;
+}
+
+/* ==========================================================================
+   SERVICE INFO MODAL: 2x2 grid
+   ========================================================================== */
+.bm-planner-svc-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.bm-planner-svc-info-card {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+}
+.bm-planner-svc-info-card__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+.bm-planner-svc-info-card__label {
+    font-size: 12px;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+.bm-planner-svc-info-card__value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+}
+
+/* ==========================================================================
+   LOADING SPINNER
+   ========================================================================== */
+.bm-planner-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 12px;
+    color: #6B7280;
+    font-size: 14px;
+}
+.bm-planner-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #E5E7EB;
+    border-top-color: #2563EB;
+    border-radius: 50%;
+    animation: bm-planner-spin 0.8s linear infinite;
+}
+@keyframes bm-planner-spin {
+    to { transform: rotate(360deg); }
+}
+@keyframes bm-planner-fadeIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
