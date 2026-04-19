@@ -384,6 +384,22 @@ class Booking_Planner_REST {
 		return (bool) preg_match( '/^\d{2}:\d{2}$/', $time );
 	}
 
+	/**
+	 * Extract service type from serialized service_settings.
+	 *
+	 * @param object $service Service row object.
+	 * @return string
+	 */
+	private function extract_service_type( $service ) {
+		if ( ! empty( $service->service_settings ) ) {
+			$settings = maybe_unserialize( $service->service_settings );
+			if ( is_array( $settings ) && isset( $settings['service_type'] ) ) {
+				return sanitize_text_field( $settings['service_type'] );
+			}
+		}
+		return 'entries';
+	}
+
 	// -------------------------------------------------------------------------
 	// GET /services
 	// -------------------------------------------------------------------------
@@ -432,8 +448,10 @@ class Booking_Planner_REST {
 					'default_price'    => $service->default_price,
 					'service_category' => (int) $service->service_category,
 					'category_name'    => $category_name,
-					'service_image'    => $service->service_image,
+					'service_image'    => ! empty( $service->service_image_guid ) ? ( wp_get_attachment_url( (int) $service->service_image_guid ) ?: '' ) : '',
 					'service_position' => (int) $service->service_position,
+					'service_type'     => $this->extract_service_type( $service ),
+					'total_svc_slots'  => isset( $service->default_max_cap ) ? (int) $service->default_max_cap : 1,
 				);
 			}
 		}
@@ -476,6 +494,7 @@ class Booking_Planner_REST {
 					'id'           => (int) $cat->id,
 					'cat_name'     => $cat->cat_name,
 					'cat_position' => (int) $cat->cat_position,
+					'cat_options'  => $cat->cat_options ? maybe_unserialize( $cat->cat_options ) : null,
 				);
 			}
 		}
@@ -1184,8 +1203,10 @@ class Booking_Planner_REST {
 				'default_price'    => $svc->default_price,
 				'service_category' => $cat_id,
 				'category_name'    => $cat_name,
-				'service_image'    => $svc->service_image,
+				'service_image'    => ! empty( $svc->service_image_guid ) ? ( wp_get_attachment_url( (int) $svc->service_image_guid ) ?: '' ) : '',
 				'service_position' => (int) $svc->service_position,
+				'service_type'     => $this->extract_service_type( $svc ),
+				'total_svc_slots'  => isset( $svc->default_max_cap ) ? (int) $svc->default_max_cap : 1,
 			);
 		}
 
@@ -1255,6 +1276,15 @@ class Booking_Planner_REST {
 				foreach ( $slot_data as $slot ) {
 					$from        = isset( $slot['from'] ) ? $slot['from'] : ( isset( $slot['slot_id'] ) ? $slot['slot_id'] : '' );
 					$to          = isset( $slot['to'] )   ? $slot['to']   : '';
+					if ( empty( $to ) && ! empty( $from ) ) {
+						// Derive end time from service duration.
+						$duration = isset( $svc['service_duration'] ) ? (int) $svc['service_duration'] : 60;
+						$from_obj = DateTime::createFromFormat( 'H:i', $from );
+						if ( $from_obj ) {
+							$from_obj->modify( '+' . $duration . ' minutes' );
+							$to = $from_obj->format( 'H:i' );
+						}
+					}
 					$max_cap     = isset( $slot['max_cap'] )  ? (int) $slot['max_cap']  : 0;
 					$cap_left    = isset( $slot['cap_left'] ) ? (int) $slot['cap_left'] : 0;
 					$bkg_key     = $svc_id . '_' . $date . '_' . $from;
