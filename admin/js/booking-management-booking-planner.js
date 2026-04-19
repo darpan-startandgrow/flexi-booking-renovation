@@ -574,7 +574,7 @@
 
                     var innerHtml = '';
                     if (!daySlots.length) {
-                        innerHtml = '<span class="bm-planner-sp__no-slots"><em>No slots</em></span>';
+                        innerHtml = '<span class="bm-planner-sp__no-slots">No slots</span>';
                     } else {
                         shown.forEach(function (slot) {
                             var avail = getAvailInfo(slot.available_capacity, slot.max_capacity);
@@ -588,7 +588,7 @@
                                 '<span class="bm-planner-sp__slot-avail">' +
                                     '<span class="bm-planner-sp__avail-dot" style="color:' + avail.color + '">\u25cf</span>' +
                                     '<span class="bm-planner-sp__avail-count" title="Available">' + slot.available_capacity + '</span>' +
-                                    '<span class="bm-planner-sp__booking-count" title="Bookings">\ud83d\udcdd' + slot.booking_count + '</span>' +
+                                    '<span class="bm-planner-sp__booking-count" title="Bookings">\uD83D\uDCDD' + slot.booking_count + '</span>' + /* 📝 memo emoji */
                                     priceTag +
                                 '</span>' +
                             '</div>';
@@ -1363,10 +1363,10 @@
 
     (function boot() {
         /* Priority: data attribute > URL hash > localStorage */
-        var dataView = $root.data('initial-view') || '';
+        var dataView = $root.data('initial-view') || null;
         var hashView = readUrlHash();
         var lastView;
-        try { lastView = localStorage.getItem('bm_planner_last_view'); } catch (e) {}
+        try { lastView = localStorage.getItem('bm_planner_last_view') || null; } catch (e) { lastView = null; }
 
         var initialView = dataView || hashView || lastView;
         if (initialView === VIEWS.SERVICE || initialView === VIEWS.TIME) {

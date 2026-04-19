@@ -416,6 +416,7 @@ gap: 3px;
 .bm-planner-sp__no-slots {
 color: #d0d0d0;
 font-size: 13px;
+font-style: italic;
 display: flex;
 align-items: center;
 justify-content: center;

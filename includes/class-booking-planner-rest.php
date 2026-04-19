@@ -400,6 +400,20 @@ class Booking_Planner_REST {
 		return 'entries';
 	}
 
+	/**
+	 * Resolve a service image GUID to a full URL.
+	 *
+	 * @param int|string $image_guid Attachment ID stored in service_image_guid.
+	 * @return string Full URL or empty string.
+	 */
+	private function resolve_service_image( $image_guid ) {
+		if ( empty( $image_guid ) ) {
+			return '';
+		}
+		$url = wp_get_attachment_url( (int) $image_guid );
+		return $url ? $url : '';
+	}
+
 	// -------------------------------------------------------------------------
 	// GET /services
 	// -------------------------------------------------------------------------
@@ -448,7 +462,7 @@ class Booking_Planner_REST {
 					'default_price'    => $service->default_price,
 					'service_category' => (int) $service->service_category,
 					'category_name'    => $category_name,
-					'service_image'    => ! empty( $service->service_image_guid ) ? ( wp_get_attachment_url( (int) $service->service_image_guid ) ?: '' ) : '',
+					'service_image'    => $this->resolve_service_image( $service->service_image_guid ),
 					'service_position' => (int) $service->service_position,
 					'service_type'     => $this->extract_service_type( $service ),
 					'total_svc_slots'  => isset( $service->default_max_cap ) ? (int) $service->default_max_cap : 1,
@@ -1203,7 +1217,7 @@ class Booking_Planner_REST {
 				'default_price'    => $svc->default_price,
 				'service_category' => $cat_id,
 				'category_name'    => $cat_name,
-				'service_image'    => ! empty( $svc->service_image_guid ) ? ( wp_get_attachment_url( (int) $svc->service_image_guid ) ?: '' ) : '',
+				'service_image'    => $this->resolve_service_image( $svc->service_image_guid ),
 				'service_position' => (int) $svc->service_position,
 				'service_type'     => $this->extract_service_type( $svc ),
 				'total_svc_slots'  => isset( $svc->default_max_cap ) ? (int) $svc->default_max_cap : 1,
