@@ -12050,6 +12050,7 @@ class BM_Request {
 			$extra_service_ids    = isset( $order_data['extra_svc_booked'] ) && ! empty( $order_data['extra_svc_booked'] ) ? $order_data['extra_svc_booked'] : 0;
 			$total_service_booked = isset( $order_data['total_service_booking'] ) && ! empty( $order_data['total_service_booking'] ) ? $order_data['total_service_booking'] : 0;
 			$extra_slots_booked   = isset( $order_data['total_extra_slots_booked'] ) && ! empty( $order_data['total_extra_slots_booked'] ) ? $order_data['total_extra_slots_booked'] : 0;
+			$extra_types_booked   = isset( $order_data['extra_types_booked'] ) && ! empty( $order_data['extra_types_booked'] ) ? $order_data['extra_types_booked'] : '';
 			$total_cost           = isset( $order_data['total_cost'] ) ? $order_data['total_cost'] : 0;
 			$subtotal             = isset( $order_data['subtotal'] ) ? $order_data['subtotal'] : $total_cost;
 			$booking_country      = isset( $order_data['country_code'] ) && ! empty( $order_data['country_code'] ) ? $this->bm_get_countries( $order_data['country_code'] ) : $dbhandler->get_global_option_value( 'bm_booking_country', 'IT' );
@@ -12124,6 +12125,10 @@ class BM_Request {
 
 						if ( isset( $order_data['total_extra_slots_booked'] ) ) {
 							unset( $order_data['total_extra_slots_booked'] );
+						}
+
+						if ( isset( $order_data['extra_types_booked'] ) ) {
+							unset( $order_data['extra_types_booked'] );
 						}
 
 						if ( isset( $order_data['country_code'] ) ) {
@@ -12204,7 +12209,7 @@ class BM_Request {
 									if ( $extra_service_ids != 0 && $extra_slots_booked != 0 ) {
 										$extra_service_ids  = explode( ',', $extra_service_ids );
 										$extra_slots_booked = explode( ',', $extra_slots_booked );
-										$extra_types_arr    = isset( $order_data['extra_types_booked'] ) ? explode( ',', $order_data['extra_types_booked'] ) : array();
+										$extra_types_arr    = ! empty( $extra_types_booked ) ? explode( ',', $extra_types_booked ) : array();
 
 										do_action( 'bm_before_extra_booking', $booking_id, $extra_service_ids, $extra_slots_booked, $date );
 
