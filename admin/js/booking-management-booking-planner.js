@@ -20,6 +20,7 @@
 
     var NONCE    = $root.data('nonce') || '';
     var REST_URL = ($root.data('rest-url') || '').replace(/\/+$/, '');
+    var ORDER_BASE_URL = (typeof bmPlannerData !== 'undefined' && bmPlannerData.order_base_url) ? bmPlannerData.order_base_url : '';
 
     /* ===================================================================== */
     /*  CONSTANTS                                                             */
@@ -154,10 +155,13 @@
             var raw = localStorage.getItem(DISPLAY_STORAGE_KEY);
             if (raw) {
                 var saved = JSON.parse(raw);
-                return $.extend({
+                var merged = $.extend({
                     showDuration: true, showCategory: true, showPrice: true,
                     showSlotPrice: false, maxSlots: 5, days: 7
                 }, saved);
+                // Clamp days to the supported range (2–7).
+                merged.days = Math.max(2, Math.min(7, parseInt(merged.days, 10) || 7));
+                return merged;
             }
         } catch (e) { /* ignore */ }
         return { showDuration: true, showCategory: true, showPrice: true, showSlotPrice: false, maxSlots: 5, days: 7 };
@@ -498,23 +502,40 @@
 
     function renderDisplayPanel() {
         if (!State._displayOpen) { return ''; }
+
+        var isSP = State.view === VIEWS.SERVICE;
+
+        /* Service-Planner-only sections */
+        var serviceInfoSection = '';
+        var slotsSection = '';
+        if (isSP) {
+            serviceInfoSection =
+                '<div class="bm-planner-display-panel__section">' +
+                    '<p class="bm-planner-display-panel__section-title bm-planner-display-panel__section-title--sub">Service Info</p>' +
+                    '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showDuration"' + (State.display.showDuration ? ' checked' : '') + '> Duration</label>' +
+                    '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showCategory"' + (State.display.showCategory ? ' checked' : '') + '> Category</label>' +
+                    '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showPrice"' + (State.display.showPrice ? ' checked' : '') + '> Price</label>' +
+                '</div>';
+            slotsSection =
+                '<div class="bm-planner-display-panel__section">' +
+                    '<p class="bm-planner-display-panel__section-title bm-planner-display-panel__section-title--sub">Slots Display</p>' +
+                    '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showSlotPrice"' + (State.display.showSlotPrice ? ' checked' : '') + '> Show price on slots</label>' +
+                    '<div style="margin-top:8px">' +
+                        '<p class="bm-planner-display-panel__section-title">Max visible slots: <strong>' + State.display.maxSlots + '</strong></p>' +
+                        '<input type="range" class="bm-planner-display-panel__range" data-disp-range="maxSlots" min="1" max="10" value="' + State.display.maxSlots + '">' +
+                    '</div>' +
+                '</div>';
+        }
+
         return '<div class="bm-planner-display-panel">' +
             '<p class="bm-planner-display-panel__title">Display Settings</p>' +
-            '<p class="bm-planner-display-panel__subtitle">Customize what\'s shown in the planner</p>' +
-            '<div class="bm-planner-display-panel__section">' +
-                '<p class="bm-planner-display-panel__section-title">Information to show</p>' +
-                '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showDuration"' + (State.display.showDuration ? ' checked' : '') + '> Duration</label>' +
-                '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showCategory"' + (State.display.showCategory ? ' checked' : '') + '> Category</label>' +
-                '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showPrice"' + (State.display.showPrice ? ' checked' : '') + '> Price</label>' +
-                '<label class="bm-planner-display-panel__check"><input type="checkbox" data-disp="showSlotPrice"' + (State.display.showSlotPrice ? ' checked' : '') + '> Price on slots</label>' +
-            '</div>' +
-            '<div class="bm-planner-display-panel__section">' +
-                '<p class="bm-planner-display-panel__section-title">Max slots per cell: <strong>' + State.display.maxSlots + '</strong></p>' +
-                '<input type="range" class="bm-planner-display-panel__range" data-disp-range="maxSlots" min="1" max="20" value="' + State.display.maxSlots + '">' +
-            '</div>' +
-            '<div class="bm-planner-display-panel__section">' +
+            '<p class="bm-planner-display-panel__subtitle">' + (isSP ? 'Customize service row information' : 'Customize the planner view') + '</p>' +
+            serviceInfoSection +
+            slotsSection +
+            '<div class="bm-planner-display-panel__section' + (isSP ? ' bm-planner-display-panel__section--border-top' : '') + '">' +
+                '<p class="bm-planner-display-panel__section-title bm-planner-display-panel__section-title--sub">View Options</p>' +
                 '<p class="bm-planner-display-panel__section-title">Days to show: <strong>' + State.display.days + '</strong></p>' +
-                '<input type="range" class="bm-planner-display-panel__range" data-disp-range="days" min="1" max="14" value="' + State.display.days + '">' +
+                '<input type="range" class="bm-planner-display-panel__range" data-disp-range="days" min="2" max="7" value="' + State.display.days + '">' +
             '</div>' +
         '</div>';
     }
@@ -1272,8 +1293,12 @@
                     var pSt    = sanitizeHtml(b.payment_status || '');
                     var oStCls = 'bm-planner-booking-status--' + (b.order_status || 'pending').toLowerCase().replace(/\s+/g, '-');
                     var pStCls = 'bm-planner-payment-status--' + (b.payment_status || 'unpaid').toLowerCase().replace(/\s+/g, '-');
+                    var orderHref = (ORDER_BASE_URL && b.id) ? sanitizeHtml(ORDER_BASE_URL + parseInt(b.id, 10)) : '';
+                    var orderLink = orderHref
+                        ? '<a href="' + orderHref + '" class="bm-planner-order-ref" target="_blank" rel="noopener">' + sanitizeHtml(b.order_ref || '') + ' \u2197</a>'
+                        : sanitizeHtml(b.order_ref || '');
                     tableBody += '<tr>' +
-                        '<td><a href="#" class="bm-planner-order-ref">' + sanitizeHtml(b.order_ref || '') + ' \u2197</a></td>' +
+                        '<td>' + orderLink + '</td>' +
                         '<td>' + sanitizeHtml(b.customer_last_name || '') + '</td>' +
                         '<td>' + parseInt(b.total_svc_slots, 10) + '</td>' +
                         '<td>' + parseInt(b.extra_participants, 10) + '</td>' +

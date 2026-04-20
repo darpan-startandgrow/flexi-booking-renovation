@@ -217,6 +217,13 @@ class Booking_Management_Admin {
 					$this->version,
 					true
 				);
+				wp_localize_script(
+					'booking-planner',
+					'bmPlannerData',
+					array(
+						'order_base_url' => esc_url( admin_url( 'admin.php?page=bm_single_order&id=' ) ),
+					)
+				);
 			}
 
 			if ( $screen->base == 'toplevel_page_bm_home' ) {
