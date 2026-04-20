@@ -12,7 +12,7 @@
  * @subpackage Booking_Management/includes
  */
 
-if (! defined('ABSPATH')) exit;
+if (! defined('ABSPATH')) exit();
 
 class Booking_Stripe_Webhook
 {

@@ -17617,7 +17617,7 @@ class BM_Request {
 			'var'
 		);
 
-		$svc_total_cap_left = null;
+		$svc_total_cap_left = NULL;
 		if ( ! $all && ! empty( $date ) ) {
 			$svc_total_cap_left = $dbhandler->get_all_result(
 				'SLOTCOUNT',
@@ -17898,7 +17898,7 @@ class BM_Request {
 
 				$booking_fields['service_id']               = $id;
 				$booking_fields['booking_slots']            = $match > 0 ? $slot_details[1][0] : $time;
-				$booking_fields['booking_date']             = '';
+				$booking_fields['booking_date']             = "";
 				$booking_fields['service_name']             = $svc_name;
 				$booking_fields['total_service_booking']    = $total_service_booking;
 				$booking_fields['extra_svc_booked']         = $extra_svc_ids;
