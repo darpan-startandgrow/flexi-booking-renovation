@@ -144,6 +144,7 @@ class Booking_Management {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-management-feature-control.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-management-pdf-customizer.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-api.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-api-helpers.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-stripe-webhook.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-planner-rest.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-react-shortcodes.php';

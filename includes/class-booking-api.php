@@ -1,12 +1,7 @@
 <?php
 
-/**
- * REST API endpoints for the booking plugin.
- *
- * @since      1.0.0
- * @package    Booking_Management
- * @subpackage Booking_Management/includes
- */
+use MailPoetVendor\Doctrine\ORM\Query\Expr\Func;
+use WPForms\Vendor\Core\Logger\ConsoleLogger;
 
 if (! defined('ABSPATH')) exit;
 
@@ -17,7 +12,7 @@ class Booking_API
      *
      * @since  1.0.0
      * @access private
-     * @var    string $plugin_name The ID of this plugin.
+     * @var    string    $plugin_name    The ID of this plugin.
      */
     private $plugin_name;
 
@@ -26,17 +21,11 @@ class Booking_API
      *
      * @since  1.0.0
      * @access private
-     * @var    string $version The current version of this plugin.
+     * @var    string    $version    The current version of this plugin.
      */
     private $version;
 
-    /**
-     * Internal counter for tracking instances.
-     *
-     * @var int
-     */
     protected static $counter;
-
     /**
      * Initialize the class and set its properties.
      *
@@ -47,87 +36,55 @@ class Booking_API
     public function __construct($plugin_name, $version)
     {
         $this->plugin_name = $plugin_name;
-        $this->version     = $version;
+        $this->version         = $version;
 
         add_action('rest_api_init', [$this, 'register_routes']);
     } //end __construct()
 
-    /**
-     * Permission callback for public read-only endpoints.
-     *
-     * Applies a filter so add-ons can restrict access if needed.
-     *
-     * @since 1.0.0
-     * @return bool
-     */
-    public function public_read_permission_check()
-    {
-        return apply_filters('bm_api_public_read_permission', true);
-    }
-
-    /**
-     * Permission callback for public write endpoints (cart, checkout, payment).
-     *
-     * Applies a filter so add-ons can add authentication requirements.
-     *
-     * @since 1.0.0
-     * @param WP_REST_Request $request The incoming request.
-     * @return bool
-     */
-    public function public_write_permission_check($request)
-    {
-        return apply_filters('bm_api_public_write_permission', true, $request);
-    }
-
-    /**
-     * Sanitize an array recursively for REST API input.
-     *
-     * @since 1.0.0
-     * @param mixed $value The value to sanitize.
-     * @return array Sanitized array.
-     */
-    public static function sanitize_array_callback($value)
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $clean = [];
-        foreach ($value as $key => $val) {
-            $key = sanitize_key($key);
-            if (is_array($val)) {
-                $clean[$key] = self::sanitize_array_callback($val);
-            } elseif (is_numeric($val)) {
-                $clean[$key] = $val + 0;
-            } else {
-                $clean[$key] = sanitize_text_field($val);
-            }
-        }
-        return $clean;
-    }
-
-    /**
-     * Register all REST API routes for the booking plugin.
-     *
-     * @since 1.0.0
-     */
     public function register_routes()
     {
-        $public_read  = [$this, 'public_read_permission_check'];
-        $public_write = [$this, 'public_write_permission_check'];
+        function sanitize_array($value)
+        {
+            if (! is_array($value)) {
+                return [];
+            }
 
-        // Public read-only endpoints
+            $clean = [];
+
+            foreach ($value as $key => $val) {
+                $key = sanitize_key($key);
+
+                if (is_array($val)) {
+                    // recursive sanitize but SAFE (does not trigger WP dynamic loading)
+                    $clean[$key] = sanitize_array($val);
+                } else {
+                    // sanitize text OR number
+                    if (is_numeric($val)) {
+                        $clean[$key] = $val + 0; // cast numeric
+                    } else {
+                        $clean[$key] = sanitize_text_field($val);
+                    }
+                }
+            }
+            return $clean;
+        }
+
+        function sanitize_int($value)
+        {
+            return intval($value);
+        }
+
         register_rest_route('booking/v1', '/settings', [
             'methods'  => 'GET',
             'callback' => [$this, 'settings'],
-            'permission_callback' => $public_read,
+            'permission_callback' => '__return_true',
             'args' => []
         ]);
 
         register_rest_route('booking/v1', '/availability', [
             'methods'  => 'GET',
             'callback' => [$this, 'check_availability'],
-            'permission_callback' => $public_read,
+            'permission_callback' => '__return_true',
             'args' => [
                 'date' => [
                     'required' => true,
@@ -140,7 +97,7 @@ class Booking_API
         register_rest_route('booking/v1', '/service-availability-calendar', [
             'methods'  => 'GET',
             'callback' => [$this, 'service_availability'],
-            'permission_callback' => $public_read,
+            'permission_callback' => '__return_true',
             'args' => [
                 'month' => [
                     'required' => true,
@@ -153,13 +110,13 @@ class Booking_API
         register_rest_route('booking/v1', '/categories', [
             'methods'  => 'GET',
             'callback' => [$this, 'get_categories'],
-            'permission_callback' => $public_read,
+            'permission_callback' => '__return_true'
         ]);
 
         register_rest_route('booking/v1', '/services', [
             'methods'  => 'GET',
             'callback' => [$this, 'get_services'],
-            'permission_callback' => $public_read,
+            'permission_callback' => '__return_true',
             'args' => [
                 'date' => [
                     'required' => false,
@@ -180,7 +137,7 @@ class Booking_API
         register_rest_route('booking/v1', '/service-details', [
             'methods'  => 'GET',
             'callback' => [$this, 'get_service_details'],
-            'permission_callback' => $public_read,
+            'permission_callback' => '__return_true',
             'args' => [
                 'date' => [
                     'required' => true,
@@ -201,7 +158,7 @@ class Booking_API
         register_rest_route('booking/v1', '/slot-availability-calendar', [
             'methods'  => 'GET',
             'callback' => [$this, 'slot_availability'],
-            'permission_callback' => $public_read,
+            'permission_callback' => '__return_true',
             'args' => [
                 'month' => [
                     'required' => true,
@@ -218,7 +175,7 @@ class Booking_API
         register_rest_route('booking/v1', '/has-extra', [
             'methods'  => 'GET',
             'callback' => [$this, 'has_extra'],
-            'permission_callback' => $public_read,
+            'permission_callback' => '__return_true',
             'args' => [
                 'date' => [
                     'required' => true,
@@ -239,7 +196,7 @@ class Booking_API
         register_rest_route('booking/v1', '/extras', [
             'methods'  => 'GET',
             'callback' => [$this, 'get_extras'],
-            'permission_callback' => $public_read,
+            'permission_callback' => '__return_true',
             'args' => [
                 'date' => [
                     'required' => true,
@@ -260,7 +217,7 @@ class Booking_API
         register_rest_route('booking/v1', '/extra-details', [
             'methods'  => 'GET',
             'callback' => [$this, 'get_extra_details'],
-            'permission_callback' => $public_read,
+            'permission_callback' => '__return_true',
             'args' => [
                 'date' => [
                     'required' => true,
@@ -274,87 +231,10 @@ class Booking_API
             ]
         ]);
 
-        register_rest_route('booking/v1', '/countries', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'countries'],
-            'permission_callback' => $public_read,
-        ]);
-
-        register_rest_route('booking/v1', '/states', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'states'],
-            'permission_callback' => $public_read,
-            'args' => [
-                'country_code' => [
-                    'required' => true,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ]
-            ]
-        ]);
-
-        register_rest_route('booking/v1', '/get-fields', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'get_fields'],
-            'permission_callback' => $public_read,
-        ]);
-
-        register_rest_route('booking/v1', '/price-format', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'priceformat'],
-            'permission_callback' => $public_read,
-            'args' => [
-                'service_id' => [
-                    'required' => true,
-                    'sanitize_callback' => 'absint',
-                ],
-                'capacity' => [
-                    'required' => true,
-                    'sanitize_callback' => 'absint',
-                ],
-                'extra_id' => [
-                    'required' => false,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
-                'extra_capacity' => [
-                    'required' => false,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
-            ]
-        ]);
-
-        register_rest_route('booking/v1', '/coupon-list', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'couponlist'],
-            'permission_callback' => $public_read,
-            'args' => [
-                'booking_key' => [
-                    'required' => true,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ]
-            ]
-        ]);
-
-        register_rest_route('booking/v1', '/auto-apply-coupon', [
-            'methods'  => 'GET',
-            'callback' => [$this, 'auto_apply_coupon'],
-            'permission_callback' => $public_read,
-            'args' => [
-                'booking_key' => [
-                    'required' => true,
-                    'sanitize_callback' => 'sanitize_text_field',
-                ],
-                'email' => [
-                    'required' => false,
-                    'sanitize_callback' => 'sanitize_email',
-                ]
-            ]
-        ]);
-
-        // Public write endpoints (cart, checkout, payment)
         register_rest_route('booking/v1', '/addtocart', [
             'methods'  => 'POST',
             'callback' => [$this, 'addtocart'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'date' => [
                     'required' => true,
@@ -387,23 +267,23 @@ class Booking_API
         register_rest_route('booking/v1', '/checkout', [
             'methods'  => 'POST',
             'callback' => [$this, 'checkout'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'billing_details' => [
                     'required' => true,
-                    'sanitize_callback' => [__CLASS__, 'sanitize_array_callback'],
+                    // 'sanitize_callback' => 'sanitize_array',
                 ],
                 'shipping_details' => [
                     'required' => true,
-                    'sanitize_callback' => [__CLASS__, 'sanitize_array_callback'],
+                    // 'sanitize_callback' => 'sanitize_array',
                 ],
                 'gift_details' => [
                     'required' => false,
-                    'sanitize_callback' => [__CLASS__, 'sanitize_array_callback'],
+                    // 'sanitize_callback' => 'sanitize_array',
                 ],
                 'is_gift' => [
                     'required' => false,
-                    'sanitize_callback' => 'absint',
+                    // 'sanitize_callback' => 'sanitize_int',
                 ],
                 'booking_data' => [
                     'required' => true,
@@ -411,7 +291,7 @@ class Booking_API
                 ],
                 'other_data' => [
                     'required' => false,
-                    'sanitize_callback' => [__CLASS__, 'sanitize_array_callback'],
+                    // 'sanitize_callback' => 'sanitize_array',
                 ]
             ]
         ]);
@@ -419,7 +299,7 @@ class Booking_API
         register_rest_route('booking/v1', '/check-session', [
             'methods'  => 'POST',
             'callback' => [$this, 'check_session'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'booking_key' => [
                     'required' => true,
@@ -431,7 +311,7 @@ class Booking_API
         register_rest_route('booking/v1', '/payment-process', [
             'methods'  => 'POST',
             'callback' => [$this, 'payment_process'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'booking' => [
                     'required' => true,
@@ -451,7 +331,7 @@ class Booking_API
         register_rest_route('booking/v1', '/payment-save', [
             'methods'  => 'POST',
             'callback' => [$this, 'payment_save'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'booking' => [
                     'required' => true,
@@ -464,10 +344,56 @@ class Booking_API
             ]
         ]);
 
+        register_rest_route('booking/v1', '/countries', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'countries'],
+            'permission_callback' => '__return_true'
+        ]);
+
+        register_rest_route('booking/v1', '/states', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'states'],
+            'permission_callback' => '__return_true',
+            'args' => [
+                'country_code' => [
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ]
+            ]
+        ]);
+
+        register_rest_route('booking/v1', '/coupon-list', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'couponlist'],
+            'permission_callback' => '__return_true',
+            'args' => [
+                'booking_key' => [
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ]
+            ]
+        ]);
+
+        register_rest_route('booking/v1', '/auto-apply-coupon', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'auto_apply_coupon'],
+            'permission_callback' => '__return_true',
+            'args' => [
+                'booking_key' => [
+                    'required' => true,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'email' => [
+                    'required' => false,
+                    'sanitize_callback' => 'sanitize_email',
+                ]
+            ]
+        ]);
+
         register_rest_route('booking/v1', '/apply-coupon', [
             'methods'  => 'POST',
             'callback' => [$this, 'apply_coupon'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'booking_key' => [
                     'required' => true,
@@ -487,7 +413,7 @@ class Booking_API
         register_rest_route('booking/v1', '/coupon-removal', [
             'methods'  => 'POST',
             'callback' => [$this, 'coupon_removal'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'booking_key' => [
                     'required' => true,
@@ -503,7 +429,7 @@ class Booking_API
         register_rest_route('booking/v1', '/check-voucher-validity', [
             'methods'  => 'POST',
             'callback' => [$this, 'check_voucher_validity'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'voucher' => [
                     'required' => true,
@@ -515,7 +441,7 @@ class Booking_API
         register_rest_route('booking/v1', '/voucher-detail', [
             'methods'  => 'POST',
             'callback' => [$this, 'get_voucher_detail'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'voucher' => [
                     'required' => true,
@@ -532,7 +458,7 @@ class Booking_API
         register_rest_route('booking/v1', '/voucher-redeem', [
             'methods'  => 'POST',
             'callback' => [$this, 'redeem_voucher'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'voucher' => [
                     'required' => true,
@@ -549,15 +475,39 @@ class Booking_API
                 ],
                 'recipient' => [
                     'required' => true,
-                    'sanitize_callback' => [__CLASS__, 'sanitize_array_callback'],
+                    'sanitize_callback' => 'sanitize_array',
                 ]
+            ]
+        ]);
+
+        register_rest_route('booking/v1', '/price-format', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'priceformat'],
+            'permission_callback' => '__return_true',
+            'args' => [
+                'service_id' => [
+                    'required' => true,
+                    'sanitize_callback' => 'absint',
+                ],
+                'capacity' => [
+                    'required' => true,
+                    'sanitize_callback' => 'absint',
+                ],
+                'extra_id' => [
+                    'required' => false,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+                'extra_capacity' => [
+                    'required' => false,
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
             ]
         ]);
 
         register_rest_route('booking/v1', '/create-payment-intent', [
             'methods'  => 'POST',
             'callback' => [$this, 'payment_process'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'booking' => [
                     'required' => true,
@@ -577,7 +527,7 @@ class Booking_API
         register_rest_route('booking/v1', '/check-for-refund-for-failed-payment', [
             'methods'  => 'POST',
             'callback' => [$this, 'check_for_refund_for_failed_payment'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'booking_key' => [
                     'required' => true,
@@ -593,7 +543,7 @@ class Booking_API
         register_rest_route('booking/v1', '/thankyou', [
             'methods'  => 'POST',
             'callback' => [$this, 'thankyou'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'booking_key' => [
                     'required' => true,
@@ -605,7 +555,7 @@ class Booking_API
         register_rest_route('booking/v1', '/redeem-thankyou', [
             'methods'  => 'POST',
             'callback' => [$this, 'redeem_thankyou'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'redeem_code' => [
                     'required' => true,
@@ -617,7 +567,7 @@ class Booking_API
         register_rest_route('booking/v1', '/send-email', [
             'methods'  => 'POST',
             'callback' => [$this, 'sendemail'],
-            'permission_callback' => $public_write,
+            'permission_callback' => '__return_true',
             'args' => [
                 'email' => [
                     'required' => false,
@@ -630,6 +580,11 @@ class Booking_API
             ]
         ]);
 
+        register_rest_route('booking/v1', '/get-fields', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'get_fields'],
+            'permission_callback' => '__return_true'
+        ]);
     }
 
     public function get_fields(WP_REST_Request $request)
@@ -737,7 +692,6 @@ class Booking_API
     public function get_services(WP_REST_Request $request)
     {
         $dbhandler  = new BM_DBhandler();
-        $bmrequests = new BM_Request();
 
         $params = $request->get_query_params();
         $date   = $params['date'];
@@ -757,7 +711,7 @@ class Booking_API
         $response = array();
         if (!empty($services)) {
             foreach ($services as $key => $service) {
-                $modified_service = $bmrequests->bm_build_service_details_for_api($service, $date, $all);
+                $modified_service = $this->service_details($service, $date, $all);
                 if (!empty($modified_service)) {
                     $response[] = $modified_service;
                 }
@@ -774,7 +728,6 @@ class Booking_API
     public function get_service_details(WP_REST_Request $request)
     {
         $dbhandler  = new BM_DBhandler();
-        $bmrequests = new BM_Request();
 
         $params = $request->get_query_params();
         $date   = $params['date'];
@@ -782,7 +735,7 @@ class Booking_API
         $coupon_code = $params['coupon_code'] ?? null;
         $all = isset($params['all']) && $params['all'] == 'true' ? true : false;
 
-        $service_detail = $bmrequests->bm_build_service_details_for_api($dbhandler->get_row('SERVICE', $service_id, 'id'), $date, $all);
+        $service_detail = $this->service_details($dbhandler->get_row('SERVICE', $service_id, 'id'), $date, $all);
         $service_detail = is_array($service_detail) ? $service_detail : [];
 
         if (!empty($service_detail)) {
@@ -790,7 +743,7 @@ class Booking_API
             if ($service_id > 0) {
                 for ($i = 0; $i < 4; $i++) {
                     $date = date('Y-m-d', strtotime($params['date'] . " +{$i} day"));
-                    $slots = $bmrequests->bm_build_service_time_slots_for_api($service_id, $date);
+                    $slots = $this->service_time_slots($service_id, $date);
 
                     $date_slots[] = [
                         'date'  => $date,
@@ -828,7 +781,7 @@ class Booking_API
                 ];
                 continue;
             }
-            $availability_response = $bmrequests->bm_build_service_time_slots_for_api($service_id, $date);
+            $availability_response = $this->service_time_slots($service_id, $date);
             $availability_response['date'] = $date;
             $availability_response['is_bookable'] = $bmrequests->bm_service_is_bookable($service_id, $date);
             $availability_response['price'] = $svc_price  = $bmrequests->bm_fetch_service_price_by_service_id_and_date($service_id, $date, 'global_format');
@@ -848,25 +801,25 @@ class Booking_API
         $params = $request->get_query_params();
         $date   = $params['date'];
         $service_id = $params['service_id'];
-        $all = isset($params['all']) && $params['all'] == 'true';
+        $all = isset($params['all']) && $params['all'] == 'true' ? true : false;
 
-        $all_extras = $bmrequests->bm_get_unified_extras_for_service( $service_id, false );
+        $global_extras = $dbhandler->get_all_result('EXTRA', '*', array('is_global' => 1), 'results');
+        $extra_rows = $dbhandler->get_all_result('EXTRA', '*', array('service_id' => $service_id), 'results');
+
+        $all_extras = array_merge(
+            !empty($global_extras) ? $global_extras : [],
+            !empty($extra_rows) ? $extra_rows : []
+        );
 
         $has_extra = false;
-        if ($all && ! empty($all_extras)) {
-            $has_extra = true;
-        } else {
-            foreach ($all_extras as $extra_service) {
-                $extra_type = isset( $extra_service->extra_type ) ? $extra_service->extra_type : 'local';
-                if ( $extra_type === 'global' && isset( $extra_service->global_extra_id ) ) {
-                    $cap_left = $bmrequests->bm_get_global_extra_capacity_left( $extra_service->global_extra_id, $date, 0 );
-                } else {
-                    $cap_left = $bmrequests->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date($extra_service->id, $extra_service->extra_max_cap, 0, $date);
-                }
-                if ($cap_left > 0) {
-                    $has_extra = true;
-                    break;
-                }
+        foreach ($all_extras as $extra_service) {
+            $cap_left = $bmrequests->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date($extra_service->id, $extra_service->extra_max_cap, 0, $date);
+            if ($cap_left > 0 && !$all) {
+                $has_extra = true;
+                break;
+            } elseif ($all) {
+                $has_extra = true;
+                break;
             }
         }
 
@@ -884,27 +837,29 @@ class Booking_API
         $params = $request->get_query_params();
         $date   = $params['date'];
         $service_id = $params['service_id'];
-        $all = isset($params['all']) && $params['all'] == 'true';
+        $all = isset($params['all']) && $params['all'] == 'true' ? true : false;
+        $global_extras = $dbhandler->get_all_result('EXTRA', '*', array('is_global' => 1), 'results');
+        $extra_rows = $dbhandler->get_all_result('EXTRA', '*', array('service_id' => $service_id), 'results');
 
-        $total_extra_rows = $bmrequests->bm_get_unified_extras_for_service( $service_id, false );
+        if (!empty($extra_rows) && !empty($global_extras)) {
+            $total_extra_rows = array_merge($global_extras, $extra_rows);
+        } elseif (empty($extra_rows) && !empty($global_extras)) {
+            $total_extra_rows = $global_extras;
+        } elseif (!empty($extra_rows) && empty($global_extras)) {
+            $total_extra_rows = $extra_rows;
+        } //end if
 
-        if (! empty($total_extra_rows)) {
+        if (isset($total_extra_rows) && !empty($total_extra_rows)) {
             foreach ($total_extra_rows as $key => $extra_service) {
-                $extra_type = isset( $extra_service->extra_type ) ? $extra_service->extra_type : 'local';
-                if ( $extra_type === 'global' && isset( $extra_service->global_extra_id ) ) {
-                    $cap_left = $bmrequests->bm_get_global_extra_capacity_left( $extra_service->global_extra_id, $date, 0 );
-                } else {
-                    $cap_left = $bmrequests->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date($extra_service->id, $extra_service->extra_max_cap, 0, $date);
-                }
+                $cap_left = $bmrequests->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date($extra_service->id, $extra_service->extra_max_cap, 0, $date);
                 $total_extra_rows[$key]->cap_left = $cap_left;
                 $total_extra_rows[$key]->price = $bmrequests->bm_add_price_character(intval($extra_service->extra_price));
-                $total_extra_rows[$key]->type = $extra_type;
             }
         }
 
         return rest_ensure_response([
             'status' => 200,
-            'data'   => $total_extra_rows
+            'data'   => isset($total_extra_rows) ? $total_extra_rows : []
         ]);
     }
 
@@ -974,7 +929,7 @@ class Booking_API
 
                     $is_variable_slot = $bmrequests->bm_check_if_variable_slot_by_service_id_and_date($service_id, $date);
                     $params['id'] = $service_id;
-                    $booking_fields   = ($gift) ? $bmrequests->bm_gift_fetch_order_info($params) : $bmrequests->bm_fetch_order_info($params);
+                    $booking_fields   = ($gift) ? $this->gift_fetch_order_info($params) : $bmrequests->bm_fetch_order_info($params);
                     $booked_slots     = $bmrequests->bm_fetch_booked_slot_info_from_booking_data($booking_fields);
                     $from_slot        = !empty($booked_slots) && isset($booked_slots['from']) ? $booked_slots['from'] : '';
                     $startSlot        = new DateTime($date . ' ' . $from_slot, new DateTimeZone($timezone));
@@ -1033,108 +988,98 @@ class Booking_API
         $gift = $params['is_gift'];
 
         $booking_fields = $dbhandler->bm_fetch_data_from_transient($params['booking_data']);
-
-        // Early return: no booking data found
-        if (empty($booking_fields)) {
-            return rest_ensure_response([
-                'status' => 200,
-                'data'   => ['status' => 'error', 'data' => 'Error Fetching Booking Information !!'],
-                'message' => 'Error Fetching Booking Information !!'
-            ]);
-        }
-
-        $id   = isset($booking_fields['service_id']) ? $booking_fields['service_id'] : 0;
-        $date = isset($booking_fields['booking_date']) ? $booking_fields['booking_date'] : '';
-
-        // Early return: missing service or date (and not a gift)
-        if (! $gift && (empty($id) || empty($date))) {
-            return rest_ensure_response([
-                'status' => 200,
-                'data'   => ['status' => 'error', 'data' => 'Error Fetching Booking Info !!'],
-                'message' => 'Error Fetching Booking Info !!'
-            ]);
-        }
-
-        // Early return: service not bookable (and not a gift)
-        if (! $gift && ! $bmrequests->bm_service_is_bookable($id, $date)) {
-            return rest_ensure_response([
-                'status' => 200,
-                'data'   => ['status' => 'error', 'data' => 'Service is Not Bookable !!'],
-                'message' => 'Service is Not Bookable !!'
-            ]);
-        }
-
-        if (isset($params['other_data']['terms_conditions'])) {
-            unset($params['other_data']['terms_conditions']);
-        }
-
-        if (isset($params['billing_details'])) {
-            $checkout_string = $bmrequests->bm_generate_unique_code('', 'FLEXIC', 15);
-            $transient_data['billing'] = $params['billing_details'];
-
-            if (is_array($params['billing_details'])) {
-                $billing_details = [];
-                foreach ($params['billing_details'] as $key => $value) {
-                    $field_name = $dbhandler->get_value('FIELDS', 'field_name', $key, 'field_key');
-                    if (!empty($field_name)) {
-                        $billing_details[$field_name] = $value;
+        if (!empty($booking_fields)) {
+            $id   = isset($booking_fields['service_id']) ? $booking_fields['service_id'] : 0;
+            $date = isset($booking_fields['booking_date']) ? $booking_fields['booking_date'] : '';
+            if ($gift || (!empty($id) && !empty($date))) {
+                if ($gift || $bmrequests->bm_service_is_bookable($id, $date)) {
+                    if (isset($params['other_data']['terms_conditions'])) {
+                        unset($params['other_data']['terms_conditions']);
                     }
+
+                    if (isset($params['billing_details'])) {
+                        $checkout_string = $bmrequests->bm_generate_unique_code('', 'FLEXIC', 15);
+                        $transient_data['billing'] = $params['billing_details'];
+
+                        if (is_array($params['billing_details'])) {
+                            foreach ($params['billing_details'] as $key => $value) {
+                                $field_name = $dbhandler->get_value('FIELDS', 'field_name', $key, 'field_key');
+
+                                if (!empty($field_name)) {
+                                    $billing_details[$field_name] = $value;
+                                }
+                            }
+                            if (!empty($billing_details)) {
+                                $params['billing_details'] = $billing_details;
+                            }
+                        }
+
+                        $checkout_data = $params;
+                        unset($checkout_data['booking_data']);
+                        $transient_data['checkout'] = $checkout_data;
+                        $dbhandler->bm_save_data_to_transient($checkout_string, $transient_data, 72);
+                    }
+
+                    $gift_data = isset($params['gift_details']) ? $params['gift_details'] : array();
+
+                    if (isset($params['other_data']['is_gift'])) {
+                        $gift_data['is_gift'] = $params['other_data']['is_gift'];
+                        unset($params['other_data']['is_gift']);
+                    }
+
+                    $gift_key = base64_encode($params['booking_data']);
+                    $dbhandler->bm_save_data_to_transient($gift_key, $gift_data, 72);
+                    if (defined('STRIPE_SECRET_KEY')) {
+                        $stripe_payment_processor = new Booking_Management_Process_Payment(STRIPE_SECRET_KEY);
+
+                        if ($stripe_payment_processor->isConnected()) {
+                            if (isset($gift_data['is_gift']) && $gift_data['is_gift'] == 1) {
+                                $data = $this->gift_check_payment_type_and_return_data($params['booking_data'], $checkout_string);
+                            } else {
+                                $data = $bmrequests->bm_check_payment_type_and_return_data($params['booking_data'], $checkout_string);
+                            }
+
+                            if (empty($data)) {
+                                $resp = 'Error Fetching Payment Info !!';
+
+                                $data['status'] = 'error';
+                                $data['data']   = $resp;
+                            }
+                        } else {
+                            $resp = 'Payment Gateway Server Error !!';
+
+                            $data['status'] = 'error';
+                            $data['data']   = $resp;
+                        }
+                    } else {
+                        $resp = 'Payment Gateway Not Enabled !!';
+
+                        $data['status'] = 'error';
+                        $data['data']   = $resp;
+                    }
+                } else {
+                    $resp = 'Service is Not Bookable !!';
+
+                    $data['status'] = 'error';
+                    $data['data']   = $resp;
                 }
-                if (!empty($billing_details)) {
-                    $params['billing_details'] = $billing_details;
-                }
+            } else {
+                $resp = 'Error Fetching Booking Info !!';
+
+                $data['status'] = 'error';
+                $data['data']   = $resp;
             }
-
-            $checkout_data = $params;
-            unset($checkout_data['booking_data']);
-            $transient_data['checkout'] = $checkout_data;
-            $dbhandler->bm_save_data_to_transient($checkout_string, $transient_data, 72);
-        }
-
-        $gift_data = isset($params['gift_details']) ? $params['gift_details'] : array();
-
-        if (isset($params['other_data']['is_gift'])) {
-            $gift_data['is_gift'] = $params['other_data']['is_gift'];
-            unset($params['other_data']['is_gift']);
-        }
-
-        $gift_key = base64_encode($params['booking_data']);
-        $dbhandler->bm_save_data_to_transient($gift_key, $gift_data, 72);
-
-        // Early return: Stripe not configured
-        if (! defined('STRIPE_SECRET_KEY')) {
-            return rest_ensure_response([
-                'status' => 200,
-                'data'   => ['status' => 'error', 'data' => 'Payment Gateway Not Enabled !!'],
-                'message' => 'Payment Gateway Not Enabled !!'
-            ]);
-        }
-
-        $stripe_payment_processor = new Booking_Management_Process_Payment(STRIPE_SECRET_KEY);
-
-        if (! $stripe_payment_processor->isConnected()) {
-            return rest_ensure_response([
-                'status' => 200,
-                'data'   => ['status' => 'error', 'data' => 'Payment Gateway Server Error !!'],
-                'message' => 'Payment Gateway Server Error !!'
-            ]);
-        }
-
-        if (isset($gift_data['is_gift']) && $gift_data['is_gift'] == 1) {
-            $data = $bmrequests->bm_gift_check_payment_type_and_return_data($params['booking_data'], $checkout_string);
         } else {
-            $data = $bmrequests->bm_check_payment_type_and_return_data($params['booking_data'], $checkout_string);
+            $resp = 'Error Fetching Booking Information !!';
+
+            $data['status'] = 'error';
+            $data['data']   = $resp;
         }
 
-        if (empty($data)) {
-            $data = ['status' => 'error', 'data' => 'Error Fetching Payment Info !!'];
-        }
-
-        $is_error = isset($data['status']) && $data['status'] == 'error';
         return rest_ensure_response([
             'status' => 200,
             'data'   => $data,
-            'message' => $is_error ? $data['data'] : ''
+            'message' => ($data['status'] == 'error') ? $data['data'] : ''
         ]);
     }
 
@@ -1161,45 +1106,37 @@ class Booking_API
         $checkout_key = isset($params['checkout']) ? $params['checkout'] : '';
         $method_id    = isset($params['paymentMethod']) ? $params['paymentMethod'] : '';
         $gift = $params['gift'] ?? false;
-        $data = array();
 
-        if (empty($booking_key) || empty($checkout_key) || empty($method_id)) {
-            return rest_ensure_response([
-                'status' => 200,
-                'data'   => ['status' => 'error', 'data' => 'Could Not Capture Booking Info !!'],
-                'message' => ''
-            ]);
+        if (!empty($booking_key) && !empty($checkout_key) && !empty($method_id)) {
+            if (defined('STRIPE_SECRET_KEY')) {
+                $stripe_payment_processor = new Booking_Management_Process_Payment(STRIPE_SECRET_KEY);
+
+                if ($stripe_payment_processor->isConnected()) {
+                    $data['status'] = $bmrequests->bm_process_payment_data($booking_key, $checkout_key, $method_id, $gift);
+
+                    if (in_array($data['status'], array('success', 'requires_capture', 'succeeded'), true)) {
+                        $data['data'] = base64_decode($dbhandler->get_global_option_value('bm_client_secret' . $booking_key));
+                    }
+                } else {
+                    $resp = 'Payment Gateway Server Error !!';
+
+                    $data['data'] = $resp;
+                }
+            } else {
+                $resp = 'Payment Gateway Not Enabled !!';
+
+                $data['data'] = $resp;
+            }
+        } else {
+            $resp = 'Could Not Capture Booking Info !!';
+
+            $data['data'] = $resp;
         }
 
-        if (! defined('STRIPE_SECRET_KEY')) {
-            return rest_ensure_response([
-                'status' => 200,
-                'data'   => ['status' => 'error', 'data' => 'Payment Gateway Not Enabled !!'],
-                'message' => ''
-            ]);
-        }
-
-        $stripe_payment_processor = new Booking_Management_Process_Payment(STRIPE_SECRET_KEY);
-
-        if (! $stripe_payment_processor->isConnected()) {
-            return rest_ensure_response([
-                'status' => 200,
-                'data'   => ['status' => 'error', 'data' => 'Payment Gateway Server Error !!'],
-                'message' => ''
-            ]);
-        }
-
-        $data['status'] = $bmrequests->bm_process_payment_data($booking_key, $checkout_key, $method_id, $gift);
-
-        if (in_array($data['status'], array('success', 'requires_capture', 'succeeded'), true)) {
-            $data['data'] = base64_decode($dbhandler->get_global_option_value('bm_client_secret' . $booking_key));
-        }
-
-        $is_error = isset($data['status']) && $data['status'] === 'error';
         return rest_ensure_response([
             'status' => 200,
             'data'   => $data,
-            'message' => $is_error ? 'Error Saving Payment Info !!' : ''
+            'message' => ($data['status'] == 'error') ? 'Error Saving Payment Info !!' : ''
         ]);
     }
 
@@ -1709,6 +1646,11 @@ class Booking_API
                 'data'   => $data,
                 'message' => $message
             ]);
+            return rest_ensure_response([
+                'status' => 200,
+                'data'   => $data,
+                'message' => $message
+            ]);
         }
 
         try {
@@ -1983,8 +1925,7 @@ class Booking_API
         $message = '';
 
         if (isset($validateVoucher['error']) || !$validateVoucher) {
-            $error_msg = isset($validateVoucher['error']) ? sanitize_text_field( $validateVoucher['error'] ) : __( 'Voucher is not yet redeemed', 'service-booking' );
-            $message = esc_html($error_msg);
+            $message = esc_html__(sprintf('%s', $validateVoucher['error'] ? $validateVoucher['error'] : 'Voucher is not yet redeemed'), 'service-booking');
             return rest_ensure_response([
                 'status' => 200,
                 'data'   => $data,
@@ -2137,4 +2078,449 @@ class Booking_API
             'data'   => ['status' => $status]
         ]);
     }
+
+
+    protected function service_details($service, $date = '', $all = false)
+    {
+        $dbhandler  = new BM_DBhandler();
+        $bmrequests = new BM_Request();
+
+        $service_id = !empty($service) && isset($service->id) ? esc_attr($service->id) : 0;
+        $modified_data = [];
+        if (!$all && !$bmrequests->bm_service_is_bookable($service->id, $date)) {
+            return $modified_data;
+        }
+        if (!$all && !empty($date) && empty($bmrequests->bm_fetch_service_time_slot_array_by_service_id(
+            array(
+                'id'   => $service_id,
+                'date' => $date,
+            )
+        ))) {
+            return $modified_data;
+        }
+        $gallery_images = $dbhandler->get_all_result(
+            'GALLERY',
+            'id',
+            array(
+                'module_type' => 'SERVICE',
+                'module_id'   => $service_id,
+            ),
+            'var'
+        );
+
+        $svc_total_cap_left = NULL;
+        if (!$all && !empty($date)) {
+            $svc_total_cap_left = $dbhandler->get_all_result(
+                'SLOTCOUNT',
+                'svc_total_cap_left',
+                array(
+                    'service_id'   => esc_attr($service_id),
+                    'booking_date' => esc_html($date),
+                    'is_active'    => 1,
+                ),
+                'var',
+                0,
+                1,
+                'id',
+                'DESC'
+            );
+        }
+
+        $svc_img            = esc_url($bmrequests->bm_fetch_image_url_or_guid($service_id, 'SERVICE', 'url'));
+        $svc_name           = !empty($service) && isset($service->service_name) && !empty($service->service_name) ? mb_strimwidth(esc_html($service->service_name), 0, 20, '...') : 'N/A';
+        $category_name      = $bmrequests->bm_fetch_category_name_by_service_id($service_id);
+        $svc_desc           = !empty($service) && isset($service->service_desc) && !empty($service->service_desc) ? wp_strip_all_tags((wp_kses_post(stripslashes(($service->service_desc))))) : 'N/A';
+        $svc_long_desc      = !empty($service) && isset($service->service_desc) && !empty($service->service_desc) ? do_shortcode(wp_kses_post(stripslashes(($service->service_desc)))) : 'N/A';
+        $svc_short_desc     = !empty($service) && isset($service->service_short_desc) && !empty($service->service_short_desc) ? wp_strip_all_tags((wp_kses_post(stripslashes(($service->service_short_desc))))) : 'N/A';
+        $svc_duration       = !empty($service) && isset($service->service_duration) && !empty($service->service_duration) ? esc_html($bmrequests->bm_fetch_float_to_time_string($service->service_duration)) : 'N/A';
+        $svc_default_price  = !empty($service) && isset($service->default_price) && !empty($service->default_price) ? esc_attr($service->default_price) : '';
+        $svc_default_price  = $bmrequests->bm_fetch_price_in_global_settings_format($svc_default_price, true);
+        $svc_price          = (!empty($date)) ? $bmrequests->bm_fetch_service_price_by_service_id_and_date($service_id, $date, 'global_format') : $svc_default_price;
+        $stopsales          = (!empty($date)) ? $bmrequests->bm_fetch_service_stopsales_by_service_id($service_id, $date) : 0;
+        $show_svc_img       = $dbhandler->get_global_option_value('bm_show_frontend_service_image', 0) == 0 ? true : false;
+        $show_read_more     = $dbhandler->get_global_option_value('bm_show_frontend_service_desc_read_more_button', 0) == 0 ? true : false;
+        $show_svc_price     = $dbhandler->get_global_option_value('bm_show_frontend_service_price', 0) == 0 ? true : false;
+        $show_duration      = $dbhandler->get_global_option_value('bm_show_frontend_service_duration', 0) == 0 ? true : false;
+        $show_svc_desc      = $dbhandler->get_global_option_value('bm_show_frontend_service_description', 0) == 0 ? true : false;
+        $svc_name_colour    = $dbhandler->get_global_option_value('bm_frontend_service_title_color', '#000000');
+        $svc_button_colour  = $dbhandler->get_global_option_value('bm_frontend_book_button_color', '#000000');
+        $price_text_colour  = $dbhandler->get_global_option_value('bm_frontend_service_price_text_color', '#000000');
+        $svc_title_font     = $dbhandler->get_global_option_value('bm_service_title_font', '20') . 'px';
+        $svc_shrt_desc_font = $dbhandler->get_global_option_value('bm_service_shrt_desc_font', '14') . 'px';
+        $svc_price_txt_font = $dbhandler->get_global_option_value('bm_service_price_txt_font', '16') . 'px';
+        $svc_btn_txt_colour = $dbhandler->get_global_option_value('bm_frontend_book_button_txt_color', '#ffffff');
+        $inactive_show_more = $svc_desc == 'N/A' ? true : false;
+        $show_more_title    = $svc_desc == 'N/A' ? '' : __('Show full description', 'service-booking');
+        $gallery_title      = __('Show Gallery Images', 'service-booking');
+        $category_title     = __(' category: ', 'service-booking');
+        $per_person_text    = __('/person', 'service-booking');
+        $stopsales_text     = __('Stopsales', 'service-booking');
+        $stopsales_title    = sprintf(esc_html__('Products are not bookable until %s after current time', 'service-booking'), $bmrequests->bm_fetch_float_to_time_string($stopsales));
+        $duration_title     = sprintf(esc_html__('Service duration is %s', 'service-booking'), $svc_duration);
+        $no_description     = __('No short description available', 'service-booking');
+        $service_title      = esc_html($service->service_name);
+
+        $service_settings = isset($service->service_settings) && !empty($service->service_settings) ? maybe_unserialize($service->service_settings) : array();
+
+        if (empty($show_duration)) {
+            $show_svc_duration = isset($service_settings['show_service_duration']) ? $service_settings['show_service_duration'] : 0;
+            $show_duration     = $show_svc_duration == 0 ? true : false;
+        }
+
+        // Prepare service array
+        $modified_data = [
+            'id' => $service_id,
+            'service_title' => $service_title,
+            'svc_name_colour' => $svc_name_colour,
+            'svc_title_font' => $svc_title_font,
+            'service_name' => $svc_name,
+            'svc_img' => $svc_img,
+            'show_svc_img' => $show_svc_img,
+            'category_title' => $category_title . $category_name,
+            'category_name' => $category_name,
+            'show_duration' => $show_duration,
+            'duration_title' => $duration_title,
+            'duration' => $svc_duration,
+            'gallery_images' => $gallery_images,
+            'gallery_title' => $gallery_title,
+            'svc_long_desc' => $svc_long_desc,
+            'show_read_more' => $show_read_more,
+            'inactive_show_more' => $inactive_show_more,
+            'show_more_title' => $show_more_title,
+            'svc_short_desc' => $svc_short_desc != 'N/A' ? $svc_short_desc : $no_description,
+            'svc_shrt_desc_font' => $svc_shrt_desc_font,
+            'show_svc_desc' => $show_svc_desc,
+            'svc_default_price' => $svc_default_price,
+            'svc_price' => $svc_price,
+            'show_svc_price' => $show_svc_price,
+            'svc_price_txt_font' => $svc_price_txt_font,
+            'price_text_colour' => $price_text_colour,
+            'per_person_text' => $per_person_text,
+            'stopsales' => $stopsales,
+            'stopsales_text' => $stopsales_text,
+            'stopsales_title' => $stopsales_title,
+            'show_stopsales_data' => ($service->show_stopsales_data == 1) ? true : false,
+            'svc_total_cap_left' => $svc_total_cap_left,
+            'book_button_colour' => $svc_button_colour,
+            'svc_btn_txt_colour' => $svc_btn_txt_colour,
+        ];
+
+
+        return $modified_data;
+    }
+
+    protected function service_time_slots($service_id, $date)
+    {
+        $bmrequests = new BM_Request();
+        $dbhandler = new BM_DBhandler();
+        $slot_min_cap       = 0;
+        $slot_max_cap       = 0;
+        $cap_left          = 0;
+        $data               = array();
+        $message            = '';
+
+        if ($service_id > 0 && !empty($date)) {
+            $service_settings = $dbhandler->get_value('SERVICE', 'service_settings', $service_id, 'id');
+            $service_settings = !empty($service_settings) ? maybe_unserialize($service_settings) : array();
+
+            $total_time_slots = $bmrequests->bm_fetch_total_time_slots_by_service_id($service_id);
+            $is_bookable      = $bmrequests->bm_service_is_bookable($service_id, $date);
+            $is_variable_slot = $bmrequests->bm_check_if_variable_slot_by_service_id_and_date($service_id, $date);
+
+            if ($is_variable_slot == 1) {
+                $first_from_slot = $bmrequests->bm_fetch_variable_first_from_slot($service_id, $date);
+                $slot_min_cap    = $bmrequests->bm_fetch_variable_slot_min_cap_by_service_id_and_slot_id($service_id, 1, $first_from_slot, $date);
+            } elseif ($is_variable_slot == 0) {
+                $slot_min_cap = $bmrequests->bm_fetch_non_variable_slot_min_cap_by_service_id_and_slot_id($service_id, 1);
+            }
+
+            $single_time_slot = array();
+            if ($total_time_slots == 1) {
+                $time_slot = $bmrequests->bm_fetch_single_time_slot_by_service_id($service_id, $date);
+
+                if ($time_slot !== '-1' && $time_slot !== '0' && $is_bookable) {
+                    $match     = preg_match_all('/\<span class\="single_slot_timings"\>(.*?)\<\/span\>/', $time_slot, $slot_details);
+                    $time_slot = $match > 0 ? $slot_details[1][0] : $time_slot;
+
+                    if (strpos($time_slot, ' - ') !== false) {
+                        $booking_slots = explode(' - ', $time_slot);
+                        $from          = $bmrequests->bm_twenty_fourhrs_format($booking_slots[0]);
+                    } else {
+                        $from = $bmrequests->bm_twenty_fourhrs_format($time_slot);
+                    }
+
+                    if (!empty($from)) {
+                        $is_variable_slot = $bmrequests->bm_check_if_variable_slot_by_service_id_and_date($service_id, $date);
+                        $slot_info        = $bmrequests->bm_fetch_slot_details($service_id, $from, $date, $total_time_slots, 0, $is_variable_slot);
+                        $slot_max_cap    = isset($slot_info['slot_max_cap']) ? $slot_info['slot_max_cap'] : 0;
+                        $cap_left       = isset($slot_info['capacity_left']) ? $slot_info['capacity_left'] : 0;
+                        if (!empty($slot_info) && isset($slot_info['capacity_left']) && isset($slot_info['slot_min_cap'])) {
+                            if ($slot_info['capacity_left'] > 0 && $slot_info['slot_min_cap'] > 0 && ($slot_info['capacity_left'] < $slot_info['slot_min_cap'])) {
+                            }
+                        }
+                    } //end if
+                } else {
+                    if ($is_bookable == false) {
+                        $message = 'Service Unavailable on selected Date.';
+                    } else {
+                        if ($time_slot == '-1') {
+                            $message = 'No slots available.';
+                        } elseif ($time_slot == '0') {
+                            $message = 'All slots booked';
+                        }
+                    }
+                } //end if
+                $single_time_slot['slot_type'] = $is_bookable && $time_slot != -1 && $time_slot != 0 ? 'active' : 'readonly';
+                $single_time_slot['time_slot'] = isset($time_slot) && $is_bookable ? $time_slot : '';
+                $single_time_slot['min_capacity'] = $slot_min_cap;
+                $single_time_slot['max_capacity'] = $slot_max_cap;
+                $single_time_slot['capacity_left'] = $cap_left;
+                $single_time_slot['capacity_left_percent'] = !empty($slot_max_cap) && $slot_max_cap > 0 ? round(($cap_left / $slot_max_cap) * 100) : 0;
+            } elseif ($total_time_slots > 1) {
+                $slots = $bmrequests->bm_fetch_service_time_slot_detail_by_service_id(array('id' => $service_id, 'date' => $date));
+                if (!empty($slots) && $is_bookable) {
+                    $time_slots = $slots;
+                } else {
+                    if ($is_bookable == false) {
+                        $message = 'Service Unavailable on selected Date.';
+                    } else {
+                        $message = 'No slots available.';
+                    }
+                } //end if
+            } //end if
+
+            $time_slots  = isset($time_slots) ? $time_slots : array();
+            $totalCap = $capLeft = 0;
+            if ($single_time_slot) {
+                $totalCap += $single_time_slot['max_capacity'];
+                $capLeft += $single_time_slot['capacity_left'];
+            }
+            if (count($time_slots) > 0) {
+                for ($k = 0; $k <= count($time_slots); $k++) {
+                    if ($time_slots[$k]) {
+                        $totalCap += $time_slots[$k]['max_capacity'];
+                        $capLeft += $time_slots[$k]['capacity_left'];
+                        $timeslot = explode("-", $time_slots[$k]['time_slot']);
+                        $from_time = trim($timeslot[0]);
+                        $to_time = trim($timeslot[1]);
+                        $from_time = date('H:i', strtotime($from_time));
+                        $to_time = date('H:i', strtotime($to_time));
+                        // ensure grouping arrays exist
+                        if (!isset($data['morning'])) $data['morning'] = [];
+                        if (!isset($data['afternoon'])) $data['afternoon'] = [];
+                        if (!isset($data['evening'])) $data['evening'] = [];
+
+                        $ts_from = strtotime($from_time);
+                        $ts_to = strtotime($to_time);
+
+                        if ($ts_from !== false && $ts_to !== false) {
+                            $hour_from = (int) date('G', $ts_from); // 0-23 hour
+
+                            if ($hour_from < 12) {
+                                // before 12pm -> morning
+                                $data['morning'][] = $time_slots[$k];
+                            } elseif ($hour_from >= 12 && $hour_from < 18) {
+                                // 12pm to 6pm -> afternoon
+                                $data['afternoon'][] = $time_slots[$k];
+                            } else {
+                                // 6pm+ -> evening (fallback)
+                                $data['evening'][] = $time_slots[$k];
+                            }
+                        } else {
+                            // if parsing fails, put into afternoon as sensible default
+                            $data['afternoon'][] = $time_slots[$k];
+                        }
+                    }
+                }
+            }
+
+            $data['single_time_slot'] = $single_time_slot;
+            $data['time_slots'] = $time_slots;
+            $data['capacity_left_percentage'] = !empty($totalCap) && $totalCap > 0 ? round(($capLeft / $totalCap) * 100) : 0;
+            $data['total_capacity_left'] = $capLeft;
+            $data['message'] = $message;
+        } //end if
+
+        return $data;
+    }
+
+    /**
+     * Fetch latest order info for gift
+     *
+     * @author Jyoti
+     */
+    public function gift_fetch_order_info($data = array())
+    {
+        $dbhandler     = new BM_DBhandler();
+        $bm = new BM_Request();
+        $booking_fields = array();
+
+        if (!empty($data)) {
+            $id                       = isset($data['id']) ? $data['id'] : '';
+            $time                     = isset($data['time_slot']) ? $data['time_slot'] : '';
+            $total_service_booking    = isset($data['total_service_booking']) ? $data['total_service_booking'] : 0;
+            $date                     = isset($data['date']) ? $data['date'] : '';
+            $extra_svc_ids            = isset($data['extra_svc_ids']) ? $data['extra_svc_ids'] : '';
+            $total_extra_slots_booked = isset($data['no_of_persons']) ? $data['no_of_persons'] : '';
+            $match                    = preg_match_all('/\<span class\="single_slot_timings"\>(.*?)\<\/span\>/', $time, $slot_details);
+            $booking_currency         = $bm->bm_get_currency_symbol($dbhandler->get_global_option_value('bm_booking_currency', 'EUR'));
+            $total_extra_price        = 0;
+
+            if (!empty($id) && !empty($date)) {
+                $service        = $dbhandler->get_row('SERVICE', $id);
+                $svc_img        = esc_url($bm->bm_fetch_image_url_or_guid($id, 'SERVICE', 'url'));
+                $svc_name       = !empty($service) && isset($service->service_name) && !empty($service->service_name) ? esc_html($service->service_name) : 'N/A';
+                $short_svc_name = !empty($svc_name) ? mb_strimwidth($svc_name, 0, 20, '...') : 'N/A';
+                $base_svc_price = $bm->bm_fetch_service_price_by_service_id_and_date($id, $date);
+                $booking_price  = $bm->bm_fetch_total_price(str_replace($booking_currency, '', $base_svc_price), $total_service_booking);
+                $total_cost     = $booking_price;
+
+                $svc_price_module_id = $bm->bm_fetch_external_service_price_module_by_service_id_and_date($id, $date);
+
+                $booking_fields['service_id']               = $id;
+                $booking_fields['booking_slots']            = $match > 0 ? $slot_details[1][0] : $time;
+                $booking_fields['booking_date']             = "";
+                $booking_fields['service_name']             = $svc_name;
+                $booking_fields['total_service_booking']    = $total_service_booking;
+                $booking_fields['extra_svc_booked']         = $extra_svc_ids;
+                $booking_fields['total_extra_slots_booked'] = $total_extra_slots_booked;
+                $booking_fields['base_svc_price']           = $base_svc_price;
+                $booking_fields['service_cost']             = $booking_price;
+                $booking_fields['svc_price_module_id']      = $svc_price_module_id;
+
+                // Calculate extra service price and total cost
+                if (isset($extra_svc_ids) && !empty($extra_svc_ids) && isset($total_extra_slots_booked) && !empty($total_extra_slots_booked)) {
+                    $total_slots_booked = explode(',', $total_extra_slots_booked);
+                    $extra_total        = array();
+                    $additional         = "id in($extra_svc_ids)";
+
+                    $extra_price = $dbhandler->get_all_result('EXTRA', 'extra_price', 1, 'results', 0, false, null, false, $additional);
+                    $extra_price = array_column($extra_price, 'extra_price');
+                    $i           = 1;
+
+                    if (!empty($extra_price) && !empty($total_slots_booked)) {
+                        foreach ($extra_price as $key => $price) {
+                            if (!empty($price)) {
+                                $extra_total[$key] = $bm->bm_fetch_total_price($price, $total_slots_booked[$key]);
+                            }
+                            $i++;
+                        }
+                    } //end if
+
+                    if (!empty($extra_total)) {
+                        $total_extra_price = array_sum($extra_total);
+                        $total_cost        = ($total_cost + $total_extra_price);
+                    } //end if
+                } //end if
+
+                $booking_fields['extra_svc_cost'] = $total_extra_price;
+                $booking_fields['total_cost']     = $total_cost;
+                $booking_fields['subtotal']       = $total_cost;
+            } //end if
+        } //end if
+
+        return $booking_fields;
+    } //end gift_fetch_order_info()
+
+    /**
+     * Check payment type
+     *
+     * @author Jyoti
+     */
+    public function gift_check_payment_type_and_return_data($booking_key, $checkout_key, $checkout_type = 'flexi_checkout')
+    {
+        $dbhandler = new BM_DBhandler();
+        $bmrequest = new BM_Request();
+
+        if ($dbhandler->get_global_option_value('discount_' . $booking_key) == 1) {
+            $booking_details = $dbhandler->bm_fetch_data_from_transient('discounted_' . $booking_key);
+        } else {
+            $booking_details = $dbhandler->bm_fetch_data_from_transient($booking_key);
+        }
+
+        /**$booking_details  = $dbhandler->bm_fetch_data_from_transient( $booking_key );*/
+        $checkout_details = $dbhandler->bm_fetch_data_from_transient($checkout_key);
+        $data             = array();
+        $resp             = '';
+
+        if (!empty($booking_details) && !empty($checkout_details)) {
+            $service_id   = isset($booking_details['service_id']) ? $booking_details['service_id'] : 0;
+
+            $bookable_extra       = $bmrequest->bm_is_selected_extra_service_bookable($booking_key);
+
+            if (!empty($service_id)) {
+
+                $payment_session_timer   = $dbhandler->get_global_option_value('bm_payment_session_time', '2');
+                $payment_session_timer   = ($payment_session_timer * 60) + 2;
+                $is_book_on_request_only = $bmrequest->bm_check_if_book_on_request_only($service_id);
+
+                $timezone    = $dbhandler->get_global_option_value('bm_booking_time_zone', 'Asia/Kolkata');
+                $now         = new DateTime('now', new DateTimeZone($timezone));
+
+
+                if (($bookable_extra == false)) {
+                    $resp = __('One or more extra services does not have enough capacity, choose another !!', 'service-booking');
+
+                    $data['status'] = 'error';
+                    $data['data']   = wp_kses_post($resp);
+                } else {
+                    $booked_product = $bmrequest->bm_fetch_booked_service_info_for_stripe_payment_intent($booking_key);
+
+                    $amount      = !empty($booked_product) && isset($booked_product['amount']) ? floatval($booked_product['amount']) * 100 : 0;
+                    $currency    = !empty($booked_product) && isset($booked_product['currency']) ? $booked_product['currency'] : '';
+                    $description = !empty($booked_product) && isset($booked_product['description']) ? $booked_product['description'] : '';
+
+                    if (($amount > 0) && !empty($currency) && !empty($description)) {
+
+                        if (($is_book_on_request_only == 1)) {
+                            $checkout_details['request_type'] = 'on_request';
+                        } else {
+                            $checkout_details['request_type'] = 'direct';
+                        }
+
+                        if ($checkout_type == 'woocommerce_checkout') {
+                            $checkout_details['request_type'] = 'direct';
+                        }
+
+                        if (isset($checkout_details['billing']) && isset($checkout_details['checkout']) && isset($checkout_details['request_type'])) {
+                            $dbhandler->bm_save_data_to_transient($checkout_key, $checkout_details, 24);
+
+                            if ($checkout_type == 'woocommerce_checkout') {
+                                $data['status'] = 'success';
+                            } else {
+                                $string = $bmrequest->bm_create_random_string(20);
+                                $bmrequest->bm_start_session_with_expiry("flexi_current_payment_session_$booking_key", $payment_session_timer);
+
+                                $data['status']   = 'success';
+                                $data['data']     = wp_kses_post($string);
+                                $data['checkout'] = wp_kses_post($checkout_key);
+                            }
+                        } else {
+                            $resp = __('Error Initiating Payment Data !!', 'service-booking');
+
+                            $data['status'] = 'error';
+                            $data['data']   = wp_kses_post($resp);
+                        }
+                    } else {
+                        $resp = __('Error Fetching Booking Data !!', 'service-booking');
+
+                        $data['status'] = 'error';
+                        $data['data']   = wp_kses_post($resp);
+                    }
+                }
+            } else {
+                $resp = __('Invalid Service or Booking Date, Try Again !!', 'service-booking');
+
+                $data['status'] = 'error';
+                $data['data']   = wp_kses_post($resp);
+            }
+        } else {
+            $resp = __('Something Went Wrong, Try Again !!', 'service-booking');
+
+            $data['status'] = 'error';
+            $data['data']   = wp_kses_post($resp);
+        }
+
+        return $data;
+    } //end gift_check_payment_type_and_return_data()
 }
