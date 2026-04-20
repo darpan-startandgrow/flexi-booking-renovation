@@ -17541,4 +17541,507 @@ class BM_Request {
 	}
 
 
+	/**
+	 * Build service details array for the React V2 API response.
+	 *
+	 * Relocated from Booking_API::service_details() to separate
+	 * data-assembly logic from the REST endpoint layer.
+	 *
+	 * @since 1.0.0
+	 * @param object $service  Service DB row object.
+	 * @param string $date     Optional date string (Y-m-d).
+	 * @param bool   $all      Whether to include all services regardless of bookability.
+	 * @return array            Formatted service data or empty array.
+	 */
+	public function bm_build_service_details_for_api( $service, $date = '', $all = false ) {
+		$dbhandler = new BM_DBhandler();
+
+		$service_id = ! empty( $service ) && isset( $service->id ) ? esc_attr( $service->id ) : 0;
+
+		if ( empty( $service_id ) ) {
+			return [];
+		}
+
+		if ( ! $all && ! $this->bm_service_is_bookable( $service->id, $date ) ) {
+			return [];
+		}
+
+		if ( ! $all && ! empty( $date ) && empty( $this->bm_fetch_service_time_slot_array_by_service_id(
+			array(
+				'id'   => $service_id,
+				'date' => $date,
+			)
+		) ) ) {
+			return [];
+		}
+
+		// Fetch all display options in a single batch to reduce DB queries
+		$display_options = $dbhandler->get_global_options(
+			array(
+				'bm_show_frontend_service_image',
+				'bm_show_frontend_service_desc_read_more_button',
+				'bm_show_frontend_service_price',
+				'bm_show_frontend_service_duration',
+				'bm_show_frontend_service_description',
+				'bm_frontend_service_title_color',
+				'bm_frontend_book_button_color',
+				'bm_frontend_service_price_text_color',
+				'bm_service_title_font',
+				'bm_service_shrt_desc_font',
+				'bm_service_price_txt_font',
+				'bm_frontend_book_button_txt_color',
+			),
+			array(
+				'bm_show_frontend_service_image'                 => 0,
+				'bm_show_frontend_service_desc_read_more_button' => 0,
+				'bm_show_frontend_service_price'                 => 0,
+				'bm_show_frontend_service_duration'              => 0,
+				'bm_show_frontend_service_description'           => 0,
+				'bm_frontend_service_title_color'                => '#000000',
+				'bm_frontend_book_button_color'                  => '#000000',
+				'bm_frontend_service_price_text_color'           => '#000000',
+				'bm_service_title_font'                          => '20',
+				'bm_service_shrt_desc_font'                      => '14',
+				'bm_service_price_txt_font'                      => '16',
+				'bm_frontend_book_button_txt_color'              => '#ffffff',
+			)
+		);
+
+		$gallery_images = $dbhandler->get_all_result(
+			'GALLERY',
+			'id',
+			array(
+				'module_type' => 'SERVICE',
+				'module_id'   => $service_id,
+			),
+			'var'
+		);
+
+		$svc_total_cap_left = null;
+		if ( ! $all && ! empty( $date ) ) {
+			$svc_total_cap_left = $dbhandler->get_all_result(
+				'SLOTCOUNT',
+				'svc_total_cap_left',
+				array(
+					'service_id'   => esc_attr( $service_id ),
+					'booking_date' => esc_html( $date ),
+					'is_active'    => 1,
+				),
+				'var',
+				0,
+				1,
+				'id',
+				'DESC'
+			);
+		}
+
+		$svc_img            = esc_url( $this->bm_fetch_image_url_or_guid( $service_id, 'SERVICE', 'url' ) );
+		$svc_name           = ! empty( $service ) && isset( $service->service_name ) && ! empty( $service->service_name ) ? mb_strimwidth( esc_html( $service->service_name ), 0, 20, '...' ) : 'N/A';
+		$category_name      = $this->bm_fetch_category_name_by_service_id( $service_id );
+		$svc_desc           = ! empty( $service ) && isset( $service->service_desc ) && ! empty( $service->service_desc ) ? wp_strip_all_tags( ( wp_kses_post( stripslashes( ( $service->service_desc ) ) ) ) ) : 'N/A';
+		$svc_long_desc      = ! empty( $service ) && isset( $service->service_desc ) && ! empty( $service->service_desc ) ? do_shortcode( wp_kses_post( stripslashes( ( $service->service_desc ) ) ) ) : 'N/A';
+		$svc_short_desc     = ! empty( $service ) && isset( $service->service_short_desc ) && ! empty( $service->service_short_desc ) ? wp_strip_all_tags( ( wp_kses_post( stripslashes( ( $service->service_short_desc ) ) ) ) ) : 'N/A';
+		$svc_duration       = ! empty( $service ) && isset( $service->service_duration ) && ! empty( $service->service_duration ) ? esc_html( $this->bm_fetch_float_to_time_string( $service->service_duration ) ) : 'N/A';
+		$svc_default_price  = ! empty( $service ) && isset( $service->default_price ) && ! empty( $service->default_price ) ? esc_attr( $service->default_price ) : '';
+		$svc_default_price  = $this->bm_fetch_price_in_global_settings_format( $svc_default_price, true );
+		$svc_price          = ( ! empty( $date ) ) ? $this->bm_fetch_service_price_by_service_id_and_date( $service_id, $date, 'global_format' ) : $svc_default_price;
+		$stopsales          = ( ! empty( $date ) ) ? $this->bm_fetch_service_stopsales_by_service_id( $service_id, $date ) : 0;
+
+		// Use batched options
+		$show_svc_img       = $display_options['bm_show_frontend_service_image'] == 0;
+		$show_read_more     = $display_options['bm_show_frontend_service_desc_read_more_button'] == 0;
+		$show_svc_price     = $display_options['bm_show_frontend_service_price'] == 0;
+		$show_duration      = $display_options['bm_show_frontend_service_duration'] == 0;
+		$show_svc_desc      = $display_options['bm_show_frontend_service_description'] == 0;
+		$svc_name_colour    = $display_options['bm_frontend_service_title_color'];
+		$svc_button_colour  = $display_options['bm_frontend_book_button_color'];
+		$price_text_colour  = $display_options['bm_frontend_service_price_text_color'];
+		$svc_title_font     = $display_options['bm_service_title_font'] . 'px';
+		$svc_shrt_desc_font = $display_options['bm_service_shrt_desc_font'] . 'px';
+		$svc_price_txt_font = $display_options['bm_service_price_txt_font'] . 'px';
+		$svc_btn_txt_colour = $display_options['bm_frontend_book_button_txt_color'];
+
+		$inactive_show_more = $svc_desc == 'N/A';
+		$show_more_title    = $svc_desc == 'N/A' ? '' : __( 'Show full description', 'service-booking' );
+		$gallery_title      = __( 'Show Gallery Images', 'service-booking' );
+		$category_title     = __( ' category: ', 'service-booking' );
+		$per_person_text    = __( '/person', 'service-booking' );
+		$stopsales_text     = __( 'Stopsales', 'service-booking' );
+		$stopsales_title    = sprintf( esc_html__( 'Products are not bookable until %s after current time', 'service-booking' ), $this->bm_fetch_float_to_time_string( $stopsales ) );
+		$duration_title     = sprintf( esc_html__( 'Service duration is %s', 'service-booking' ), $svc_duration );
+		$no_description     = __( 'No short description available', 'service-booking' );
+		$service_title      = esc_html( $service->service_name );
+
+		$service_settings = isset( $service->service_settings ) && ! empty( $service->service_settings ) ? maybe_unserialize( $service->service_settings ) : array();
+
+		if ( empty( $show_duration ) ) {
+			$show_svc_duration = isset( $service_settings['show_service_duration'] ) ? $service_settings['show_service_duration'] : 0;
+			$show_duration     = $show_svc_duration == 0;
+		}
+
+		return [
+			'id'                  => $service_id,
+			'service_title'       => $service_title,
+			'svc_name_colour'     => $svc_name_colour,
+			'svc_title_font'      => $svc_title_font,
+			'service_name'        => $svc_name,
+			'svc_img'             => $svc_img,
+			'show_svc_img'        => $show_svc_img,
+			'category_title'      => $category_title . $category_name,
+			'category_name'       => $category_name,
+			'show_duration'       => $show_duration,
+			'duration_title'      => $duration_title,
+			'duration'            => $svc_duration,
+			'gallery_images'      => $gallery_images,
+			'gallery_title'       => $gallery_title,
+			'svc_long_desc'       => $svc_long_desc,
+			'show_read_more'      => $show_read_more,
+			'inactive_show_more'  => $inactive_show_more,
+			'show_more_title'     => $show_more_title,
+			'svc_short_desc'      => $svc_short_desc != 'N/A' ? $svc_short_desc : $no_description,
+			'svc_shrt_desc_font'  => $svc_shrt_desc_font,
+			'show_svc_desc'       => $show_svc_desc,
+			'svc_default_price'   => $svc_default_price,
+			'svc_price'           => $svc_price,
+			'show_svc_price'      => $show_svc_price,
+			'svc_price_txt_font'  => $svc_price_txt_font,
+			'price_text_colour'   => $price_text_colour,
+			'per_person_text'     => $per_person_text,
+			'stopsales'           => $stopsales,
+			'stopsales_text'      => $stopsales_text,
+			'stopsales_title'     => $stopsales_title,
+			'show_stopsales_data' => ( $service->show_stopsales_data == 1 ),
+			'svc_total_cap_left'  => $svc_total_cap_left,
+			'book_button_colour'  => $svc_button_colour,
+			'svc_btn_txt_colour'  => $svc_btn_txt_colour,
+		];
+	}
+
+	/**
+	 * Build service time-slot data for the React V2 API response.
+	 *
+	 * Relocated from Booking_API::service_time_slots() to separate
+	 * data-assembly logic from the REST endpoint layer.
+	 *
+	 * @since 1.0.0
+	 * @param int    $service_id Service ID.
+	 * @param string $date       Date string (Y-m-d).
+	 * @return array             Formatted time-slot data.
+	 */
+	public function bm_build_service_time_slots_for_api( $service_id, $date ) {
+		$dbhandler      = new BM_DBhandler();
+		$slot_min_cap   = 0;
+		$slot_max_cap   = 0;
+		$cap_left       = 0;
+		$data           = array();
+		$message        = '';
+
+		if ( $service_id > 0 && ! empty( $date ) ) {
+			$service_settings = $dbhandler->get_value( 'SERVICE', 'service_settings', $service_id, 'id' );
+			$service_settings = ! empty( $service_settings ) ? maybe_unserialize( $service_settings ) : array();
+
+			$total_time_slots = $this->bm_fetch_total_time_slots_by_service_id( $service_id );
+			$is_bookable      = $this->bm_service_is_bookable( $service_id, $date );
+			$is_variable_slot = $this->bm_check_if_variable_slot_by_service_id_and_date( $service_id, $date );
+
+			if ( $is_variable_slot == 1 ) {
+				$first_from_slot = $this->bm_fetch_variable_first_from_slot( $service_id, $date );
+				$slot_min_cap    = $this->bm_fetch_variable_slot_min_cap_by_service_id_and_slot_id( $service_id, 1, $first_from_slot, $date );
+			} elseif ( $is_variable_slot == 0 ) {
+				$slot_min_cap = $this->bm_fetch_non_variable_slot_min_cap_by_service_id_and_slot_id( $service_id, 1 );
+			}
+
+			$single_time_slot = array();
+			if ( $total_time_slots == 1 ) {
+				$time_slot = $this->bm_fetch_single_time_slot_by_service_id( $service_id, $date );
+
+				if ( $time_slot !== '-1' && $time_slot !== '0' && $is_bookable ) {
+					$match     = preg_match_all( '/\<span class\="single_slot_timings"\>(.*?)\<\/span\>/', $time_slot, $slot_details );
+					$time_slot = $match > 0 ? $slot_details[1][0] : $time_slot;
+
+					if ( strpos( $time_slot, ' - ' ) !== false ) {
+						$booking_slots = explode( ' - ', $time_slot );
+						$from          = $this->bm_twenty_fourhrs_format( $booking_slots[0] );
+					} else {
+						$from = $this->bm_twenty_fourhrs_format( $time_slot );
+					}
+
+					if ( ! empty( $from ) ) {
+						$is_variable_slot = $this->bm_check_if_variable_slot_by_service_id_and_date( $service_id, $date );
+						$slot_info        = $this->bm_fetch_slot_details( $service_id, $from, $date, $total_time_slots, 0, $is_variable_slot );
+						$slot_max_cap     = isset( $slot_info['slot_max_cap'] ) ? $slot_info['slot_max_cap'] : 0;
+						$cap_left         = isset( $slot_info['capacity_left'] ) ? $slot_info['capacity_left'] : 0;
+						if ( ! empty( $slot_info ) && isset( $slot_info['capacity_left'] ) && isset( $slot_info['slot_min_cap'] ) ) {
+							if ( $slot_info['capacity_left'] > 0 && $slot_info['slot_min_cap'] > 0 && ( $slot_info['capacity_left'] < $slot_info['slot_min_cap'] ) ) {
+								// Intentionally empty — preserves original behavior.
+							}
+						}
+					}
+				} else {
+					if ( $is_bookable == false ) {
+						$message = 'Service Unavailable on selected Date.';
+					} else {
+						if ( $time_slot == '-1' ) {
+							$message = 'No slots available.';
+						} elseif ( $time_slot == '0' ) {
+							$message = 'All slots booked';
+						}
+					}
+				}
+				$single_time_slot['slot_type']      = $is_bookable && $time_slot != -1 && $time_slot != 0 ? 'active' : 'readonly';
+				$single_time_slot['time_slot']       = isset( $time_slot ) && $is_bookable ? $time_slot : '';
+				$single_time_slot['min_capacity']    = $slot_min_cap;
+				$single_time_slot['max_capacity']    = $slot_max_cap;
+				$single_time_slot['capacity_left']   = $cap_left;
+				$single_time_slot['capacity_left_percent'] = ! empty( $slot_max_cap ) && $slot_max_cap > 0 ? round( ( $cap_left / $slot_max_cap ) * 100 ) : 0;
+			} elseif ( $total_time_slots > 1 ) {
+				$slots = $this->bm_fetch_service_time_slot_detail_by_service_id( array( 'id' => $service_id, 'date' => $date ) );
+				if ( ! empty( $slots ) && $is_bookable ) {
+					$time_slots = $slots;
+				} else {
+					if ( $is_bookable == false ) {
+						$message = 'Service Unavailable on selected Date.';
+					} else {
+						$message = 'No slots available.';
+					}
+				}
+			}
+
+			$time_slots = isset( $time_slots ) ? $time_slots : array();
+			$totalCap   = $capLeft = 0;
+			if ( ! empty( $single_time_slot ) ) {
+				$totalCap += $single_time_slot['max_capacity'];
+				$capLeft  += $single_time_slot['capacity_left'];
+			}
+
+			// Initialize grouping arrays before the loop
+			$data['morning']   = [];
+			$data['afternoon'] = [];
+			$data['evening']   = [];
+
+			$slot_count = count( $time_slots );
+			for ( $k = 0; $k < $slot_count; $k++ ) {
+				if ( empty( $time_slots[ $k ] ) ) {
+					continue;
+				}
+				$totalCap += $time_slots[ $k ]['max_capacity'];
+				$capLeft  += $time_slots[ $k ]['capacity_left'];
+				$timeslot  = explode( '-', $time_slots[ $k ]['time_slot'] );
+				$from_time = trim( $timeslot[0] );
+				$to_time   = isset( $timeslot[1] ) ? trim( $timeslot[1] ) : $from_time;
+				$from_time = date( 'H:i', strtotime( $from_time ) );
+				$to_time   = date( 'H:i', strtotime( $to_time ) );
+
+				$ts_from = strtotime( $from_time );
+				$ts_to   = strtotime( $to_time );
+
+				if ( $ts_from !== false && $ts_to !== false ) {
+					$hour_from = (int) date( 'G', $ts_from );
+
+					if ( $hour_from < 12 ) {
+						$data['morning'][] = $time_slots[ $k ];
+					} elseif ( $hour_from < 18 ) {
+						$data['afternoon'][] = $time_slots[ $k ];
+					} else {
+						$data['evening'][] = $time_slots[ $k ];
+					}
+				} else {
+					$data['afternoon'][] = $time_slots[ $k ];
+				}
+			}
+
+			$data['single_time_slot']          = $single_time_slot;
+			$data['time_slots']                = $time_slots;
+			$data['capacity_left_percentage']   = ! empty( $totalCap ) && $totalCap > 0 ? round( ( $capLeft / $totalCap ) * 100 ) : 0;
+			$data['total_capacity_left']        = $capLeft;
+			$data['message']                    = $message;
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Fetch order info for gift bookings.
+	 *
+	 * Relocated from Booking_API::gift_fetch_order_info() to keep
+	 * business logic out of the REST endpoint layer.
+	 *
+	 * @since 1.0.0
+	 * @param array $data Request parameters.
+	 * @return array       Booking fields.
+	 */
+	public function bm_gift_fetch_order_info( $data = array() ) {
+		$dbhandler      = new BM_DBhandler();
+		$booking_fields = array();
+
+		if ( ! empty( $data ) ) {
+			$id                       = isset( $data['id'] ) ? $data['id'] : '';
+			$time                     = isset( $data['time_slot'] ) ? $data['time_slot'] : '';
+			$total_service_booking    = isset( $data['total_service_booking'] ) ? $data['total_service_booking'] : 0;
+			$date                     = isset( $data['date'] ) ? $data['date'] : '';
+			$extra_svc_ids            = isset( $data['extra_svc_ids'] ) ? $data['extra_svc_ids'] : '';
+			$total_extra_slots_booked = isset( $data['no_of_persons'] ) ? $data['no_of_persons'] : '';
+			$match                    = preg_match_all( '/\<span class\="single_slot_timings"\>(.*?)\<\/span\>/', $time, $slot_details );
+			$booking_currency         = $this->bm_get_currency_symbol( $dbhandler->get_global_option_value( 'bm_booking_currency', 'EUR' ) );
+			$total_extra_price        = 0;
+
+			if ( ! empty( $id ) && ! empty( $date ) ) {
+				$service        = $dbhandler->get_row( 'SERVICE', $id );
+				$svc_img        = esc_url( $this->bm_fetch_image_url_or_guid( $id, 'SERVICE', 'url' ) );
+				$svc_name       = ! empty( $service ) && isset( $service->service_name ) && ! empty( $service->service_name ) ? esc_html( $service->service_name ) : 'N/A';
+				$short_svc_name = ! empty( $svc_name ) ? mb_strimwidth( $svc_name, 0, 20, '...' ) : 'N/A';
+				$base_svc_price = $this->bm_fetch_service_price_by_service_id_and_date( $id, $date );
+				$booking_price  = $this->bm_fetch_total_price( str_replace( $booking_currency, '', $base_svc_price ), $total_service_booking );
+				$total_cost     = $booking_price;
+
+				$svc_price_module_id = $this->bm_fetch_external_service_price_module_by_service_id_and_date( $id, $date );
+
+				$booking_fields['service_id']               = $id;
+				$booking_fields['booking_slots']            = $match > 0 ? $slot_details[1][0] : $time;
+				$booking_fields['booking_date']             = '';
+				$booking_fields['service_name']             = $svc_name;
+				$booking_fields['total_service_booking']    = $total_service_booking;
+				$booking_fields['extra_svc_booked']         = $extra_svc_ids;
+				$booking_fields['total_extra_slots_booked'] = $total_extra_slots_booked;
+				$booking_fields['base_svc_price']           = $base_svc_price;
+				$booking_fields['service_cost']             = $booking_price;
+				$booking_fields['svc_price_module_id']      = $svc_price_module_id;
+
+				// Calculate extra service price and total cost
+				if ( isset( $extra_svc_ids ) && ! empty( $extra_svc_ids ) && isset( $total_extra_slots_booked ) && ! empty( $total_extra_slots_booked ) ) {
+					$total_slots_booked = explode( ',', $total_extra_slots_booked );
+					$extra_total        = array();
+					$additional         = "id in($extra_svc_ids)";
+
+					$extra_price = $dbhandler->get_all_result( 'EXTRA', 'extra_price', 1, 'results', 0, false, null, false, $additional );
+					$extra_price = array_column( $extra_price, 'extra_price' );
+					$i           = 1;
+
+					if ( ! empty( $extra_price ) && ! empty( $total_slots_booked ) ) {
+						foreach ( $extra_price as $key => $price ) {
+							if ( ! empty( $price ) ) {
+								$extra_total[ $key ] = $this->bm_fetch_total_price( $price, $total_slots_booked[ $key ] );
+							}
+							$i++;
+						}
+					}
+
+					if ( ! empty( $extra_total ) ) {
+						$total_extra_price = array_sum( $extra_total );
+						$total_cost        = ( $total_cost + $total_extra_price );
+					}
+				}
+
+				$booking_fields['extra_svc_cost'] = $total_extra_price;
+				$booking_fields['total_cost']     = $total_cost;
+				$booking_fields['subtotal']       = $total_cost;
+			}
+		}
+
+		return $booking_fields;
+	}
+
+	/**
+	 * Check payment type for gift bookings and return prepared data.
+	 *
+	 * Relocated from Booking_API::gift_check_payment_type_and_return_data()
+	 * to keep payment business logic out of the REST endpoint layer.
+	 *
+	 * @since 1.0.0
+	 * @param string $booking_key   Booking transient key.
+	 * @param string $checkout_key  Checkout transient key.
+	 * @param string $checkout_type Checkout type (default: flexi_checkout).
+	 * @return array                Payment status data.
+	 */
+	public function bm_gift_check_payment_type_and_return_data( $booking_key, $checkout_key, $checkout_type = 'flexi_checkout' ) {
+		$dbhandler = new BM_DBhandler();
+
+		if ( $dbhandler->get_global_option_value( 'discount_' . $booking_key ) == 1 ) {
+			$booking_details = $dbhandler->bm_fetch_data_from_transient( 'discounted_' . $booking_key );
+		} else {
+			$booking_details = $dbhandler->bm_fetch_data_from_transient( $booking_key );
+		}
+
+		$checkout_details = $dbhandler->bm_fetch_data_from_transient( $checkout_key );
+		$data             = array();
+		$resp             = '';
+
+		if ( ! empty( $booking_details ) && ! empty( $checkout_details ) ) {
+			$service_id     = isset( $booking_details['service_id'] ) ? $booking_details['service_id'] : 0;
+			$bookable_extra = $this->bm_is_selected_extra_service_bookable( $booking_key );
+
+			if ( ! empty( $service_id ) ) {
+				$payment_session_timer   = $dbhandler->get_global_option_value( 'bm_payment_session_time', '2' );
+				$payment_session_timer   = ( $payment_session_timer * 60 ) + 2;
+				$is_book_on_request_only = $this->bm_check_if_book_on_request_only( $service_id );
+
+				$timezone = $dbhandler->get_global_option_value( 'bm_booking_time_zone', 'Asia/Kolkata' );
+				$now      = new DateTime( 'now', new DateTimeZone( $timezone ) );
+
+				if ( ( $bookable_extra == false ) ) {
+					$resp = __( 'One or more extra services does not have enough capacity, choose another !!', 'service-booking' );
+
+					$data['status'] = 'error';
+					$data['data']   = wp_kses_post( $resp );
+				} else {
+					$booked_product = $this->bm_fetch_booked_service_info_for_stripe_payment_intent( $booking_key );
+
+					$amount      = ! empty( $booked_product ) && isset( $booked_product['amount'] ) ? floatval( $booked_product['amount'] ) * 100 : 0;
+					$currency    = ! empty( $booked_product ) && isset( $booked_product['currency'] ) ? $booked_product['currency'] : '';
+					$description = ! empty( $booked_product ) && isset( $booked_product['description'] ) ? $booked_product['description'] : '';
+
+					if ( ( $amount > 0 ) && ! empty( $currency ) && ! empty( $description ) ) {
+						if ( ( $is_book_on_request_only == 1 ) ) {
+							$checkout_details['request_type'] = 'on_request';
+						} else {
+							$checkout_details['request_type'] = 'direct';
+						}
+
+						if ( $checkout_type == 'woocommerce_checkout' ) {
+							$checkout_details['request_type'] = 'direct';
+						}
+
+						if ( isset( $checkout_details['billing'] ) && isset( $checkout_details['checkout'] ) && isset( $checkout_details['request_type'] ) ) {
+							$dbhandler->bm_save_data_to_transient( $checkout_key, $checkout_details, 24 );
+
+							if ( $checkout_type == 'woocommerce_checkout' ) {
+								$data['status'] = 'success';
+							} else {
+								$string = $this->bm_create_random_string( 20 );
+								$this->bm_start_session_with_expiry( "flexi_current_payment_session_$booking_key", $payment_session_timer );
+
+								$data['status']   = 'success';
+								$data['data']     = wp_kses_post( $string );
+								$data['checkout'] = wp_kses_post( $checkout_key );
+							}
+						} else {
+							$resp = __( 'Error Initiating Payment Data !!', 'service-booking' );
+
+							$data['status'] = 'error';
+							$data['data']   = wp_kses_post( $resp );
+						}
+					} else {
+						$resp = __( 'Error Fetching Booking Data !!', 'service-booking' );
+
+						$data['status'] = 'error';
+						$data['data']   = wp_kses_post( $resp );
+					}
+				}
+			} else {
+				$resp = __( 'Invalid Service or Booking Date, Try Again !!', 'service-booking' );
+
+				$data['status'] = 'error';
+				$data['data']   = wp_kses_post( $resp );
+			}
+		} else {
+			$resp = __( 'Something Went Wrong, Try Again !!', 'service-booking' );
+
+			$data['status'] = 'error';
+			$data['data']   = wp_kses_post( $resp );
+		}
+
+		return $data;
+	}
+
+
 }//end class
