@@ -1133,6 +1133,153 @@ class Booking_Planner_REST {
 	}
 
 	// -------------------------------------------------------------------------
+	// Planner slot helpers
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Build slot data for a service on a specific date for admin planner display.
+	 *
+	 * Returns ALL defined (non-disabled) time slots for the date regardless of
+	 * remaining capacity or whether the slot time has already passed.
+	 * This gives the admin a complete picture of every configured slot.
+	 *
+	 * @param int    $svc_id       Service ID.
+	 * @param string $date         Date in Y-m-d format.
+	 * @param int    $svc_duration Service duration in minutes (used to derive 'to' when missing).
+	 * @return array Array of slot objects with keys: slot_id, from, to, time_display,
+	 *               max_capacity, available_capacity, booking_count (always 0 here;
+	 *               caller must inject booking_count from its own lookup).
+	 */
+	private function build_planner_slots_for_service_date( $svc_id, $date, $svc_duration ) {
+		$dbhandler = new BM_DBhandler();
+		$time_row  = $dbhandler->get_row( 'TIME', $svc_id );
+
+		if ( empty( $time_row ) ) {
+			return array();
+		}
+
+		// Check for variable time slots on this specific date.
+		$service             = $dbhandler->get_row( 'SERVICE', $svc_id );
+		$variable_time_slots = array();
+		if ( ! empty( $service ) && ! empty( $service->variable_time_slots ) ) {
+			$variable_time_slots = maybe_unserialize( $service->variable_time_slots );
+		}
+
+		$v_dates      = ( is_array( $variable_time_slots ) && ! empty( $variable_time_slots ) )
+			? wp_list_pluck( $variable_time_slots, 'date' )
+			: array();
+		$use_variable = ( ! empty( $v_dates ) && in_array( $date, $v_dates, true ) );
+
+		if ( $use_variable ) {
+			$v_index     = array_search( $date, $v_dates );
+			$slot_data   = $variable_time_slots[ $v_index ];
+			$total_slots = isset( $slot_data['total_slots'] ) ? (int) $slot_data['total_slots'] : 0;
+		} else {
+			$time_slots  = isset( $time_row->time_slots ) ? maybe_unserialize( $time_row->time_slots ) : array();
+			$total_slots = isset( $time_row->total_slots ) ? (int) $time_row->total_slots : 0;
+		}
+
+		$result = array();
+
+		for ( $i = 1; $i <= $total_slots; $i++ ) {
+			if ( $use_variable ) {
+				if ( isset( $slot_data['disable'][ $i ] ) && 1 === (int) $slot_data['disable'][ $i ] ) {
+					continue;
+				}
+				$from            = isset( $slot_data['from'][ $i ] )    ? $slot_data['from'][ $i ]    : '';
+				$to              = isset( $slot_data['to'][ $i ] )      ? $slot_data['to'][ $i ]      : '';
+				$max_cap         = isset( $slot_data['max_cap'][ $i ] ) ? (int) $slot_data['max_cap'][ $i ] : 0;
+				$is_variable_int = 1;
+			} else {
+				if ( ! is_array( $time_slots ) || ( isset( $time_slots['disable'][ $i ] ) && 1 === (int) $time_slots['disable'][ $i ] ) ) {
+					continue;
+				}
+				$from            = isset( $time_slots['from'][ $i ] )    ? $time_slots['from'][ $i ]    : '';
+				$to              = isset( $time_slots['to'][ $i ] )      ? $time_slots['to'][ $i ]      : '';
+				$max_cap         = isset( $time_slots['max_cap'][ $i ] ) ? (int) $time_slots['max_cap'][ $i ] : 0;
+				$is_variable_int = 0;
+			}
+
+			if ( empty( $from ) ) {
+				continue;
+			}
+
+			// Derive end time from service duration when not explicitly set.
+			if ( empty( $to ) && $svc_duration > 0 ) {
+				$from_dt = DateTime::createFromFormat( 'H:i', $from );
+				if ( $from_dt ) {
+					$from_dt->modify( '+' . (int) $svc_duration . ' minutes' );
+					$to = $from_dt->format( 'H:i' );
+				}
+			}
+
+			// Get live capacity from SLOTCOUNT table.
+			$cap = $this->get_slot_capacity_from_db( $svc_id, $i, $date, $is_variable_int, $max_cap );
+
+			$time_display = $from . ( ! empty( $to ) ? ' - ' . $to : '' );
+
+			$result[] = array(
+				'slot_id'            => $from,
+				'from'               => $from,
+				'to'                 => $to,
+				'time_display'       => $time_display,
+				'max_capacity'       => $cap['max_capacity'],
+				'available_capacity' => $cap['available_capacity'],
+				'booking_count'      => 0, // Caller injects the real count.
+			);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Query SLOTCOUNT for live max/available capacity for a single slot.
+	 *
+	 * When no SLOTCOUNT row exists (no booking has been made for this slot on this
+	 * date yet), the slot is considered fully available and max capacity equals the
+	 * value configured in the TIME / variable_time_slots data.
+	 *
+	 * @param int    $service_id  Service ID.
+	 * @param int    $slot_index  Slot index (1-based integer).
+	 * @param string $date        Date in Y-m-d format.
+	 * @param int    $is_variable 1 for variable slots, 0 for non-variable.
+	 * @param int    $default_max Default max capacity from TIME / variable_time_slots.
+	 * @return array { max_capacity: int, available_capacity: int }
+	 */
+	private function get_slot_capacity_from_db( $service_id, $slot_index, $date, $is_variable, $default_max ) {
+		global $wpdb;
+		$bm_activator = new Booking_Management_Activator();
+		$slot_table   = $bm_activator->get_db_table_name( 'SLOTCOUNT' );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT slot_cap_left, slot_max_cap FROM {$slot_table}
+				 WHERE service_id = %d AND booking_date = %s AND slot_id = %d AND is_variable = %d AND is_active = 1
+				 ORDER BY id DESC LIMIT 1",
+				$service_id,
+				$date,
+				$slot_index,
+				(int) $is_variable
+			)
+		);
+
+		if ( $row ) {
+			return array(
+				'max_capacity'       => (int) $row->slot_max_cap,
+				'available_capacity' => (int) $row->slot_cap_left,
+			);
+		}
+
+		// No SLOTCOUNT row → slot is fully available (no bookings made yet).
+		return array(
+			'max_capacity'       => $default_max,
+			'available_capacity' => $default_max,
+		);
+	}
+
+	// -------------------------------------------------------------------------
 	// GET /planner-week
 	// -------------------------------------------------------------------------
 
@@ -1160,8 +1307,7 @@ class Booking_Planner_REST {
 			);
 		}
 
-		$dbhandler  = new BM_DBhandler();
-		$bmrequests = new BM_Request();
+		$dbhandler = new BM_DBhandler();
 
 		// Build service filter.
 		$svc_where = array( 'service_status' => 1 );
@@ -1272,48 +1418,20 @@ class Booking_Planner_REST {
 		}
 
 		foreach ( $services as $svc ) {
-			$svc_id              = $svc['id'];
+			$svc_id               = $svc['id'];
 			$slots_map[ $svc_id ] = array();
+			$svc_duration         = isset( $svc['service_duration'] ) ? (int) $svc['service_duration'] : 60;
 
 			foreach ( $dates as $date ) {
-				$slot_data = $bmrequests->bm_fetch_service_time_slot_cap_left_min_cap_array_by_service_id_date(
-					$svc_id,
-					$date
-				);
+				$day_slots = $this->build_planner_slots_for_service_date( $svc_id, $date, $svc_duration );
 
-				if ( empty( $slot_data ) ) {
-					$slots_map[ $svc_id ][ $date ] = array();
-					continue;
+				// Inject booking counts from the pre-fetched lookup.
+				foreach ( $day_slots as &$slot ) {
+					$bkg_key              = $svc_id . '_' . $date . '_' . $slot['from'];
+					$slot['booking_count'] = isset( $bkg_count[ $bkg_key ] ) ? $bkg_count[ $bkg_key ] : 0;
 				}
+				unset( $slot );
 
-				$day_slots = array();
-				foreach ( $slot_data as $slot ) {
-					$from        = isset( $slot['from'] ) ? $slot['from'] : ( isset( $slot['slot_id'] ) ? $slot['slot_id'] : '' );
-					$to          = isset( $slot['to'] )   ? $slot['to']   : '';
-					if ( empty( $to ) && ! empty( $from ) ) {
-						// Derive end time from service duration.
-						$duration = isset( $svc['service_duration'] ) ? (int) $svc['service_duration'] : 60;
-						$from_obj = DateTime::createFromFormat( 'H:i', $from );
-						if ( $from_obj ) {
-							$from_obj->modify( '+' . $duration . ' minutes' );
-							$to = $from_obj->format( 'H:i' );
-						}
-					}
-					$max_cap     = isset( $slot['max_cap'] )  ? (int) $slot['max_cap']  : 0;
-					$cap_left    = isset( $slot['cap_left'] ) ? (int) $slot['cap_left'] : 0;
-					$bkg_key     = $svc_id . '_' . $date . '_' . $from;
-					$bkg_cnt     = isset( $bkg_count[ $bkg_key ] ) ? $bkg_count[ $bkg_key ] : 0;
-
-					$day_slots[] = array(
-						'slot_id'            => $from,
-						'from'               => $from,
-						'to'                 => $to,
-						'time_display'       => $from . ( $to ? ' - ' . $to : '' ),
-						'max_capacity'       => $max_cap,
-						'available_capacity' => $cap_left,
-						'booking_count'      => $bkg_cnt,
-					);
-				}
 				$slots_map[ $svc_id ][ $date ] = $day_slots;
 			}
 		}
@@ -1362,8 +1480,7 @@ class Booking_Planner_REST {
 			);
 		}
 
-		$dbhandler  = new BM_DBhandler();
-		$bmrequests = new BM_Request();
+		$dbhandler = new BM_DBhandler();
 
 		// Get service info.
 		$service = $dbhandler->get_row( 'SERVICE', $service_id );
@@ -1447,18 +1564,16 @@ class Booking_Planner_REST {
 			}
 		}
 
-		// Get slot capacity info.
-		$slot_data     = $bmrequests->bm_fetch_service_time_slot_cap_left_min_cap_array_by_service_id_date( $service_id, $date );
-		$max_capacity  = 0;
+		// Get slot capacity info using the same reliable helper used by get_planner_week().
+		$max_capacity   = 0;
 		$avail_capacity = 0;
-		if ( ! empty( $slot_data ) ) {
-			foreach ( $slot_data as $slot ) {
-				$from = isset( $slot['from'] ) ? $slot['from'] : ( isset( $slot['slot_id'] ) ? $slot['slot_id'] : '' );
-				if ( $from === $time_slot ) {
-					$max_capacity   = isset( $slot['max_cap'] )  ? (int) $slot['max_cap']  : 0;
-					$avail_capacity = isset( $slot['cap_left'] ) ? (int) $slot['cap_left'] : 0;
-					break;
-				}
+		$svc_duration   = isset( $service->service_duration ) ? (int) $service->service_duration : 60;
+		$day_slots      = $this->build_planner_slots_for_service_date( $service_id, $date, $svc_duration );
+		foreach ( $day_slots as $sl ) {
+			if ( $sl['from'] === $time_slot ) {
+				$max_capacity   = $sl['max_capacity'];
+				$avail_capacity = $sl['available_capacity'];
+				break;
 			}
 		}
 

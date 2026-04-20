@@ -281,6 +281,11 @@ margin-top: 12px;
 padding-top: 12px;
 border-top: 1px solid #f0f0f1;
 }
+.bm-planner-display-panel__section--border-top {
+border-top: 1px solid #E5E7EB;
+margin-top: 16px;
+padding-top: 16px;
+}
 .bm-planner-display-panel__section-title {
 font-size: 11px;
 text-transform: uppercase;
@@ -288,6 +293,9 @@ letter-spacing: .5px;
 color: #6B7280;
 font-weight: 600;
 margin: 0 0 8px;
+}
+.bm-planner-display-panel__section-title--sub {
+color: #9CA3AF;
 }
 .bm-planner-display-panel__check {
 display: flex;
