@@ -9948,29 +9948,51 @@ class BM_Request {
 	 * @author Darpan
 	 */
 	public function bm_prepare_extra_services_data( $booking_key, $currency ) {
-		$dbhandler  = new BM_DBhandler();
-		$order_data = $dbhandler->bm_fetch_data_from_transient( $booking_key );
+		$dbhandler      = new BM_DBhandler();
+		$discounted_key = $dbhandler->get_global_option_value( 'discount_' . $booking_key ) == 1 ? 'discounted_' : '';
+		$order_data     = $dbhandler->bm_fetch_data_from_transient( $discounted_key . $booking_key );
 
 		$order_data = apply_filters( 'bm_prepare_extra_services_checkout_order_data', $order_data, $booking_key );
 
 		$extra_service_ids  = isset( $order_data['extra_svc_booked'] ) ? explode( ',', $order_data['extra_svc_booked'] ) : array();
 		$extra_slots_booked = isset( $order_data['total_extra_slots_booked'] ) ? explode( ',', $order_data['total_extra_slots_booked'] ) : array();
+		$extra_types_arr    = isset( $order_data['extra_types_booked'] ) && ! empty( $order_data['extra_types_booked'] ) ? explode( ',', $order_data['extra_types_booked'] ) : array();
 		$extra_services     = array();
 
         if ( !empty( $extra_service_ids ) && !empty( $extra_slots_booked ) ) {
             foreach ( $extra_service_ids as $key => $extra_id ) {
-                $extra_service = $dbhandler->get_row( 'EXTRA', $extra_id );
-                if ( !empty( $extra_service ) ) {
-                    $extra_services[] = array(
-                        'id'          => isset( $extra_service->id ) ? esc_html( $extra_service->id ) : 0,
-                        'name'        => isset( $extra_service->extra_name ) ? esc_html( $extra_service->extra_name ) : 'N/A',
-                        'image'       => plugins_url( '../public/partials/image/Image-not-found.png', __FILE__ ),
-                        'description' => isset( $extra_service->extra_desc ) ? wp_kses_post( stripslashes( $extra_service->extra_desc ) ) : 'N/A',
-                        'quantity'    => $extra_slots_booked[ $key ],
-                        'currency'    => $currency,
-                        'base_price'  => isset( $extra_service->extra_price ) ? esc_attr( $extra_service->extra_price ) : 0,
-                        'amount'      => $this->bm_fetch_total_price( $extra_service->extra_price, $extra_slots_booked[ $key ] ),
-                    );
+                $extra_type = isset( $extra_types_arr[ $key ] ) ? $extra_types_arr[ $key ] : 'local';
+
+                if ( $extra_type === 'global' ) {
+                    $global_extra = $dbhandler->get_row( 'GLOBALEXTRA', $extra_id, 'id' );
+                    if ( ! empty( $global_extra ) ) {
+                        $extra_services[] = array(
+                            'id'          => isset( $global_extra->id ) ? esc_html( $global_extra->id ) : 0,
+                            'name'        => isset( $global_extra->name ) ? esc_html( $global_extra->name ) : 'N/A',
+                            'image'       => plugins_url( '../public/partials/image/Image-not-found.png', __FILE__ ),
+                            'description' => isset( $global_extra->description ) ? wp_kses_post( stripslashes( $global_extra->description ) ) : 'N/A',
+                            'quantity'    => $extra_slots_booked[ $key ],
+                            'currency'    => $currency,
+                            'base_price'  => isset( $global_extra->price ) ? esc_attr( $global_extra->price ) : 0,
+                            'amount'      => $this->bm_fetch_total_price( isset( $global_extra->price ) ? $global_extra->price : 0, $extra_slots_booked[ $key ] ),
+                            'extra_type'  => 'global',
+                        );
+                    }
+                } else {
+                    $extra_service = $dbhandler->get_row( 'EXTRA', $extra_id );
+                    if ( !empty( $extra_service ) ) {
+                        $extra_services[] = array(
+                            'id'          => isset( $extra_service->id ) ? esc_html( $extra_service->id ) : 0,
+                            'name'        => isset( $extra_service->extra_name ) ? esc_html( $extra_service->extra_name ) : 'N/A',
+                            'image'       => plugins_url( '../public/partials/image/Image-not-found.png', __FILE__ ),
+                            'description' => isset( $extra_service->extra_desc ) ? wp_kses_post( stripslashes( $extra_service->extra_desc ) ) : 'N/A',
+                            'quantity'    => $extra_slots_booked[ $key ],
+                            'currency'    => $currency,
+                            'base_price'  => isset( $extra_service->extra_price ) ? esc_attr( $extra_service->extra_price ) : 0,
+                            'amount'      => $this->bm_fetch_total_price( $extra_service->extra_price, $extra_slots_booked[ $key ] ),
+                            'extra_type'  => 'local',
+                        );
+                    }
                 }
             }
         }
@@ -14536,12 +14558,19 @@ class BM_Request {
 
 		if ( ! empty( $booking_fields ) ) {
 			$extra_services_booked = ! empty( $booking_fields['extra_svc_booked'] ) ? explode( ',', $booking_fields['extra_svc_booked'] ) : array();
+			$extra_types_booked    = isset( $booking_fields['extra_types_booked'] ) && ! empty( $booking_fields['extra_types_booked'] ) ? explode( ',', $booking_fields['extra_types_booked'] ) : array();
 
 			if ( ! empty( $extra_services_booked ) && ( is_array( $extra_services_booked ) ) ) {
 				foreach ( $extra_services_booked as $key => $extra_id ) {
-					$extra_max_cap = $dbhandler->get_value( 'EXTRA', 'svcextra_wc_product', $extra_id, 'id' );
+					$extra_type = isset( $extra_types_booked[ $key ] ) ? $extra_types_booked[ $key ] : 'local';
 
-					if ( $extra_max_cap <= 0 ) {
+					if ( $extra_type === 'global' ) {
+						$wc_product_id = $dbhandler->get_value( 'GLOBALEXTRA', 'wc_product_id', $extra_id, 'id' );
+					} else {
+						$wc_product_id = $dbhandler->get_value( 'EXTRA', 'svcextra_wc_product', $extra_id, 'id' );
+					}
+
+					if ( $wc_product_id <= 0 ) {
 						return false;
 					}
 				}

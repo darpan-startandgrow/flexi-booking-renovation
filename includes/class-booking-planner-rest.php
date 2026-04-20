@@ -1476,7 +1476,7 @@ class Booking_Planner_REST {
 		foreach ( $services as $svc ) {
 			$svc_id               = $svc['id'];
 			$slots_map[ $svc_id ] = array();
-			$svc_duration         = isset( $svc['service_duration'] ) ? (int) $svc['service_duration'] : 60;
+			$svc_duration         = isset( $svc['service_duration'] ) ? (int) ( floatval( $svc['service_duration'] ) * 60 ) : 60;
 
 			foreach ( $dates as $date ) {
 				$day_slots = $this->build_planner_slots_for_service_date( $svc_id, $date, $svc_duration );
@@ -1623,7 +1623,7 @@ class Booking_Planner_REST {
 		// Get slot capacity info using the same reliable helper used by get_planner_week().
 		$max_capacity   = 0;
 		$avail_capacity = 0;
-		$svc_duration   = isset( $service->service_duration ) ? (int) $service->service_duration : 60;
+		$svc_duration   = isset( $service->service_duration ) ? (int) ( floatval( $service->service_duration ) * 60 ) : 60;
 		$day_slots      = $this->build_planner_slots_for_service_date( $service_id, $date, $svc_duration );
 		foreach ( $day_slots as $sl ) {
 			if ( $sl['from'] === $time_slot ) {
