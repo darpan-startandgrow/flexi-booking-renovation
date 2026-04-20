@@ -117,11 +117,13 @@
         return parseInt(p[0], 10) * 60 + parseInt(p[1] || '0', 10);
     }
 
-    function formatDuration(mins) {
-        mins = parseInt(mins, 10) || 0;
-        if (mins < 60) { return mins + ' min'; }
-        var h = Math.floor(mins / 60);
-        var m = mins % 60;
+    function formatDuration(durationHours) {
+        var d = parseFloat(durationHours) || 0;
+        var totalMinutes = Math.round(d * 60);
+        var h = Math.floor(totalMinutes / 60);
+        var m = totalMinutes % 60;
+        if (h === 0 && m === 0) { return '0 min'; }
+        if (h === 0) { return m + ' min'; }
         if (m === 0) { return h + ' h'; }
         return h + 'h ' + m + 'min';
     }
@@ -182,11 +184,15 @@
         view:      VIEWS.HOME,
         weekStart: getMondayOfWeek(today),
         data:      { services: [], slots: {}, categories: [], summary: {} },
-        filter:    { cat: 0, svc: 0 },
+        filter:    { cat: [], svc: [] },
         display:   loadDisplaySettings(),
         loading:   false,
         _autoHide: false,
         _displayOpen: false,
+        _calendarOpen: false,
+        _calendarMonth: today.getMonth(),
+        _calendarYear: today.getFullYear(),
+        _msOpen: null,
         _dayView:  null,
         _tpDayView: null,
         _hoveredRow: null,
@@ -251,8 +257,8 @@
         var start = formatISO(dates[0]);
         var end   = formatISO(dates[dates.length - 1]);
         var opts  = {};
-        if (State.filter.cat) { opts.category_id = State.filter.cat; }
-        if (State.filter.svc) { opts.service_id  = State.filter.svc; }
+        if (State.filter.cat && State.filter.cat.length) { opts.category_id = State.filter.cat.join(','); }
+        if (State.filter.svc && State.filter.svc.length) { opts.service_id  = State.filter.svc.join(','); }
 
         $.when(API.fetchCategories(), API.fetchPlannerWeek(start, end, opts))
             .then(function (catRes, weekRes) {
@@ -465,24 +471,32 @@
         var isSP     = State.view === VIEWS.SERVICE;
         var isTP     = State.view === VIEWS.TIME;
 
-        var catOpts = '<option value="0">All Categories</option>';
+        var catFilter = State.filter.cat || [];
+        var svcFilter = State.filter.svc || [];
+
+        var catOpts = '';
         (State.data.categories || []).forEach(function (c) {
-            var sel = State.filter.cat === parseInt(c.id, 10) ? ' selected' : '';
-            catOpts += '<option value="' + parseInt(c.id, 10) + '"' + sel + '>' + sanitizeHtml(c.cat_name) + '</option>';
+            var cid = parseInt(c.id, 10);
+            var checked = catFilter.indexOf(cid) !== -1 ? ' checked' : '';
+            catOpts += '<label class="bmp-ms-item"><input type="checkbox" data-ms-filter="cat" value="' + cid + '"' + checked + '> ' + sanitizeHtml(c.cat_name) + '</label>';
         });
 
-        var svcOpts = '<option value="0">All Services</option>';
+        var svcOpts = '';
         (State.data.services || []).forEach(function (s) {
-            var sel = State.filter.svc === parseInt(s.id, 10) ? ' selected' : '';
-            svcOpts += '<option value="' + parseInt(s.id, 10) + '"' + sel + '>' + sanitizeHtml(s.service_name) + '</option>';
+            var sid = parseInt(s.id, 10);
+            var checked = svcFilter.indexOf(sid) !== -1 ? ' checked' : '';
+            svcOpts += '<label class="bmp-ms-item"><input type="checkbox" data-ms-filter="svc" value="' + sid + '"' + checked + '> ' + sanitizeHtml(s.service_name) + '</label>';
         });
+
+        var catLabel = catFilter.length === 0 ? 'All Categories' : catFilter.length + ' Categories';
+        var svcLabel = svcFilter.length === 0 ? 'All Services' : svcFilter.length + ' Services';
 
         var autoCls  = State._autoHide ? ' bm-planner-tp__auto-btn--active' : '';
 
         return '<div class="bmp-toolbar">' +
             '<div class="bmp-toolbar-left">' +
                 '<button class="bmp-nav-btn" data-week="-1" title="Previous week">&#9664;</button>' +
-                '<span class="bmp-date-display">' +
+                '<span class="bmp-date-display" data-action="open-calendar" title="Click to pick a date">' +
                     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' +
                     ' ' + sanitizeHtml(rangeStr) +
                 '</span>' +
@@ -492,11 +506,18 @@
                 ( isTP ? '<button class="bmp-today-btn' + autoCls + '" data-action="auto">Auto</button>' : '' ) +
             '</div>' +
             '<div class="bmp-toolbar-right">' +
-                '<select class="bmp-filter-select" data-filter="svc">' + svcOpts + '</select>' +
-                '<select class="bmp-filter-select" data-filter="cat">' + catOpts + '</select>' +
+                '<div class="bmp-multiselect" data-ms="svc">' +
+                    '<button class="bmp-ms-toggle" data-action="ms-toggle" data-ms-target="svc">' + sanitizeHtml(svcLabel) + ' &#9662;</button>' +
+                    '<div class="bmp-ms-dropdown bmp-ms-dropdown--svc' + (State._msOpen === 'svc' ? ' bmp-ms-dropdown--open' : '') + '">' + svcOpts + '</div>' +
+                '</div>' +
+                '<div class="bmp-multiselect" data-ms="cat">' +
+                    '<button class="bmp-ms-toggle" data-action="ms-toggle" data-ms-target="cat">' + sanitizeHtml(catLabel) + ' &#9662;</button>' +
+                    '<div class="bmp-ms-dropdown bmp-ms-dropdown--cat' + (State._msOpen === 'cat' ? ' bmp-ms-dropdown--open' : '') + '">' + catOpts + '</div>' +
+                '</div>' +
                 '<button class="bm-planner-display-btn" data-action="display">\u2699 Display</button>' +
             '</div>' +
         '</div>' +
+        renderCalendarPicker() +
         renderDisplayPanel();
     }
 
@@ -537,6 +558,41 @@
                 '<p class="bm-planner-display-panel__section-title">Days to show: <strong>' + State.display.days + '</strong></p>' +
                 '<input type="range" class="bm-planner-display-panel__range" data-disp-range="days" min="2" max="7" value="' + State.display.days + '">' +
             '</div>' +
+        '</div>';
+    }
+
+    /* ===================================================================== */
+    /*  RENDER: CALENDAR PICKER                                               */
+    /* ===================================================================== */
+
+    function renderCalendarPicker() {
+        if (!State._calendarOpen) { return ''; }
+
+        var year  = State._calendarYear;
+        var month = State._calendarMonth;
+        var moNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        var firstDay = new Date(year, month, 1).getDay();
+        var daysInMonth = new Date(year, month + 1, 0).getDate();
+        var startPad = (firstDay === 0) ? 6 : firstDay - 1; /* Mon-based */
+
+        var cells = '';
+        var dayHeaders = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+        dayHeaders.forEach(function (dh) { cells += '<span class="bmp-cal-hdr">' + dh + '</span>'; });
+        for (var p = 0; p < startPad; p++) { cells += '<span class="bmp-cal-empty"></span>'; }
+        for (var d = 1; d <= daysInMonth; d++) {
+            var dateObj = new Date(year, month, d);
+            var iso = formatISO(dateObj);
+            var todCls = iso === todayISO ? ' bmp-cal-day--today' : '';
+            cells += '<button class="bmp-cal-day' + todCls + '" data-action="pick-date" data-date="' + iso + '">' + d + '</button>';
+        }
+
+        return '<div class="bmp-calendar-picker">' +
+            '<div class="bmp-cal-nav">' +
+                '<button class="bmp-cal-nav-btn" data-action="cal-prev">&laquo;</button>' +
+                '<span class="bmp-cal-title">' + moNames[month] + ' ' + year + '</span>' +
+                '<button class="bmp-cal-nav-btn" data-action="cal-next">&raquo;</button>' +
+            '</div>' +
+            '<div class="bmp-cal-grid">' + cells + '</div>' +
         '</div>';
     }
 
@@ -678,18 +734,20 @@
         var isToday = dateISO === todayISO;
 
         /* Category filter for day view */
-        var catFilterVal = State.filter.cat || 0;
-        var catOpts = '<option value="0">All Categories</option>';
+        var catFilterArr = State.filter.cat || [];
+        var catOpts = '';
         (State.data.categories || []).forEach(function (c) {
-            var sel = catFilterVal === parseInt(c.id, 10) ? ' selected' : '';
-            catOpts += '<option value="' + parseInt(c.id, 10) + '"' + sel + '>' + sanitizeHtml(c.cat_name) + '</option>';
+            var cid = parseInt(c.id, 10);
+            var checked = catFilterArr.indexOf(cid) !== -1 ? ' checked' : '';
+            catOpts += '<label class="bmp-ms-item"><input type="checkbox" data-ms-filter="cat" value="' + cid + '"' + checked + '> ' + sanitizeHtml(c.cat_name) + '</label>';
         });
+        var catLabel = catFilterArr.length === 0 ? 'All Categories' : catFilterArr.length + ' Categories';
 
         /* Compute aggregate stats */
         var totalSlots = 0;
         var totalBookings = 0;
         svcs.forEach(function (svc) {
-            if (catFilterVal && parseInt(svc.service_category, 10) !== catFilterVal) { return; }
+            if (catFilterArr.length && catFilterArr.indexOf(parseInt(svc.service_category, 10)) === -1) { return; }
             var daySl = (slots[svc.id] || {})[dateISO] || [];
             totalSlots += daySl.length;
             daySl.forEach(function (slot) {
@@ -699,7 +757,7 @@
 
         var sections = '';
         svcs.forEach(function (svc) {
-            if (catFilterVal && parseInt(svc.service_category, 10) !== catFilterVal) { return; }
+            if (catFilterArr.length && catFilterArr.indexOf(parseInt(svc.service_category, 10)) === -1) { return; }
             var daySl  = (slots[svc.id] || {})[dateISO] || [];
             if (!daySl.length) { return; }
             var catCol = getCatColor(svc.service_category);
@@ -755,7 +813,7 @@
                     '</div>' +
                 '</div>' +
                 '<div class="bm-planner-sp__day-view-right">' +
-                    '<select class="bmp-filter-select" data-filter="cat">' + catOpts + '</select>' +
+                    '<div class="bmp-multiselect" data-ms="cat"><button class="bmp-ms-toggle" data-action="ms-toggle" data-ms-target="cat">' + sanitizeHtml(catLabel) + ' &#9662;</button><div class="bmp-ms-dropdown bmp-ms-dropdown--cat' + (State._msOpen === 'cat' ? ' bmp-ms-dropdown--open' : '') + '">' + catOpts + '</div></div>' +
                     '<div class="bm-planner-sp__day-view-stats">' +
                         '<span class="bm-planner-sp__day-stat">\u23f1 ' + totalSlots + ' slot' + (totalSlots !== 1 ? 's' : '') + '</span>' +
                         '<span class="bm-planner-sp__day-stat">\uD83D\uDC65 ' + totalBookings + ' booking' + (totalBookings !== 1 ? 's' : '') + '</span>' +
@@ -973,19 +1031,21 @@
         for (var h = GRID_START_H; h <= GRID_END_H; h++) { hours.push(h); }
         var totalHours = GRID_END_H - GRID_START_H;
         var gridH = totalHours * HOUR_HEIGHT_DAY;
-        var catFilterVal = State.filter.cat || 0;
+        var catFilterArr = State.filter.cat || [];
 
         /* Category filter */
-        var catOpts = '<option value="0">All Categories</option>';
+        var catOpts = '';
         (State.data.categories || []).forEach(function (c) {
-            var sel = catFilterVal === parseInt(c.id, 10) ? ' selected' : '';
-            catOpts += '<option value="' + parseInt(c.id, 10) + '"' + sel + '>' + sanitizeHtml(c.cat_name) + '</option>';
+            var cid = parseInt(c.id, 10);
+            var checked = catFilterArr.indexOf(cid) !== -1 ? ' checked' : '';
+            catOpts += '<label class="bmp-ms-item"><input type="checkbox" data-ms-filter="cat" value="' + cid + '"' + checked + '> ' + sanitizeHtml(c.cat_name) + '</label>';
         });
+        var catLabel = catFilterArr.length === 0 ? 'All Categories' : catFilterArr.length + ' Categories';
 
         /* Stats */
         var totalSlots = 0, totalBookings = 0;
         services.forEach(function (svc) {
-            if (catFilterVal && parseInt(svc.service_category, 10) !== catFilterVal) { return; }
+            if (catFilterArr.length && catFilterArr.indexOf(parseInt(svc.service_category, 10)) === -1) { return; }
             var daySl = (slotsMap[svc.id] || {})[dateISO] || [];
             totalSlots += daySl.length;
             daySl.forEach(function (s) { totalBookings += s.booking_count || 0; });
@@ -1005,7 +1065,7 @@
 
         var allCards = [];
         services.forEach(function (svc) {
-            if (catFilterVal && parseInt(svc.service_category, 10) !== catFilterVal) { return; }
+            if (catFilterArr.length && catFilterArr.indexOf(parseInt(svc.service_category, 10)) === -1) { return; }
             var daySl = (slotsMap[svc.id] || {})[dateISO] || [];
             var catCol = getCatColor(svc.service_category);
             daySl.forEach(function (slot) {
@@ -1105,7 +1165,7 @@
                     '</div>' +
                 '</div>' +
                 '<div class="bm-planner-sp__day-view-right">' +
-                    '<select class="bmp-filter-select" data-filter="cat">' + catOpts + '</select>' +
+                    '<div class="bmp-multiselect" data-ms="cat"><button class="bmp-ms-toggle" data-action="ms-toggle" data-ms-target="cat">' + sanitizeHtml(catLabel) + ' &#9662;</button><div class="bmp-ms-dropdown bmp-ms-dropdown--cat' + (State._msOpen === 'cat' ? ' bmp-ms-dropdown--open' : '') + '">' + catOpts + '</div></div>' +
                     '<div class="bm-planner-sp__day-view-stats">' +
                         '<span class="bm-planner-sp__day-stat">\u23f1 ' + totalSlots + ' slot' + (totalSlots !== 1 ? 's' : '') + '</span>' +
                         '<span class="bm-planner-sp__day-stat">\uD83D\uDC65 ' + totalBookings + ' booking' + (totalBookings !== 1 ? 's' : '') + '</span>' +
@@ -1492,6 +1552,29 @@
             openSlotDetailModal($link.data('svc-id'), $link.data('date'), $link.data('from'));
         } else if (action === 'fullscreen') {
             toggleFullscreen();
+        } else if (action === 'open-calendar') {
+            e.stopPropagation();
+            setState({ _calendarOpen: !State._calendarOpen, _msOpen: null });
+        } else if (action === 'pick-date') {
+            var pickedDate = new Date($(this).data('date') + 'T00:00:00');
+            setState({ weekStart: getMondayOfWeek(pickedDate), _calendarOpen: false, _dayView: null, _tpDayView: null });
+            loadWeekData();
+        } else if (action === 'cal-prev') {
+            e.stopPropagation();
+            var newMonth = State._calendarMonth - 1;
+            var newYear  = State._calendarYear;
+            if (newMonth < 0) { newMonth = 11; newYear--; }
+            setState({ _calendarMonth: newMonth, _calendarYear: newYear });
+        } else if (action === 'cal-next') {
+            e.stopPropagation();
+            var nMonth = State._calendarMonth + 1;
+            var nYear  = State._calendarYear;
+            if (nMonth > 11) { nMonth = 0; nYear++; }
+            setState({ _calendarMonth: nMonth, _calendarYear: nYear });
+        } else if (action === 'ms-toggle') {
+            e.stopPropagation();
+            var target = $(this).data('ms-target');
+            setState({ _msOpen: State._msOpen === target ? null : target, _calendarOpen: false });
         }
     });
 
@@ -1525,12 +1608,21 @@
     });
     $('body').on('mouseenter', '.bm-planner-tooltip', function () { Tooltip.cancelHide(); });
     $('body').on('mouseleave', '.bm-planner-tooltip', function () { Tooltip.scheduleHide(200); });
+    $('body').on('click', '.bm-planner-tooltip__link[data-action="view-details"]', function (e) {
+        e.preventDefault();
+        var $el = $(this);
+        Tooltip.hide();
+        openSlotDetailModal($el.data('svc-id'), $el.data('date'), $el.data('from'));
+    });
 
-    $root.on('change', '[data-filter]', function () {
-        var key = $(this).data('filter');
-        var val = parseInt($(this).val(), 10) || 0;
-        var f   = $.extend({}, State.filter);
-        f[key]  = val;
+    $root.on('change', '[data-ms-filter]', function () {
+        var key = $(this).data('ms-filter');
+        var selected = [];
+        $root.find('[data-ms-filter="' + key + '"]:checked').each(function () {
+            selected.push(parseInt($(this).val(), 10));
+        });
+        var f = $.extend({}, State.filter);
+        f[key] = selected;
         setState({ filter: f });
         loadWeekData();
     });
@@ -1555,6 +1647,30 @@
     $(document).on('click.bm-planner-display', function (e) {
         if (State._displayOpen && !$(e.target).closest('.bm-planner-display-panel, [data-action="display"]').length) {
             setState({ _displayOpen: false });
+        }
+        if (State._calendarOpen && !$(e.target).closest('.bmp-calendar-picker, [data-action="open-calendar"]').length) {
+            setState({ _calendarOpen: false });
+        }
+        if (State._msOpen && !$(e.target).closest('.bmp-multiselect').length) {
+            setState({ _msOpen: null });
+        }
+    });
+
+    /* Modal action handling – modals are appended to body, outside $root */
+    $(document).on('click.bm-planner-modal', '.bmp-modal-overlay [data-action]', function (e) {
+        var action = $(this).data('action');
+        if (action === 'close-modal') {
+            closeModal();
+        } else if (action === 'allslots-detail') {
+            e.preventDefault();
+            var $link = $(this);
+            closeModal();
+            openSlotDetailModal($link.data('svc-id'), $link.data('date'), $link.data('from'));
+        } else if (action === 'view-details') {
+            e.preventDefault();
+            var $el = $(this);
+            Tooltip.hide();
+            openSlotDetailModal($el.data('svc-id'), $el.data('date'), $el.data('from'));
         }
     });
 

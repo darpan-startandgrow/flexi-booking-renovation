@@ -454,6 +454,8 @@ class Booking_Planner_REST {
 						'cat_name',
 						$service->service_category
 					);
+				} else {
+					$category_name = 'Uncategorised';
 				}
 				$response[] = array(
 					'id'               => (int) $service->id,
@@ -502,6 +504,15 @@ class Booking_Planner_REST {
 		);
 
 		$response = array();
+
+		// Add virtual "Uncategorised" entry for services with category 0.
+		$response[] = array(
+			'id'           => 0,
+			'cat_name'     => 'Uncategorised',
+			'cat_position' => 0,
+			'cat_options'  => null,
+		);
+
 		if ( ! empty( $categories ) ) {
 			foreach ( $categories as $cat ) {
 				$response[] = array(
@@ -1309,25 +1320,72 @@ class Booking_Planner_REST {
 
 		$dbhandler = new BM_DBhandler();
 
-		// Build service filter.
+		// Build service filter – supports comma-separated multi-values.
 		$svc_where = array( 'service_status' => 1 );
+		$custom_in_clauses = array();
 		if ( ! empty( $params['category_id'] ) ) {
-			$svc_where['service_category'] = absint( $params['category_id'] );
+			$cat_ids = array_map( 'absint', explode( ',', $params['category_id'] ) );
+			if ( count( $cat_ids ) === 1 ) {
+				$svc_where['service_category'] = $cat_ids[0];
+			} else {
+				$custom_in_clauses['service_category'] = $cat_ids;
+			}
 		}
 		if ( ! empty( $params['service_id'] ) ) {
-			$svc_where['id'] = absint( $params['service_id'] );
+			$svc_ids_filter = array_map( 'absint', explode( ',', $params['service_id'] ) );
+			if ( count( $svc_ids_filter ) === 1 ) {
+				$svc_where['id'] = $svc_ids_filter[0];
+			} else {
+				$custom_in_clauses['id'] = $svc_ids_filter;
+			}
 		}
 
-		$raw_services = $dbhandler->get_all_result(
-			'SERVICE',
-			'*',
-			$svc_where,
-			'results',
-			0,
-			false,
-			'service_position',
-			false
-		);
+		if ( ! empty( $custom_in_clauses ) ) {
+			// Use custom query for multi-value IN filters.
+			global $wpdb;
+			$bm_activator  = new Booking_Management_Activator();
+			$service_table = $bm_activator->get_db_table_name( 'SERVICE' );
+			$where_parts   = array( 'service_status = 1' );
+			$values        = array();
+			$allowed_cols  = array( 'service_category', 'id' );
+			foreach ( $custom_in_clauses as $col => $ids ) {
+				if ( ! in_array( $col, $allowed_cols, true ) ) {
+					continue;
+				}
+				$placeholders  = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+				$where_parts[] = "`$col` IN ($placeholders)";
+				$values        = array_merge( $values, $ids );
+			}
+			// Also include single-value where clauses.
+			if ( isset( $svc_where['service_category'] ) ) {
+				$where_parts[] = 'service_category = %d';
+				$values[]      = $svc_where['service_category'];
+			}
+			if ( isset( $svc_where['id'] ) ) {
+				$where_parts[] = 'id = %d';
+				$values[]      = $svc_where['id'];
+			}
+			$where_sql    = implode( ' AND ', $where_parts );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$raw_services = $wpdb->get_results(
+				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					"SELECT * FROM {$service_table} WHERE {$where_sql} ORDER BY service_position ASC",
+					...$values
+				)
+			);
+		} else {
+			$raw_services = $dbhandler->get_all_result(
+				'SERVICE',
+				'*',
+				$svc_where,
+				'results',
+				0,
+				false,
+				'service_position',
+				false
+			);
+		}
 
 		if ( empty( $raw_services ) ) {
 			return rest_ensure_response(
@@ -1354,6 +1412,8 @@ class Booking_Planner_REST {
 					$cat_name_cache[ $cat_id ] = (string) $dbhandler->get_value( 'CATEGORY', 'cat_name', $cat_id );
 				}
 				$cat_name = $cat_name_cache[ $cat_id ];
+			} else {
+				$cat_name = 'Uncategorised';
 			}
 
 			$services[] = array(
@@ -1420,7 +1480,7 @@ class Booking_Planner_REST {
 		foreach ( $services as $svc ) {
 			$svc_id               = $svc['id'];
 			$slots_map[ $svc_id ] = array();
-			$svc_duration         = isset( $svc['service_duration'] ) ? (int) $svc['service_duration'] : 60;
+			$svc_duration         = isset( $svc['service_duration'] ) ? (int) ( floatval( $svc['service_duration'] ) * 60 ) : 60;
 
 			foreach ( $dates as $date ) {
 				$day_slots = $this->build_planner_slots_for_service_date( $svc_id, $date, $svc_duration );
@@ -1567,7 +1627,7 @@ class Booking_Planner_REST {
 		// Get slot capacity info using the same reliable helper used by get_planner_week().
 		$max_capacity   = 0;
 		$avail_capacity = 0;
-		$svc_duration   = isset( $service->service_duration ) ? (int) $service->service_duration : 60;
+		$svc_duration   = isset( $service->service_duration ) ? (int) ( floatval( $service->service_duration ) * 60 ) : 60;
 		$day_slots      = $this->build_planner_slots_for_service_date( $service_id, $date, $svc_duration );
 		foreach ( $day_slots as $sl ) {
 			if ( $sl['from'] === $time_slot ) {

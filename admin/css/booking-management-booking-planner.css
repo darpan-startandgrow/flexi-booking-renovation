@@ -1352,3 +1352,165 @@ flex-shrink: 0;
         grid-template-columns: repeat(5, 1fr);
     }
 }
+
+/* ===================================================================== */
+/*  MULTISELECT DROPDOWN                                                  */
+/* ===================================================================== */
+
+.bmp-multiselect {
+    position: relative;
+    display: inline-block;
+}
+
+.bmp-ms-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.bmp-ms-toggle:hover {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.bmp-ms-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 200px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+    z-index: 100;
+    padding: 6px 0;
+}
+.bmp-ms-dropdown--open {
+    display: block;
+}
+
+.bmp-ms-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.bmp-ms-item:hover {
+    background: #F3F4F6;
+}
+.bmp-ms-item input[type="checkbox"] {
+    margin: 0;
+    accent-color: #2563EB;
+}
+
+/* ===================================================================== */
+/*  CALENDAR PICKER                                                       */
+/* ===================================================================== */
+
+.bmp-calendar-picker {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 120;
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    padding: 16px;
+    width: 280px;
+    margin-top: 4px;
+}
+
+.bmp-cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.bmp-cal-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1F2937;
+}
+.bmp-cal-nav-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #6B7280;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.1s;
+}
+.bmp-cal-nav-btn:hover {
+    background: #F3F4F6;
+    color: #111827;
+}
+
+.bmp-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+}
+.bmp-cal-hdr {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9CA3AF;
+    padding: 4px 0;
+}
+.bmp-cal-empty {
+    /* empty cell padding */
+}
+.bmp-cal-day {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 6px 0;
+    border-radius: 6px;
+    color: #374151;
+    transition: background 0.1s, color 0.1s;
+}
+.bmp-cal-day:hover {
+    background: #EFF6FF;
+    color: #2563EB;
+}
+.bmp-cal-day--today {
+    background: #2563EB;
+    color: #fff;
+    font-weight: 600;
+}
+.bmp-cal-day--today:hover {
+    background: #1D4ED8;
+    color: #fff;
+}
+
+/* ===================================================================== */
+/*  TOOLBAR POSITIONING FIX                                               */
+/* ===================================================================== */
+
+.bmp-toolbar {
+    position: relative;
+}
+.bmp-toolbar-left {
+    position: relative;
+}
+.bmp-date-display {
+    cursor: pointer;
+}
