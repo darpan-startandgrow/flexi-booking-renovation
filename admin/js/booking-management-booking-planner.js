@@ -119,8 +119,9 @@
 
     function formatDuration(durationHours) {
         var d = parseFloat(durationHours) || 0;
-        var h = Math.floor(d);
-        var m = Math.round((d - h) * 60);
+        var totalMinutes = Math.round(d * 60);
+        var h = Math.floor(totalMinutes / 60);
+        var m = totalMinutes % 60;
         if (h === 0 && m === 0) { return '0 min'; }
         if (h === 0) { return m + ' min'; }
         if (m === 0) { return h + ' h'; }

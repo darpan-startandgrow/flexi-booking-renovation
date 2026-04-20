@@ -1347,10 +1347,14 @@ class Booking_Planner_REST {
 			$service_table = $bm_activator->get_db_table_name( 'SERVICE' );
 			$where_parts   = array( 'service_status = 1' );
 			$values        = array();
+			$allowed_cols  = array( 'service_category', 'id' );
 			foreach ( $custom_in_clauses as $col => $ids ) {
-				$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+				if ( ! in_array( $col, $allowed_cols, true ) ) {
+					continue;
+				}
+				$placeholders  = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
 				$where_parts[] = "`$col` IN ($placeholders)";
-				$values = array_merge( $values, $ids );
+				$values        = array_merge( $values, $ids );
 			}
 			// Also include single-value where clauses.
 			if ( isset( $svc_where['service_category'] ) ) {
