@@ -10094,48 +10094,62 @@ class BM_Request {
 			if ( is_string( $order_id ) ) {
 				$order_data         = $dbhandler->get_row( 'FAILED_TRANSACTIONS', $order_id, 'booking_key' );
 				$order              = isset( $order_data->booking_data ) ? maybe_unserialize( $order_data->booking_data ) : array();
-				$extra_ids          = isset( $order['extra_svc_booked'] ) ? $order['extra_svc_booked'] : '';
+				$extra_ids_raw      = isset( $order['extra_svc_booked'] ) ? $order['extra_svc_booked'] : '';
+				$extra_types_raw    = isset( $order['extra_types_booked'] ) ? $order['extra_types_booked'] : '';
 				$extra_slots_booked = isset( $order['total_extra_slots_booked'] ) ? $order['total_extra_slots_booked'] : '';
 				$extra_slots_booked = ! empty( $extra_slots_booked ) ? explode( ',', $extra_slots_booked ) : array();
 			} else {
-				$order     = $dbhandler->get_row( 'BOOKING', $order_id, 'id' );
-				$extra_ids = isset( $order->extra_svc_booked ) ? $order->extra_svc_booked : '';
+				$order           = $dbhandler->get_row( 'BOOKING', $order_id, 'id' );
+				$extra_ids_raw   = isset( $order->extra_svc_booked ) ? $order->extra_svc_booked : '';
+				$extra_types_raw = isset( $order->extra_types_booked ) ? $order->extra_types_booked : '';
 			}
 
-			if ( ! empty( $extra_ids ) ) {
-				$additional = "id in($extra_ids)";
-				$items      = $dbhandler->get_all_result( 'EXTRA', '*', 1, 'results', 0, false, 'id', 'DESC', $additional );
+			if ( ! empty( $extra_ids_raw ) ) {
+				$extra_ids_arr   = array_map( 'intval', explode( ',', $extra_ids_raw ) );
+				$extra_types_arr = ! empty( $extra_types_raw ) ? explode( ',', $extra_types_raw ) : array();
 
-				if ( ! empty( $items ) ) {
-					foreach ( $items as $key => $item ) {
+				foreach ( $extra_ids_arr as $key => $eid ) {
+					$type = isset( $extra_types_arr[ $key ] ) ? trim( $extra_types_arr[ $key ] ) : 'local';
+
+					if ( 'global' === $type ) {
+						$item       = $dbhandler->get_row( 'GLOBALEXTRA', $eid );
+						$item_price = isset( $item->price ) ? $item->price : 0;
+						$item_name  = isset( $item->name ) ? $item->name : '';
+					} else {
+						$item       = $dbhandler->get_row( 'EXTRA', $eid );
 						$item_price = isset( $item->extra_price ) ? $item->extra_price : 0;
+						$item_name  = isset( $item->extra_name ) ? $item->extra_name : '';
+					}
 
-						if ( is_string( $order_id ) ) {
-							$quantity = isset( $extra_slots_booked[ $key ] ) ? $extra_slots_booked[ $key ] : 0;
-						} else {
-							$quantity = $dbhandler->get_all_result(
-								'EXTRASLOTCOUNT',
-								'slots_booked',
-								array(
-									'extra_svc_id' => isset( $item->id ) ? $item->id : 0,
-									'booking_id'   => $order_id,
-								),
-								'var'
-							);
-						}
+					if ( empty( $item ) ) {
+						continue;
+					}
 
-						$base_price = isset( $item_price ) ? $item_price : 0;
-						$total      = isset( $item_price ) ? $this->bm_fetch_total_price( $item_price, $quantity ) : 0;
-
-						$products[] = array(
-							'id'         => isset( $item->id ) ? $item->id : 0,
-							'name'       => isset( $item->extra_name ) ? $item->extra_name : '',
-							'image'      => plugins_url( '../public/partials/image/Image-not-found.png', __FILE__ ),
-							'quantity'   => ! empty( $quantity ) ? $quantity : 0,
-							'base_price' => $base_price,
-							'total'      => $total,
+					if ( is_string( $order_id ) ) {
+						$quantity = isset( $extra_slots_booked[ $key ] ) ? $extra_slots_booked[ $key ] : 0;
+					} else {
+						$quantity = $dbhandler->get_all_result(
+							'EXTRASLOTCOUNT',
+							'slots_booked',
+							array(
+								'extra_svc_id' => $eid,
+								'booking_id'   => $order_id,
+							),
+							'var'
 						);
 					}
+
+					$base_price = $item_price;
+					$total      = $this->bm_fetch_total_price( $item_price, $quantity );
+
+					$products[] = array(
+						'id'         => $eid,
+						'name'       => $item_name,
+						'image'      => plugins_url( '../public/partials/image/Image-not-found.png', __FILE__ ),
+						'quantity'   => ! empty( $quantity ) ? $quantity : 0,
+						'base_price' => $base_price,
+						'total'      => $total,
+					);
 				}
 			}
 		} //end if

@@ -528,24 +528,23 @@ min-width: 0;
 font-size: 14px;
 font-weight: 600;
 color: #1D2327;
-cursor: pointer;
 white-space: nowrap;
 overflow: hidden;
 text-overflow: ellipsis;
 }
-.bm-planner-sp__svc-name:hover { color: #2271b1; }
+.bm-planner-sp__svc-cell:hover .bm-planner-sp__svc-name { color: #2271b1; }
 .bm-planner-sp__svc-meta {
 font-size: 11px;
 color: #8c8f94;
 }
 .bm-planner-sp__cell {
-padding: 4px 6px;
-border-right: 1px solid #f0f0f1;
+padding: 8px;
+border-right: 1px solid #E5E7EB;
 display: flex;
 flex-direction: column;
-gap: 3px;
+gap: 4px;
 transition: background .15s;
-align-items: flex-start;
+align-items: stretch;
 min-width: 160px;
 }
 .bm-planner-sp__cell--today { background: #F8FBFF; }
@@ -553,32 +552,38 @@ min-width: 160px;
 .bm-planner-sp__cell--today.bm-planner-sp__cell--col-hover { background: #EFF6FF; }
 .bm-planner-sp__row--hovered .bm-planner-sp__cell--col-hover { background: rgba(0,0,0,.04); }
 .bm-planner-sp__no-slots {
-color: #d0d0d0;
-font-size: 13px;
-font-style: italic;
-display: flex;
-align-items: center;
-justify-content: center;
-height: 100%;
-min-height: 40px;
+color: #9CA3AF;
+font-size: 12px;
+opacity: 0.6;
+text-align: center;
+padding: 8px 0;
+width: 100%;
 }
 .bm-planner-sp__slot-entry {
 display: flex;
-justify-content: space-between;
 align-items: center;
-padding: 3px 6px;
+gap: 4px;
+padding: 4px 8px;
 border-radius: 4px;
+border: 1px solid #E5E7EB;
+background: #fff;
 cursor: pointer;
 font-size: 12px;
 color: #374151;
-transition: background .1s;
+width: 100%;
+box-sizing: border-box;
+transition: box-shadow .15s, border-color .15s;
 }
-.bm-planner-sp__slot-entry:hover { background: #f0f0f1; }
+.bm-planner-sp__slot-entry:hover {
+box-shadow: 0 1px 3px rgba(0,0,0,.12);
+border-color: rgba(34,113,177,.5);
+}
 .bm-planner-sp__slot-time { white-space: nowrap; }
 .bm-planner-sp__slot-avail {
 display: flex;
 align-items: center;
 gap: 3px;
+margin-left: auto;
 }
 .bm-planner-sp__avail-dot  { font-size: 9px; }
 .bm-planner-sp__avail-count { font-size: 11px; color: #6B7280; font-weight: 500; }

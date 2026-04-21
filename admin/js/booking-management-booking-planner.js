@@ -180,6 +180,8 @@
     var today     = new Date();
     var todayISO  = formatISO(today);
 
+    var _loadDataVersion = 0;
+
     var State = {
         view:      VIEWS.HOME,
         weekStart: getMondayOfWeek(today),
@@ -252,6 +254,7 @@
     /* ===================================================================== */
 
     function loadWeekData() {
+        var thisVersion = ++_loadDataVersion;
         setState({ loading: true });
         var dates = getVisibleDates();
         var start = formatISO(dates[0]);
@@ -270,6 +273,7 @@
 
         $.when.apply($, requests)
             .then(function () {
+                if (thisVersion !== _loadDataVersion) { return; }
                 var catRes  = arguments[0];
                 var weekRes = arguments[1];
                 var allRes  = hasFilter ? arguments[2] : weekRes;
@@ -285,6 +289,7 @@
                 });
             })
             .fail(function () {
+                if (thisVersion !== _loadDataVersion) { return; }
                 setState({ loading: false });
                 Toast.show('Failed to load planner data.', 'error');
             });
@@ -680,10 +685,10 @@
                 var svcId    = parseInt(svc.id, 10);
                 var rowHover = State._hoveredRow === svcId ? ' bm-planner-sp__row--hovered' : '';
 
-                var cells = '<div class="bm-planner-sp__svc-cell">' +
+                var cells = '<div class="bm-planner-sp__svc-cell" data-action="svc-info" data-svc-id="' + svcId + '" role="button" tabindex="0" aria-label="' + sanitizeHtml(svc.service_name) + ' – service info">' +
                     '<div class="bm-planner-sp__svc-dot" style="background:' + catCol.solid + '"></div>' +
                     '<div class="bm-planner-sp__svc-info">' +
-                        '<span class="bm-planner-sp__svc-name" data-action="svc-info" data-svc-id="' + svcId + '">' + sanitizeHtml(svc.service_name) + '</span>' +
+                        '<span class="bm-planner-sp__svc-name">' + sanitizeHtml(svc.service_name) + '</span>' +
                         (State.display.showCategory && catName ? '<span class="bm-planner-sp__svc-category" style="color:' + catCol.solid + '">' + sanitizeHtml(catName) + '</span>' : '') +
                         '<span class="bm-planner-sp__svc-meta">' +
                             (State.display.showDuration ? '\u23f1 ' + sanitizeHtml(formatDuration(svc.service_duration)) + ' ' : '') +
@@ -1629,6 +1634,13 @@
         var $el = $(this);
         Tooltip.hide();
         openSlotDetailModal($el.data('svc-id'), $el.data('date'), $el.data('from'));
+    });
+
+    $root.on('keydown', '[data-action="svc-info"]', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openServiceInfoModal($(this).data('svc-id'));
+        }
     });
 
     $root.on('change', '[data-ms-filter]', function () {
