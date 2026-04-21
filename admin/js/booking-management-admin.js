@@ -11310,7 +11310,7 @@ jQuery(document).ready(function ($) {
 
 		$menu.find('a').addClass('current wp-menu-open');
 
-		$menu.find(`ul.wp-submenu li:eq(${index})`).addClass('current')
+		$menu.find(`ul.wp-submenu li:eq(${index + 1})`).addClass('current')
 			.find('a').attr('aria-current', 'page');
 	}
 });
