@@ -8010,6 +8010,7 @@ function getExtraServicePrice($this) {
 
 
 // Collect checked extra types and write comma-separated list to #extra_types_booked.
+// Must be called whenever the state of any extra_svc_booked[] checkbox changes.
 function updateExtraTypesBooked() {
 	var types = [];
 	jQuery("input[name='extra_svc_booked[]']:checked").each(function () {

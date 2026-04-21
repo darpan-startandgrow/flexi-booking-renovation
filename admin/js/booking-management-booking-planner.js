@@ -261,9 +261,10 @@
         if (State.filter.svc && State.filter.svc.length) { opts.service_id  = State.filter.svc.join(','); }
         var hasFilter = Object.keys(opts).length > 0;
 
-        /* When filters are active we also fetch the unfiltered week to keep the
-           full service list available in filter dropdowns.  The extra request is
-           cheap (no slot data needed) and avoids filter options disappearing. */
+        /* When filters are active we also fetch the unfiltered week so the
+           full service list is available in filter dropdowns (prevents options
+           disappearing after a selection).  Both requests return the full week
+           response; we only use the services array from the unfiltered one. */
         var requests = [API.fetchCategories(), API.fetchPlannerWeek(start, end, opts)];
         if (hasFilter) { requests.push(API.fetchPlannerWeek(start, end, {})); }
 
