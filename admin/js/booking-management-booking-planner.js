@@ -259,17 +259,29 @@
         var opts  = {};
         if (State.filter.cat && State.filter.cat.length) { opts.category_id = State.filter.cat.join(','); }
         if (State.filter.svc && State.filter.svc.length) { opts.service_id  = State.filter.svc.join(','); }
+        var hasFilter = Object.keys(opts).length > 0;
 
-        $.when(API.fetchCategories(), API.fetchPlannerWeek(start, end, opts))
-            .then(function (catRes, weekRes) {
-                var cats  = (catRes[0]  && catRes[0].categories)  || [];
-                var svcs  = (weekRes[0] && weekRes[0].services)   || [];
-                var slots = (weekRes[0] && weekRes[0].slots)      || {};
-                var summ  = (weekRes[0] && weekRes[0].summary)    || {};
+        /* When filters are active we also fetch the unfiltered week so the
+           full service list is available in filter dropdowns (prevents options
+           disappearing after a selection).  Both requests return the full week
+           response; we only use the services array from the unfiltered one. */
+        var requests = [API.fetchCategories(), API.fetchPlannerWeek(start, end, opts)];
+        if (hasFilter) { requests.push(API.fetchPlannerWeek(start, end, {})); }
+
+        $.when.apply($, requests)
+            .then(function () {
+                var catRes  = arguments[0];
+                var weekRes = arguments[1];
+                var allRes  = hasFilter ? arguments[2] : weekRes;
+                var cats    = (catRes[0]  && catRes[0].categories)  || [];
+                var svcs    = (weekRes[0] && weekRes[0].services)   || [];
+                var slots   = (weekRes[0] && weekRes[0].slots)      || {};
+                var summ    = (weekRes[0] && weekRes[0].summary)    || {};
+                var allSvcs = (allRes[0]  && allRes[0].services)    || svcs;
                 buildCategoryColorMap(cats);
                 setState({
                     loading: false,
-                    data: { services: svcs, slots: slots, categories: cats, summary: summ }
+                    data: { services: svcs, slots: slots, categories: cats, summary: summ, allServices: allSvcs }
                 });
             })
             .fail(function () {
@@ -439,13 +451,18 @@
     /* ===================================================================== */
 
     function renderNav() {
-        var spCls = State.view === VIEWS.SERVICE ? ' bm-planner-nav__tab--active' : '';
-        var tpCls = State.view === VIEWS.TIME    ? ' bm-planner-nav__tab--active' : '';
+        var homeCls = State.view === VIEWS.HOME    ? ' bm-planner-nav__tab--active' : '';
+        var spCls   = State.view === VIEWS.SERVICE ? ' bm-planner-nav__tab--active' : '';
+        var tpCls   = State.view === VIEWS.TIME    ? ' bm-planner-nav__tab--active' : '';
         var fsIcon = State._isFullscreen
             ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>'
             : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
         return '<div class="bm-planner-nav">' +
             '<div class="bm-planner-nav__left">' +
+                '<button class="bm-planner-nav__tab' + homeCls + '" data-nav="home">' +
+                    '<span class="bm-planner-nav__tab-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>' +
+                    ' Planner' +
+                '</button>' +
                 '<button class="bm-planner-nav__tab' + spCls + '" data-nav="service-planner">' +
                     '<span class="bm-planner-nav__tab-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg></span>' +
                     ' Service Planner' +
@@ -482,7 +499,7 @@
         });
 
         var svcOpts = '';
-        (State.data.services || []).forEach(function (s) {
+        (State.data.allServices || State.data.services || []).forEach(function (s) {
             var sid = parseInt(s.id, 10);
             var checked = svcFilter.indexOf(sid) !== -1 ? ' checked' : '';
             svcOpts += '<label class="bmp-ms-item"><input type="checkbox" data-ms-filter="svc" value="' + sid + '"' + checked + '> ' + sanitizeHtml(s.service_name) + '</label>';
@@ -719,7 +736,7 @@
 
         return '<div class="bm-planner-sp__grid">' +
             '<div class="bm-planner-sp__grid-head" style="' + gridStyle + '">' + headCells + '</div>' +
-            '<div class="bm-planner-sp__grid-body">' + rows + '</div>' +
+            '<div class="bm-planner-sp__grid-body bmp-scrollbar-thin">' + rows + '</div>' +
         '</div>';
     }
 
@@ -1478,7 +1495,6 @@
     /* ===================================================================== */
 
     function navigateToView(view) {
-        try { localStorage.setItem('bm_planner_last_view', view); } catch (e) {}
         if (view === State.view) { return; }
         setState({ view: view, _dayView: null, _tpDayView: null, _displayOpen: false });
         if (view !== VIEWS.HOME) { loadWeekData(); }
@@ -1715,6 +1731,12 @@
 
     document.addEventListener('fullscreenchange', function () {
         State._isFullscreen = Boolean(document.fullscreenElement);
+        /* Toggle body class so CSS can hide WP admin chrome (matches flexi-planner pattern) */
+        if (State._isFullscreen) {
+            document.body.classList.add('bm-planner-fullscreen');
+        } else {
+            document.body.classList.remove('bm-planner-fullscreen');
+        }
         /* Update just the nav bar icon without full re-render */
         var $fsBtn = $root.find('[data-action="fullscreen"]');
         if ($fsBtn.length) {
@@ -1753,13 +1775,13 @@
     /* ===================================================================== */
 
     (function boot() {
-        /* Priority: data attribute > URL hash > localStorage */
+        /* Priority: data attribute > URL hash only.
+           localStorage persistence is intentionally removed so that clicking
+           the Booking Planner menu always lands on the Home view. */
         var dataView = $root.data('initial-view') || null;
         var hashView = readUrlHash();
-        var lastView;
-        try { lastView = localStorage.getItem('bm_planner_last_view') || null; } catch (e) { lastView = null; }
 
-        var initialView = dataView || hashView || lastView;
+        var initialView = dataView || hashView;
         if (initialView === VIEWS.SERVICE || initialView === VIEWS.TIME) {
             State.view = initialView;
             render();

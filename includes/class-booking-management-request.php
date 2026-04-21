@@ -1302,22 +1302,23 @@ class BM_Request {
 		);
 		// form fields - input
 		$my_allowed['input'] = array(
-			'class'        => array(),
-			'id'           => array(),
-			'name'         => array(),
-			'value'        => array(),
-			'order'        => array(),
-			'type'         => array(),
-			'required'     => array(),
-			'readonly'     => array(),
-			'disabled'     => array(),
-			'placeholder'  => array(),
-			'autocomplete' => array(),
-			'checked'      => array(),
-			'min'          => array(),
-			'max'          => array(),
-			'step'         => array(),
-			'style'        => array( $this->bm_fetch_allowed_style_attributes() ),
+			'class'           => array(),
+			'id'              => array(),
+			'name'            => array(),
+			'value'           => array(),
+			'order'           => array(),
+			'type'            => array(),
+			'required'        => array(),
+			'readonly'        => array(),
+			'disabled'        => array(),
+			'placeholder'     => array(),
+			'autocomplete'    => array(),
+			'checked'         => array(),
+			'min'             => array(),
+			'max'             => array(),
+			'step'            => array(),
+			'data-extra-type' => array(),
+			'style'           => array( $this->bm_fetch_allowed_style_attributes() ),
 		);
 		// form fields - textarea
 		$my_allowed['textarea'] = array(
@@ -12147,10 +12148,6 @@ class BM_Request {
 
 						if ( isset( $order_data['total_extra_slots_booked'] ) ) {
 							unset( $order_data['total_extra_slots_booked'] );
-						}
-
-						if ( isset( $order_data['extra_types_booked'] ) ) {
-							unset( $order_data['extra_types_booked'] );
 						}
 
 						if ( isset( $order_data['country_code'] ) ) {

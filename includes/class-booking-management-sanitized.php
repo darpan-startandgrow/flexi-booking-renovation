@@ -278,6 +278,9 @@ class BM_Sanitizer {
 			case 'extra_svc_booked':
 				$value = $value;
 				break;
+			case 'extra_types_booked':
+				$value = sanitize_text_field( $value );
+				break;
 			case 'total_svc_slots':
 				$value = sanitize_text_field( $value );
 				break;
