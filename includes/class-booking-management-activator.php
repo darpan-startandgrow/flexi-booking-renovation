@@ -176,6 +176,7 @@ class Booking_Management_Activator {
 		`has_extra` int(11) NOT NULL DEFAULT '0',
 		`is_frontend_booking` int(11) NOT NULL DEFAULT '0',
 		`extra_svc_booked` longtext DEFAULT NULL,
+		`extra_types_booked` longtext DEFAULT NULL,
 		`total_svc_slots` int(11) DEFAULT NULL,
 		`total_ext_svc_slots` int(11) DEFAULT NULL,
         `coupons` longtext DEFAULT NULL,
@@ -537,6 +538,7 @@ class Booking_Management_Activator {
 		)$charset_collate;";
 		dbDelta( $sql );
 
+		$this->add_extra_types_booked_column_to_booking();
 		$this->add_extra_type_column_to_extraslotcount();
 		$this->add_extras_indexes();
 		$this->migrate_legacy_global_extras();
@@ -1879,6 +1881,17 @@ class Booking_Management_Activator {
 		if ( empty( $row ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
 			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `error_message` text NULL AFTER `refund_status`" );
+		}
+	}
+
+	private function add_extra_types_booked_column_to_booking() {
+		global $wpdb;
+		$table_name = esc_sql( $this->get_db_table_name( 'BOOKING' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$row = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'extra_types_booked' ) );
+		if ( empty( $row ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `extra_types_booked` longtext DEFAULT NULL AFTER `extra_svc_booked`" );
 		}
 	}
 

@@ -12149,10 +12149,6 @@ class BM_Request {
 							unset( $order_data['total_extra_slots_booked'] );
 						}
 
-						if ( isset( $order_data['extra_types_booked'] ) ) {
-							unset( $order_data['extra_types_booked'] );
-						}
-
 						if ( isset( $order_data['country_code'] ) ) {
 							unset( $order_data['country_code'] );
 						}

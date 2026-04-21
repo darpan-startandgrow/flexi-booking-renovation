@@ -146,8 +146,29 @@ if ( !empty( $id ) ) {
                 );
 
                 foreach ( $merged_extra_ids as $key => $extra_id ) {
-                    $name     = $dbhandler->get_all_result( 'EXTRA', 'extra_name', array( 'id' => $extra_id ), 'var' );
-                    $price    = $dbhandler->get_all_result( 'EXTRA', 'extra_price', array( 'id' => $extra_id ), 'var' );
+                    $extra_type_for_id = $dbhandler->get_all_result(
+                        'EXTRASLOTCOUNT',
+                        'extra_type',
+                        array(
+                            'booking_id'   => $id,
+                            'service_id'   => $order->service_id,
+                            'extra_svc_id' => $extra_id,
+                            'booking_date' => $order->booking_date,
+                            'is_active'    => 1,
+                        ),
+                        'var'
+                    );
+                    $extra_type_for_id = ! empty( $extra_type_for_id ) ? $extra_type_for_id : 'local';
+
+                    if ( $extra_type_for_id === 'global' ) {
+                        $name    = $dbhandler->get_all_result( 'GLOBALEXTRA', 'name', array( 'id' => $extra_id ), 'var' );
+                        $price   = $dbhandler->get_all_result( 'GLOBALEXTRA', 'price', array( 'id' => $extra_id ), 'var' );
+                        $max_cap = $dbhandler->get_all_result( 'GLOBALEXTRA', 'max_capacity', array( 'id' => $extra_id ), 'var' );
+                    } else {
+                        $name    = $dbhandler->get_all_result( 'EXTRA', 'extra_name', array( 'id' => $extra_id ), 'var' );
+                        $price   = $dbhandler->get_all_result( 'EXTRA', 'extra_price', array( 'id' => $extra_id ), 'var' );
+                        $max_cap = $dbhandler->get_all_result( 'EXTRA', 'extra_max_cap', array( 'id' => $extra_id ), 'var' );
+                    }
                     $quantity = $dbhandler->get_all_result(
                         'EXTRASLOTCOUNT',
                         'slots_booked',
@@ -173,17 +194,17 @@ if ( !empty( $id ) ) {
                         ),
                         'var'
                     );
-                    $max_cap  = $dbhandler->get_all_result( 'EXTRA', 'extra_max_cap', array( 'id' => $extra_id ), 'var' );
                     $cap_left = isset( $cap_left ) ? $cap_left : $max_cap;
                     $total    = number_format( $bmrequests->bm_fetch_total_price( $price, $quantity ), 2 );
 
-                    $extra_content[ $key ]['id']       = $extra_id;
-                    $extra_content[ $key ]['name']     = $name;
-                    $extra_content[ $key ]['price']    = $price;
-                    $extra_content[ $key ]['quantity'] = $quantity;
-                    $extra_content[ $key ]['cap_left'] = $cap_left;
-                    $extra_content[ $key ]['max_cap']  = $max_cap;
-                    $extra_content[ $key ]['total']    = number_format( $bmrequests->bm_fetch_total_price( $extra_content[ $key ]['price'], $extra_content[ $key ]['quantity'] ), 2 );
+                    $extra_content[ $key ]['id']         = $extra_id;
+                    $extra_content[ $key ]['name']       = $name;
+                    $extra_content[ $key ]['price']      = $price;
+                    $extra_content[ $key ]['quantity']   = $quantity;
+                    $extra_content[ $key ]['cap_left']   = $cap_left;
+                    $extra_content[ $key ]['max_cap']    = $max_cap;
+                    $extra_content[ $key ]['extra_type'] = $extra_type_for_id;
+                    $extra_content[ $key ]['total']      = number_format( $bmrequests->bm_fetch_total_price( $extra_content[ $key ]['price'], $extra_content[ $key ]['quantity'] ), 2 );
                 }
             }//end if
         }//end if
@@ -235,10 +256,14 @@ if ( filter_input( INPUT_POST, 'savefrontorder' ) ) {
                         $total_extra_slots_booked               = isset( $order_post['total_extra_slots_booked'] ) && !empty( $order_post['total_extra_slots_booked'] ) ? maybe_unserialize( $order_post['total_extra_slots_booked'] ) : array();
                         $order_post['extra_svc_booked']         = !empty( $extra_svc_booked ) ? implode( ',', $extra_svc_booked ) : '';
                         $order_post['total_extra_slots_booked'] = !empty( $total_extra_slots_booked ) ? implode( ',', $total_extra_slots_booked ) : '';
+                        if ( ! isset( $order_post['extra_types_booked'] ) ) {
+                            $order_post['extra_types_booked'] = '';
+                        }
                     } else {
                         $order_post['has_extra']                = 0;
                         $order_post['extra_svc_booked']         = '';
                         $order_post['total_extra_slots_booked'] = '';
+                        $order_post['extra_types_booked']       = '';
                     }
 
                     $billing_details               = isset( $order_post['billing_details'] ) && !empty( $order_post['billing_details'] ) ? maybe_unserialize( $order_post['billing_details'] ) : array();
@@ -800,17 +825,26 @@ wp_localize_script(
             <tr class="service_extras" <?php echo !empty( $id ) && ( $order->has_extra == 1 ) ? '' : 'style="display :none;"'; ?>>
                 <th scope="row"><label><?php esc_html_e( 'Service Extras', 'service-booking' ); ?></label></th>
                 <input type="hidden" name="extra_svc_cost" id="extra_svc_cost" value="<?php echo isset( $order ) && !empty( $order->extra_svc_cost ) ? esc_attr( $order->extra_svc_cost ) : ''; ?>">
+                <input type="hidden" name="extra_types_booked" id="extra_types_booked" value="<?php
+                    if ( isset( $order->extra_types_booked ) && ! empty( $order->extra_types_booked ) ) {
+                        echo esc_attr( $order->extra_types_booked );
+                    } elseif ( isset( $extra_content ) && ! empty( $extra_content ) ) {
+                        $types = array_column( $extra_content, 'extra_type' );
+                        echo esc_attr( implode( ',', $types ) );
+                    }
+                ?>">
                 <td>
                     <ul class="extra_content">
                         <?php
                         if ( isset( $extra_content ) && !empty( $extra_content ) ) {
                             foreach ( $extra_content as $key => $extra ) {
-                                $booked_input_id = "extra_svc_booked_$key";
-                                $quantity_id     = "extra_quantity_$key";
+                                $booked_input_id  = "extra_svc_booked_$key";
+                                $quantity_id      = "extra_quantity_$key";
+                                $extra_type_value = isset( $extra['extra_type'] ) ? $extra['extra_type'] : 'local';
                                 ?>
                                 <li class='extra_services'>
                                     <span class='add_extra'>
-                                        <input type='checkbox' name='extra_svc_booked[]' id="<?php echo esc_html( $booked_input_id ); ?>" value="<?php echo isset( $extra ) && isset( $extra['id'] ) ? esc_attr( $extra['id'] ) : ''; ?>" <?php echo isset( $extra_svc_ids ) && !empty( $extra_svc_ids ) && in_array( $extra['id'], $extra_svc_ids ) ? 'checked' : ''; ?> onchange='getExtraServicePrice(this)'>&nbsp;&nbsp;<strong><?php esc_html_e( 'Add', 'service-booking' ); ?></strong>
+                                        <input type='checkbox' name='extra_svc_booked[]' id="<?php echo esc_html( $booked_input_id ); ?>" value="<?php echo isset( $extra ) && isset( $extra['id'] ) ? esc_attr( $extra['id'] ) : ''; ?>" data-extra-type="<?php echo esc_attr( $extra_type_value ); ?>" <?php echo isset( $extra_svc_ids ) && !empty( $extra_svc_ids ) && in_array( $extra['id'], $extra_svc_ids ) ? 'checked' : ''; ?> onchange='getExtraServicePrice(this)'>&nbsp;&nbsp;<strong><?php esc_html_e( 'Add', 'service-booking' ); ?></strong>
                                     </span>
                                     <label><strong><?php esc_html_e( 'Name:', 'service-booking' ); ?></strong></label>
                                     <input type='text' class='regular-text extra_name' value="<?php echo isset( $extra ) && isset( $extra['name'] ) ? esc_attr( $extra['name'] ) : ''; ?>" readonly><br>

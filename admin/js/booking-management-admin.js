@@ -7896,7 +7896,7 @@ function addExtraService(index, product) {
 	var listItem = jQuery("<li class='extra_services'></li>");
 
 	// Checkbox
-	var checkInput = "<span class='add_extra bm-checkbox-td'><span class='extra_backend_label'>" + bm_normal_object.add + "</span><input type='checkbox' name='extra_svc_booked[]' id='extra_svc_booked_" + index + "' class='auto-checkbox bm_toggle' value=" + (product && product.id ? product.id : '') + " onchange='getExtraServicePrice(this)'><label for='extra_svc_booked_" + index + "'></label>&nbsp;&nbsp;</span>";
+	var checkInput = "<span class='add_extra bm-checkbox-td'><span class='extra_backend_label'>" + bm_normal_object.add + "</span><input type='checkbox' name='extra_svc_booked[]' id='extra_svc_booked_" + index + "' class='auto-checkbox bm_toggle' value=" + (product && product.id ? product.id : '') + " data-extra-type='" + (product && product.extra_type ? product.extra_type : 'local') + "' onchange='getExtraServicePrice(this)'><label for='extra_svc_booked_" + index + "'></label>&nbsp;&nbsp;</span>";
 	listItem.append(checkInput);
 
 	// Name
@@ -7997,12 +7997,25 @@ function getExtraServicePrice($this) {
 	var quantityInput = listItem.find(".extra_quantity");
 	calculateExtraPrice(listItem, index);
 	setExtraTotalInputValue();
+	updateExtraTypesBooked();
 
 	if (jQuery($this).is(':checked')) {
 		quantityInput.prop('disabled', false);
 	} else {
 		quantityInput.prop('disabled', true);
 	}
+}
+
+
+
+
+// Collect checked extra types and write comma-separated list to #extra_types_booked.
+function updateExtraTypesBooked() {
+	var types = [];
+	jQuery("input[name='extra_svc_booked[]']:checked").each(function () {
+		types.push(jQuery(this).data('extra-type') || 'local');
+	});
+	jQuery('#extra_types_booked').val(types.join(','));
 }
 
 
