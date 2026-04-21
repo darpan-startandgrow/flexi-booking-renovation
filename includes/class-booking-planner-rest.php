@@ -826,12 +826,28 @@ class Booking_Planner_REST {
 
 			$booking_slots = array( 'from' => $time_slot_from, 'to' => $time_slot_to );
 
+			// Lock and check slot capacity inside the transaction to prevent overbooking.
+			$bm_activator = new Booking_Management_Activator();
+			$slot_table   = $bm_activator->get_db_table_name( 'SLOTCOUNT' );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$cap_row = $wpdb->get_row(
+				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					"SELECT slot_cap_left FROM {$slot_table} WHERE service_id = %d AND booking_date = %s AND slot_id = %s LIMIT 1 FOR UPDATE",
+					$service_id,
+					$booking_date,
+					$time_slot_from
+				)
+			);
+			if ( ! $cap_row || (int) $cap_row->slot_cap_left < 1 ) {
+				throw new Exception( __( 'No capacity available for this slot.', 'service-booking' ) );
+			}
+
 			// Find or create customer.
 			$customer_id = 0;
 			if ( $customer_email ) {
-				$bm_activator = new Booking_Management_Activator();
-				$cust_table   = $bm_activator->get_db_table_name( 'CUSTOMERS' );
-				$existing     = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM {$cust_table} WHERE customer_email = %s LIMIT 1", $customer_email ) );
+				$cust_table = $bm_activator->get_db_table_name( 'CUSTOMERS' );
+				$existing   = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM {$cust_table} WHERE customer_email = %s LIMIT 1", $customer_email ) );
 				if ( $existing ) {
 					$customer_id = (int) $existing->id;
 				} else {
@@ -848,8 +864,7 @@ class Booking_Planner_REST {
 			}
 
 			// Insert booking record.
-			$bm_activator = new Booking_Management_Activator();
-			$bkg_table    = $bm_activator->get_db_table_name( 'BOOKING' );
+			$bkg_table = $bm_activator->get_db_table_name( 'BOOKING' );
 
 			$booking_data = array(
 				'service_id'          => $service_id,
@@ -879,9 +894,9 @@ class Booking_Planner_REST {
 			$booking_id = (int) $wpdb->insert_id;
 
 			// Update slot capacity (decrement).
-			$slot_table = $bm_activator->get_db_table_name( 'SLOTCOUNT' );
 			$wpdb->query(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 					"UPDATE {$slot_table} SET slot_cap_left = GREATEST(0, slot_cap_left - 1) WHERE service_id = %d AND booking_date = %s AND slot_id = %s",
 					$service_id,
 					$booking_date,
@@ -892,6 +907,7 @@ class Booking_Planner_REST {
 			$dbhandler->commit_transaction();
 
 			// Fetch and return the created booking.
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$created_booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bkg_table} WHERE id = %d", $booking_id ) );
 
 			return rest_ensure_response(
