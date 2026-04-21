@@ -1424,7 +1424,7 @@ flex-shrink: 0;
 
 .bmp-calendar-picker {
     position: absolute;
-    top: 100%;
+    /* top: 100%; */
     left: 0;
     z-index: 120;
     background: #fff;
