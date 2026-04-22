@@ -17483,17 +17483,24 @@ class Booking_Management_Admin {
 
 
 	/**
-	 * Order expiry notice
+	 * Disable admin notice
 	 *
 	 * @author Darpan
 	 */
 	public function bm_disable_admin_notices_on_specific_pages() {
 		$screen = get_current_screen();
 
-		$pages_to_disable = array( 'toplevel_page_bm_home', 'flexibooking_page_bm_all_orders', 'admin_page_bm_add_order', 'flexibooking_page_bm_all_customers', 'admin_page_bm_add_customer', 'admin_page_bm_customer_profile', 'flexibooking_page_bm_all_services', 'admin_page_bm_add_service', 'flexibooking_page_bm_all_categories', 'admin_page_bm_add_category', 'flexibooking_page_bm_email_templates', 'admin_page_bm_add_template', 'flexibooking_page_bm_fields', 'flexibooking_page_bm_all_external_service_prices', 'flexibooking_page_bm_voucher_records', 'admin_page_bm_add_external_service_price', 'flexibooking_page_bm_all_notification_processes', 'admin_page_bm_add_notification_process', 'flexibooking_page_bm_email_records', 'flexibooking_page_bm_all_coupons', 'admin_page_bm_add_coupon', 'flexibooking_page_bm_global', 'admin_page_bm_global_general_settings', 'admin_page_bm_global_css_settings', 'admin_page_bm_global_timezone_country_settings', 'admin_page_bm_global_email_settings', 'admin_page_bm_global_payment_settings', 'admin_page_bm_svc_booking_settings', 'admin_page_bm_upload_settings', 'admin_page_bm_global_language_settings', 'admin_page_bm_global_format_settings', 'admin_page_bm_global_integration_settings', 'admin_page_bm_global_coupon_settings', 'flexibooking_page_bm_service_booking_planner', 'flexibooking_page_bm_single_service_booking_planner', 'flexibooking_page_bm_check_ins' );
+		if ( ! $screen ) {
+			return;
+		}
 
-		if ( in_array( $screen->id, $pages_to_disable ) ) {
-			remove_all_actions( 'admin_notices' );
+		$plugin_slugs = array( 'toplevel_page_bm_', 'flexibooking_page_bm_', 'admin_page_bm_' );
+
+		foreach ( $plugin_slugs as $slug ) {
+			if ( str_starts_with( $screen->id, $slug ) ) {
+				remove_all_actions( 'admin_notices' );
+				return;
+			}
 		}
 	}//end bm_disable_admin_notices_on_specific_pages()
 

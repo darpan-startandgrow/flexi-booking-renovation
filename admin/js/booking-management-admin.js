@@ -14314,3 +14314,8 @@ jQuery(document).ready(function() {
         bmApplyPagination(value);
     });
 });
+
+jQuery(document).ready(function ($) {
+	var current_screen = bm_normal_object.current_screen;
+	console.log(current_screen);
+});
