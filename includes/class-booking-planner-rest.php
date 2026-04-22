@@ -428,21 +428,34 @@ class Booking_Planner_REST {
 		$dbhandler = new BM_DBhandler();
 		$params    = $request->get_query_params();
 
-		$where = array( 'service_status' => 1 );
-		if ( ! empty( $params['category_id'] ) ) {
-			$where['service_category'] = absint( $params['category_id'] );
-		}
+		// isset() + strict '' check handles category_id=0 (Uncategorised) correctly.
+		// PHP's empty('0') === true, so !empty() would silently skip the filter for id 0.
+		$filter_cat = isset( $params['category_id'] ) && $params['category_id'] !== '';
+		$cat_id     = $filter_cat ? absint( $params['category_id'] ) : null;
 
-		$services = $dbhandler->get_all_result(
-			'SERVICE',
-			'*',
-			$where,
-			'results',
-			0,
-			false,
-			'service_position',
-			false
-		);
+		if ( $filter_cat && 0 === $cat_id ) {
+			// Uncategorised: service_category = 0 or NULL. Requires an OR clause.
+			global $wpdb;
+			$bm_activator  = new Booking_Management_Activator();
+			$service_table = $bm_activator->get_db_table_name( 'SERVICE' );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$services = $wpdb->get_results( "SELECT * FROM {$service_table} WHERE service_status = 1 AND (service_category = 0 OR service_category IS NULL) ORDER BY service_position ASC" );
+		} else {
+			$where = array( 'service_status' => 1 );
+			if ( $filter_cat ) {
+				$where['service_category'] = $cat_id;
+			}
+			$services = $dbhandler->get_all_result(
+				'SERVICE',
+				'*',
+				$where,
+				'results',
+				0,
+				false,
+				'service_position',
+				false
+			);
+		}
 
 		$response = array();
 		if ( ! empty( $services ) ) {
@@ -1337,11 +1350,34 @@ class Booking_Planner_REST {
 		$dbhandler = new BM_DBhandler();
 
 		// Build service filter – supports comma-separated multi-values.
-		$svc_where = array( 'service_status' => 1 );
+		// Note: isset() + strict '' check is used instead of !empty() so that
+		// category_id=0 (Uncategorised) is not silently skipped (PHP empty('0') === true).
+		$svc_where         = array( 'service_status' => 1 );
 		$custom_in_clauses = array();
-		if ( ! empty( $params['category_id'] ) ) {
-			$cat_ids = array_values( array_filter( array_map( 'absint', explode( ',', $params['category_id'] ) ) ) );
-			if ( count( $cat_ids ) === 1 ) {
+		$cat_where_sql     = '';   // Raw OR clause used when Uncategorised (0) is selected.
+		$cat_where_vals    = array();
+
+		if ( isset( $params['category_id'] ) && $params['category_id'] !== '' ) {
+			// Filter empty strings from split but KEEP numeric zeros (Uncategorised).
+			$category_strings = array_filter( explode( ',', $params['category_id'] ), function( $v ) { return $v !== ''; } );
+			$cat_ids          = array_values( array_unique( array_map( 'absint', $category_strings ) ) );
+
+			$has_uncategorised = in_array( 0, $cat_ids, true );
+			$positive_cat_ids  = array_values( array_filter( $cat_ids, function( $v ) { return $v > 0; } ) );
+
+			if ( $has_uncategorised ) {
+				// Build an OR clause that covers category 0 / NULL plus any named categories.
+				$cat_clauses = array( '(service_category = 0 OR service_category IS NULL)' );
+				if ( count( $positive_cat_ids ) === 1 ) {
+					$cat_clauses[]  = 'service_category = %d';
+					$cat_where_vals[] = $positive_cat_ids[0];
+				} elseif ( count( $positive_cat_ids ) > 1 ) {
+					$placeholders   = implode( ',', array_fill( 0, count( $positive_cat_ids ), '%d' ) );
+					$cat_clauses[]  = "service_category IN ($placeholders)";
+					$cat_where_vals = array_merge( $cat_where_vals, $positive_cat_ids );
+				}
+				$cat_where_sql = '(' . implode( ' OR ', $cat_clauses ) . ')';
+			} elseif ( count( $cat_ids ) === 1 ) {
 				$svc_where['service_category'] = $cat_ids[0];
 			} elseif ( count( $cat_ids ) > 1 ) {
 				$custom_in_clauses['service_category'] = $cat_ids;
@@ -1356,14 +1392,22 @@ class Booking_Planner_REST {
 			}
 		}
 
-		if ( ! empty( $custom_in_clauses ) ) {
-			// Use custom query for multi-value IN filters.
+		$needs_custom_query = ! empty( $custom_in_clauses ) || $cat_where_sql !== '';
+		if ( $needs_custom_query ) {
+			// Use custom query for multi-value IN filters and/or Uncategorised OR clause.
 			global $wpdb;
 			$bm_activator  = new Booking_Management_Activator();
 			$service_table = $bm_activator->get_db_table_name( 'SERVICE' );
 			$where_parts   = array( 'service_status = 1' );
 			$values        = array();
 			$allowed_cols  = array( 'service_category', 'id' );
+
+			// Uncategorised OR clause must be added as a single AND group.
+			if ( $cat_where_sql !== '' ) {
+				$where_parts[] = $cat_where_sql;
+				$values        = array_merge( $values, $cat_where_vals );
+			}
+
 			foreach ( $custom_in_clauses as $col => $ids ) {
 				if ( ! in_array( $col, $allowed_cols, true ) ) {
 					continue;
@@ -1383,13 +1427,14 @@ class Booking_Planner_REST {
 			}
 			$where_sql    = implode( ' AND ', $where_parts );
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$raw_services = $wpdb->get_results(
-				$wpdb->prepare(
-					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-					"SELECT * FROM {$service_table} WHERE {$where_sql} ORDER BY service_position ASC",
-					...$values
-				)
-			);
+			$prepared_sql = "SELECT * FROM {$service_table} WHERE {$where_sql} ORDER BY service_position ASC";
+			if ( ! empty( $values ) ) {
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$raw_services = $wpdb->get_results( $wpdb->prepare( $prepared_sql, ...$values ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			} else {
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$raw_services = $wpdb->get_results( $prepared_sql );
+			}
 		} else {
 			$raw_services = $dbhandler->get_all_result(
 				'SERVICE',
