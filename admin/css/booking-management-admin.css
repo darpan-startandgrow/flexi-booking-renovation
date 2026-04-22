@@ -4078,3 +4078,7 @@ pre {
 .pdf-test-buttons .dashicons {
     vertical-align: sub;
 }
+
+#wpbody-content{
+    width: 100% !important;
+}
