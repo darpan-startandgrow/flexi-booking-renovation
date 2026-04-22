@@ -4591,29 +4591,30 @@ class BM_Request {
 					$resp .= '<div class="formbox">';
 					$resp .= '<label ' . $radio_class . ' for="' . $field_key . '">' . $field_label . $asterisk . '</label>';
 
-					if ( isset( $field_options['options'] ) ) {
-						if ( $field_type == 'radio' || $field_type == 'checkbox' ) {
-							if ( isset( $field_options['options']['values'] ) && is_array( $field_options['options']['values'] ) ) {
-								$field_count = count( $field_options['options']['values'] );
-								for ( $i = 0; $i < $field_count; $i++ ) {
-									$resp .= '<div class="inputcheckgroup">';
-									$resp .= '<input type="' . $field_type . '" id="' . $field_key . '_' . $i . '" name="' . $field_name . '" value="' . $field_options['options']['values'][ $i ] . '" ' . ( isset( $field_options['options']['selected'][ $i ] ) && $field_options['options']['selected'][ $i ] == 1 ? 'checked' : '' ) . ' ' . $is_required . ' ' . $custom_class . '/>';
-									$resp .= '<label for="' . $field_key . '_' . $i . '">' . $field_options['options']['values'][ $i ] . '</label>';
-									$resp .= '</div>';
-								}
+					if ( $field_type == 'radio' || $field_type == 'checkbox' ) {
+						if ( isset( $field_options['options']['values'] ) && is_array( $field_options['options']['values'] ) ) {
+							$field_count = count( $field_options['options']['values'] );
+							for ( $i = 0; $i < $field_count; $i++ ) {
+								$resp .= '<div class="inputcheckgroup">';
+								$resp .= '<input type="' . $field_type . '" id="' . $field_key . '_' . $i . '" name="' . $field_name . '" value="' . $field_options['options']['values'][ $i ] . '" ' . ( isset( $field_options['options']['selected'][ $i ] ) && $field_options['options']['selected'][ $i ] == 1 ? 'checked' : '' ) . ' ' . $is_required . ' ' . $custom_class . '/>';
+								$resp .= '<label for="' . $field_key . '_' . $i . '">' . $field_options['options']['values'][ $i ] . '</label>';
+								$resp .= '</div>';
 							}
-						} elseif ( $field_type == 'select' ) {
-							$resp .= '<select name="' . $field_name . '" id="' . $field_key . '" ' . $is_required . ' ' . $is_multiple . ' ' . $custom_class . '>';
-
-							if ( isset( $field_options['options']['values'] ) && is_array( $field_options['options']['values'] ) ) {
-								$field_count = count( $field_options['options']['values'] );
-								for ( $i = 0; $i < $field_count; $i++ ) {
-									$resp .= '<option value="' . $field_options['options']['keys'][ $i ] . '" ' . ( isset( $field_options['options']['selected'][ $i ] ) && $field_options['options']['selected'][ $i ] == 1 ? 'selected' : '' ) . '>' . $field_options['options']['values'][ $i ] . '</option>';
-								}
-							}
-
-							$resp .= '</select>';
 						}
+					} elseif ( $field_type == 'select' ) {
+						// Always render the <select> element for select-type fields.
+						// Static options (if any) are rendered here; dynamic options (e.g. state)
+						// are populated by JS after the DOM is ready.
+						$resp .= '<select name="' . $field_name . '" id="' . $field_key . '" ' . $is_required . ' ' . $is_multiple . ' ' . $custom_class . '>';
+
+						if ( isset( $field_options['options']['values'] ) && is_array( $field_options['options']['values'] ) ) {
+							$field_count = count( $field_options['options']['values'] );
+							for ( $i = 0; $i < $field_count; $i++ ) {
+								$resp .= '<option value="' . $field_options['options']['keys'][ $i ] . '" ' . ( isset( $field_options['options']['selected'][ $i ] ) && $field_options['options']['selected'][ $i ] == 1 ? 'selected' : '' ) . '>' . $field_options['options']['values'][ $i ] . '</option>';
+							}
+						}
+
+						$resp .= '</select>';
 					}
 				} //end if
 
