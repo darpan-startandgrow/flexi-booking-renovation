@@ -283,11 +283,11 @@ class Booking_Planner_REST {
 					),
 					'service_id'  => array(
 						'required'          => false,
-						'sanitize_callback' => 'absint',
+						'sanitize_callback' => 'sanitize_text_field',
 					),
 					'category_id' => array(
 						'required'          => false,
-						'sanitize_callback' => 'absint',
+						'sanitize_callback' => 'sanitize_text_field',
 					),
 				),
 			)

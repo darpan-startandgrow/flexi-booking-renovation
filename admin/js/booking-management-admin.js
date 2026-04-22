@@ -6822,8 +6822,12 @@ function getFormData(formId) {
 	var inputs = jQuery('#' + formId).serializeArray();
 
 	jQuery.each(inputs, function (i, input) {
-		if (input.name.startsWith("field_options")) {
-			var str = input.name.split("field_options[").pop();
+		if (input.name.startsWith("field_options[")) {
+			// Strip the leading "field_options[" prefix and the trailing "]" so that
+			// jQuery.param re-serialises nested keys correctly for PHP.
+			// e.g. "field_options[placeholder]"        -> "placeholder"
+			//      "field_options[options][values][0]" -> "options][values][0"
+			var str = input.name.slice("field_options[".length).replace(/\]$/, '');
 			conditional[str] = input.value;
 		} else {
 			common_data[input.name] = input.value;
