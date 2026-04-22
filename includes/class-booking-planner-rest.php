@@ -1340,18 +1340,18 @@ class Booking_Planner_REST {
 		$svc_where = array( 'service_status' => 1 );
 		$custom_in_clauses = array();
 		if ( ! empty( $params['category_id'] ) ) {
-			$cat_ids = array_map( 'absint', explode( ',', $params['category_id'] ) );
+			$cat_ids = array_values( array_filter( array_map( 'absint', explode( ',', $params['category_id'] ) ) ) );
 			if ( count( $cat_ids ) === 1 ) {
 				$svc_where['service_category'] = $cat_ids[0];
-			} else {
+			} elseif ( count( $cat_ids ) > 1 ) {
 				$custom_in_clauses['service_category'] = $cat_ids;
 			}
 		}
 		if ( ! empty( $params['service_id'] ) ) {
-			$svc_ids_filter = array_map( 'absint', explode( ',', $params['service_id'] ) );
+			$svc_ids_filter = array_values( array_filter( array_map( 'absint', explode( ',', $params['service_id'] ) ) ) );
 			if ( count( $svc_ids_filter ) === 1 ) {
 				$svc_where['id'] = $svc_ids_filter[0];
-			} else {
+			} elseif ( count( $svc_ids_filter ) > 1 ) {
 				$custom_in_clauses['id'] = $svc_ids_filter;
 			}
 		}
