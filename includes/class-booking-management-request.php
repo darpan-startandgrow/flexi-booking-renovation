@@ -12367,9 +12367,9 @@ class BM_Request {
 				$price_module_data['adult']['age']['from']         = isset( $adults_age_group['from'] ) ? esc_html( $adults_age_group['from'] ) : 0;
 				$price_module_data['adult']['age']['to']           = isset( $adults_age_group['to'] ) ? esc_html( $adults_age_group['to'] ) : 0;
 				$price_module_data['adult']['discount_per_person'] = isset( $age_wise_discount[2] ) ? floatval( $age_wise_discount[2] ) : 0;
-				$price_module_data['adult']['total_cost']          = $negative_adult_discount == 1
-					? $this->bm_fetch_total_price( ( floatval( $svc_base_price ) + $price_module_data['adult']['discount_per_person'] ), $total_discounted_adults )
-					: $this->bm_fetch_total_price( ( floatval( $svc_base_price ) - $price_module_data['adult']['discount_per_person'] ), $total_discounted_adults );
+				// When group pricing fires, age_wise_total_price[2] = group_total_price (adults+seniors combined).
+				// When individual pricing applies, it = adult_price * adults_count. Consistent with infant/children.
+				$price_module_data['adult']['total_cost']          = isset( $age_wise_total_price[2] ) ? floatval( $age_wise_total_price[2] ) : 0;
 				$price_module_data['adult']['discount_type']       = $negative_adult_discount == 1 ? 'negative' : 'positive';
 				$price_module_data['adult']['total_discount']      = $this->bm_fetch_total_price( $price_module_data['adult']['discount_per_person'], $total_discounted_adults );
 			}
@@ -12380,9 +12380,9 @@ class BM_Request {
 				$price_module_data['senior']['age']['from']         = isset( $seniors_age_group['from'] ) ? esc_html( $seniors_age_group['from'] ) : 0;
 				$price_module_data['senior']['age']['to']           = isset( $seniors_age_group['to'] ) ? esc_html( $seniors_age_group['to'] ) : 0;
 				$price_module_data['senior']['discount_per_person'] = isset( $age_wise_discount[3] ) ? floatval( $age_wise_discount[3] ) : 0;
-				$price_module_data['senior']['total_cost']          = $negative_senior_discount == 1
-					? $this->bm_fetch_total_price( ( floatval( $svc_base_price ) + $price_module_data['senior']['discount_per_person'] ), $total_discounted_seniors )
-					: $this->bm_fetch_total_price( ( floatval( $svc_base_price ) - $price_module_data['senior']['discount_per_person'] ), $total_discounted_seniors );
+				// When group pricing fires, seniors are folded into the adult group total; age_wise_total_price[3] = 0.
+				// When individual pricing applies, it = senior_price * seniors_count. Consistent with infant/children.
+				$price_module_data['senior']['total_cost']          = isset( $age_wise_total_price[3] ) ? floatval( $age_wise_total_price[3] ) : 0;
 				$price_module_data['senior']['discount_type']       = $negative_senior_discount == 1 ? 'negative' : 'positive';
 				$price_module_data['senior']['total_discount']      = $this->bm_fetch_total_price( $price_module_data['senior']['discount_per_person'], $total_discounted_seniors );
 			}
