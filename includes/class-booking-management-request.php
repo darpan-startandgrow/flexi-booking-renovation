@@ -13996,7 +13996,12 @@ class BM_Request {
 				'total_cost' => 0,
 				'is_active'  => 1,
 			),
-			'results'
+			'results',
+			0,
+			false,
+			'id',
+			'DESC',
+			"AND order_status NOT IN ('completed', 'cancelled', 'refunded', 'failed')"
 		);
 
 		return $bookings;
