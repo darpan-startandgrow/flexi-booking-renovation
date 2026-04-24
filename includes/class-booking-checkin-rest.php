@@ -120,6 +120,70 @@ class Booking_Checkin_REST {
 			)
 		);
 
+		// POST /checkins/scan — public check-in by QR token / booking_key.
+		// Accessible without authentication (customers scanning their own QR).
+		// Rate-limited in scan_permission_check().
+		register_rest_route(
+			self::NAMESPACE,
+			'/checkins/scan',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'handle_scan' ),
+				'permission_callback' => array( $this, 'scan_permission_check' ),
+				'args'                => array(
+					'booking_key' => array(
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'gate'        => array(
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
+
+		// POST /checkins/bulk — admin batch check-in by booking ID array.
+		register_rest_route(
+			self::NAMESPACE,
+			'/checkins/bulk',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'bulk_checkin' ),
+				'permission_callback' => array( $this, 'admin_permission_check' ),
+				'args'                => array(
+					'booking_ids' => array(
+						'required' => true,
+						'type'     => 'array',
+						'items'    => array( 'type' => 'integer' ),
+					),
+				),
+			)
+		);
+
+		// GET /checkins/search — admin attendee lookup returning JSON rows.
+		// Must be before /checkins/(?P<id>\d+) to avoid route conflict.
+		register_rest_route(
+			self::NAMESPACE,
+			'/checkins/search',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'search_checkins' ),
+				'permission_callback' => array( $this, 'admin_permission_check' ),
+				'args'                => array(
+					'search_type'  => array(
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+						'validate_callback' => array( $this, 'validate_search_type' ),
+					),
+					'search_value' => array(
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
+
 		// GET /checkins/{id} — single record
 		register_rest_route(
 			self::NAMESPACE,
@@ -226,6 +290,23 @@ class Booking_Checkin_REST {
 				),
 			)
 		);
+
+		// GET /checkins/{booking_id}/details — JSON booking detail card for admin dashboard.
+		register_rest_route(
+			self::NAMESPACE,
+			'/checkins/(?P<booking_id>\d+)/details',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_checkin_details' ),
+				'permission_callback' => array( $this, 'admin_permission_check' ),
+				'args'                => array(
+					'booking_id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
 	}
 
 	// -------------------------------------------------------------------------
@@ -246,6 +327,38 @@ class Booking_Checkin_REST {
 			__( 'You do not have permission to access this resource.', 'service-booking' ),
 			array( 'status' => 403 )
 		);
+	}
+
+	/**
+	 * Permission callback for the public /checkins/scan endpoint.
+	 *
+	 * Allows any visitor (including unauthenticated customers) but enforces
+	 * IP-based rate limiting to prevent brute-force enumeration of booking keys.
+	 *
+	 * Authenticated admins bypass the rate limit.
+	 *
+	 * @return bool|WP_Error
+	 */
+	public function scan_permission_check() {
+		// Admins are always allowed and exempt from rate limiting.
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+
+		$ip       = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ?? 'unknown' ) );
+		$rate_key = 'bm_qr_scan_' . md5( $ip );
+		$attempts = (int) get_transient( $rate_key );
+
+		if ( $attempts >= 20 ) {
+			return new WP_Error(
+				'rate_limit',
+				__( 'Too many attempts. Please try again in a minute.', 'service-booking' ),
+				array( 'status' => 429 )
+			);
+		}
+
+		set_transient( $rate_key, $attempts + 1, 60 );
+		return true;
 	}
 
 	// -------------------------------------------------------------------------
@@ -283,6 +396,24 @@ class Booking_Checkin_REST {
 				__( 'Invalid check-in status: %s', 'service-booking' ),
 				esc_html( $status )
 			),
+			array( 'status' => 400 )
+		);
+	}
+
+	/**
+	 * Validate the search_type parameter for /checkins/search.
+	 *
+	 * @param string $type Search type string.
+	 * @return bool|WP_Error
+	 */
+	public function validate_search_type( $type ) {
+		$allowed = array( 'last_name', 'email', 'service', 'reference' );
+		if ( in_array( $type, $allowed, true ) ) {
+			return true;
+		}
+		return new WP_Error(
+			'invalid_search_type',
+			__( 'Invalid search type. Use: last_name, email, service, or reference.', 'service-booking' ),
 			array( 'status' => 400 )
 		);
 	}
@@ -674,6 +805,332 @@ class Booking_Checkin_REST {
 			array(
 				'message' => __( 'Status updated.', 'service-booking' ),
 				'data'    => $updated ? $this->format_checkin_row( $updated ) : null,
+			)
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// POST /checkins/scan
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Public check-in endpoint — accepts a booking_key (QR payload) and performs check-in.
+	 *
+	 * Accessible to unauthenticated customers and authenticated admins.
+	 * Rate limiting is enforced in scan_permission_check().
+	 *
+	 * Response codes:
+	 *   200 — check-in successful
+	 *   409 — already checked in
+	 *   422 — booking not found / inactive / blocked
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function handle_scan( WP_REST_Request $request ) {
+		$booking_key = sanitize_text_field( $request->get_param( 'booking_key' ) );
+		$db          = new BM_DBhandler();
+
+		// Lookup booking by its unique key (the QR payload).
+		$booking = $db->get_row( 'BOOKING', $booking_key, 'booking_key' );
+
+		if ( ! $booking ) {
+			return new WP_REST_Response(
+				array(
+					'success' => false,
+					'code'    => 'INVALID_TOKEN',
+					'reason'  => 'not_found',
+					'message' => __( 'Booking not found.', 'service-booking' ),
+				),
+				422
+			);
+		}
+
+		if ( ! $booking->is_active ) {
+			return new WP_REST_Response(
+				array(
+					'success' => false,
+					'code'    => 'INVALID_TOKEN',
+					'reason'  => 'cancelled',
+					'message' => __( 'Cannot check in a cancelled or refunded booking.', 'service-booking' ),
+				),
+				422
+			);
+		}
+
+		$booking_id = (int) $booking->id;
+
+		// Check for idempotency — is this booking already checked in?
+		$existing_checkin = $db->get_row( 'CHECKIN', $booking_id, 'booking_id' );
+		if ( $existing_checkin && BM_CHECKIN_STATUS_CHECKED_IN === $existing_checkin->status ) {
+			return new WP_REST_Response(
+				array(
+					'success'          => false,
+					'code'             => 'ALREADY_CHECKED_IN',
+					'message'          => __( 'This booking has already been checked in.', 'service-booking' ),
+					'first_checkin_at' => sanitize_text_field( $existing_checkin->checkin_time ?? '' ),
+				),
+				409
+			);
+		}
+
+		$result = BM_Checkin::do_checkin( $booking_id, $db, get_current_user_id() );
+
+		if ( ! $result ) {
+			return new WP_REST_Response(
+				array(
+					'success' => false,
+					'code'    => 'CHECKIN_BLOCKED',
+					'message' => __( 'Check-in was blocked by a restriction (e.g. time window).', 'service-booking' ),
+				),
+				422
+			);
+		}
+
+		// Issue a one-time confirmation token so the frontend can redirect to a
+		// confirmation page without exposing the booking_key in the URL.
+		$token = wp_generate_password( 32, false );
+		set_transient( 'bm_ci_confirm_' . $token, $booking_id, 10 * MINUTE_IN_SECONDS );
+
+		return new WP_REST_Response(
+			array(
+				'success'       => true,
+				'booking_id'    => $booking_id,
+				'booking_key'   => sanitize_text_field( $booking->booking_key ?? '' ),
+				'attendee'      => trim( sanitize_text_field( ( $booking->first_name ?? '' ) . ' ' . ( $booking->last_name ?? '' ) ) ),
+				'first_name'    => sanitize_text_field( $booking->first_name ?? '' ),
+				'last_name'     => sanitize_text_field( $booking->last_name ?? '' ),
+				'email'         => sanitize_email( $booking->email_address ?? '' ),
+				'service'       => sanitize_text_field( $booking->service_name ?? '' ),
+				'booking_date'  => sanitize_text_field( $booking->booking_date ?? '' ),
+				'message'       => __( 'Checked in successfully.', 'service-booking' ),
+				'confirm_token' => $token,
+			),
+			200
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// POST /checkins/bulk
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Batch check-in for an array of booking IDs (admin only).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function bulk_checkin( WP_REST_Request $request ) {
+		$raw_ids    = $request->get_param( 'booking_ids' );
+		$booking_ids = is_array( $raw_ids ) ? array_map( 'absint', $raw_ids ) : array();
+
+		if ( empty( $booking_ids ) ) {
+			return new WP_REST_Response(
+				array( 'message' => __( 'No booking IDs provided.', 'service-booking' ) ),
+				400
+			);
+		}
+
+		$db      = new BM_DBhandler();
+		$uid     = get_current_user_id();
+		$success = array();
+		$failed  = array();
+
+		foreach ( $booking_ids as $bid ) {
+			$is_active = $db->get_value( 'BOOKING', 'is_active', $bid, 'id' );
+			if ( $is_active != 1 ) {
+				$failed[] = $bid;
+				continue;
+			}
+			if ( BM_Checkin::do_checkin( $bid, $db, $uid ) ) {
+				$success[] = $bid;
+			} else {
+				$failed[] = $bid;
+			}
+		}
+
+		$count = count( $success );
+
+		return new WP_REST_Response(
+			array(
+				'success'       => $count > 0,
+				'checked_in'    => $count,
+				'failed'        => count( $failed ),
+				'failed_ids'    => $failed,
+				/* translators: %d number of bookings */
+				'message'       => sprintf(
+					_n( '%d booking checked in successfully.', '%d bookings checked in successfully.', $count, 'service-booking' ),
+					$count
+				),
+			),
+			200
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// GET /checkins/search
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Attendee search for the admin manual check-in modal.
+	 *
+	 * Returns a JSON array of matching booking rows with their check-in status.
+	 * The JS is responsible for rendering the results table.
+	 *
+	 * Query parameters:
+	 *   search_type  — last_name | email | service | reference
+	 *   search_value — search term (comma-separated IDs for service type)
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function search_checkins( WP_REST_Request $request ) {
+		$search_type  = sanitize_text_field( $request->get_param( 'search_type' ) );
+		$search_value = sanitize_text_field( $request->get_param( 'search_value' ) );
+
+		if ( '' === $search_value ) {
+			return new WP_Error(
+				'missing_search_value',
+				__( 'Search value is required.', 'service-booking' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$db        = new BM_DBhandler();
+		$activator = new Booking_Management_Activator();
+		$bkt_table = $activator->get_db_table_name( 'BOOKING' );
+		$cht_table = $activator->get_db_table_name( 'CHECKIN' );
+
+		// Build WHERE clause per search type.
+		$where_parts = array( 'b.is_active = 1' );
+		$where_vals  = array();
+
+		switch ( $search_type ) {
+			case 'reference':
+				$where_parts[] = 'b.booking_key = %s';
+				$where_vals[]  = $search_value;
+				break;
+
+			case 'email':
+				$where_parts[] = 'b.email_address = %s';
+				$where_vals[]  = $search_value;
+				break;
+
+			case 'last_name':
+				$like          = '%' . $db->esc_like( $search_value ) . '%';
+				$where_parts[] = 'b.last_name LIKE %s';
+				$where_vals[]  = $like;
+				break;
+
+			case 'service':
+				// search_value may be comma-separated service IDs from a multi-select.
+				$raw_ids     = array_map( 'absint', array_filter( explode( ',', $search_value ) ) );
+				if ( empty( $raw_ids ) ) {
+					return new WP_Error(
+						'invalid_service_ids',
+						__( 'No valid service IDs provided.', 'service-booking' ),
+						array( 'status' => 400 )
+					);
+				}
+				// Build safe IN clause: IDs are integers from absint, safe to interpolate.
+				$placeholders  = implode( ', ', array_fill( 0, count( $raw_ids ), '%d' ) );
+				$where_parts[] = "b.service_id IN ( {$placeholders} )"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$where_vals    = array_merge( $where_vals, $raw_ids );
+				break;
+		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$where_sql = implode( ' AND ', $where_parts );
+		$sql       = $db->prepare_sql(
+			"SELECT b.id, b.booking_key, b.service_id, b.service_name,
+			        b.first_name, b.last_name, b.email_address,
+			        b.total_svc_slots AS svc_participants,
+			        b.total_ext_svc_slots AS ex_svc_participants,
+			        ch.status AS checkin_status, ch.checkin_time, ch.id AS checkin_id
+			 FROM `{$bkt_table}` b
+			 LEFT JOIN `{$cht_table}` ch ON ch.booking_id = b.id
+			 WHERE {$where_sql}
+			 ORDER BY b.id DESC
+			 LIMIT 200",
+			...$where_vals
+		);
+		// phpcs:enable
+
+		$rows = $db->get_results_raw( $sql ) ?? array();
+
+		$results = array_map( function ( $row ) {
+			$status = sanitize_key( $row->checkin_status ?? '' );
+			return array(
+				'id'               => (int) $row->id,
+				'booking_key'      => sanitize_text_field( $row->booking_key ?? '' ),
+				'service_id'       => (int) $row->service_id,
+				'service_name'     => sanitize_text_field( $row->service_name ?? '' ),
+				'first_name'       => sanitize_text_field( $row->first_name ?? '' ),
+				'last_name'        => sanitize_text_field( $row->last_name ?? '' ),
+				'email_address'    => sanitize_email( $row->email_address ?? '' ),
+				'svc_participants' => (int) ( $row->svc_participants ?? 0 ),
+				'ex_participants'  => (int) ( $row->ex_svc_participants ?? 0 ),
+				'checkin_status'   => $status,
+				'checkin_label'    => $status ? BM_Checkin::get_status_label( $status ) : __( 'Pending', 'service-booking' ),
+				'checkin_time'     => sanitize_text_field( $row->checkin_time ?? '' ),
+				'checkin_id'       => (int) ( $row->checkin_id ?? 0 ),
+			);
+		}, $rows );
+
+		return rest_ensure_response(
+			array(
+				'results' => $results,
+				'total'   => count( $results ),
+			)
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// GET /checkins/{booking_id}/details
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Return a JSON booking-detail card for the admin check-in dashboard.
+	 *
+	 * Used by the "View" (eye icon) action in the manual check-in modal and
+	 * the "Order Details" viewer in the QR scanner panel.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_checkin_details( WP_REST_Request $request ) {
+		$booking_id = absint( $request->get_param( 'booking_id' ) );
+		$db         = new BM_DBhandler();
+
+		$booking = $db->get_row( 'BOOKING', $booking_id, 'id' );
+		if ( ! $booking ) {
+			return new WP_Error(
+				'booking_not_found',
+				__( 'Booking not found.', 'service-booking' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$checkin = $db->get_row( 'CHECKIN', $booking_id, 'booking_id' );
+
+		// Retrieve billing address if available.
+		$customer_name = trim( sanitize_text_field( ( $booking->first_name ?? '' ) . ' ' . ( $booking->last_name ?? '' ) ) );
+
+		return rest_ensure_response(
+			array(
+				'booking_id'    => $booking_id,
+				'booking_key'   => sanitize_text_field( $booking->booking_key ?? '' ),
+				'attendee'      => $customer_name,
+				'first_name'    => sanitize_text_field( $booking->first_name ?? '' ),
+				'last_name'     => sanitize_text_field( $booking->last_name ?? '' ),
+				'email'         => sanitize_email( $booking->email_address ?? '' ),
+				'contact_no'    => sanitize_text_field( $booking->contact_no ?? '' ),
+				'service_name'  => sanitize_text_field( $booking->service_name ?? '' ),
+				'booking_date'  => sanitize_text_field( $booking->booking_date ?? '' ),
+				'order_status'  => sanitize_text_field( $booking->order_status ?? '' ),
+				'checkin_status'=> sanitize_key( $checkin->status ?? '' ),
+				'checkin_time'  => sanitize_text_field( $checkin->checkin_time ?? '' ),
+				'is_active'     => (bool) $booking->is_active,
 			)
 		);
 	}

@@ -681,6 +681,16 @@ class Booking_Management_Admin {
 						'plugin_url'     => plugin_dir_url( __FILE__ ),
 					)
 				);
+				// REST API config for the check-in dashboard JS.
+				// wp_localize_script is the ONLY place PHP variables enter check-in JS.
+				wp_localize_script(
+					'check-in-script',
+					'checkinRest',
+					array(
+						'url'   => rest_url( 'bm-checkin/v1/' ),
+						'nonce' => wp_create_nonce( 'wp_rest' ),
+					)
+				);
 			}
 
 			if ( $screen->base == 'admin_page_bm_add_coupon' || $screen->base == 'flexibooking_page_bm_all_coupons' ) {
@@ -14502,6 +14512,9 @@ class Booking_Management_Admin {
 	 * @author Darpan
 	 */
 	public function bm_handle_qr_verification() {
+		// DEPRECATED: migrated to REST API in v2.2.0 — remove in next major version.
+		_deprecated_function( __FUNCTION__, '2.2.0', 'POST /wp-json/bm-checkin/v1/checkins/scan' );
+
 		$nonce = filter_input( INPUT_POST, 'nonce' );
 
 		if ( ! $nonce || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
