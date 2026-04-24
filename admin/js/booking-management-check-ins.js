@@ -126,9 +126,10 @@ jQuery(document).ready(function($) {
         const code = jsQR(imageData.data, canvas.width, canvas.height);
         
         if (code) {
-            // Escape QR data before inserting into DOM to prevent XSS.
+            // Escape all dynamic content before inserting into DOM to prevent XSS.
             const safeData = $('<span>').text(code.data).html();
-            $('#scanner-result').html('<p>' + bm_normal_object.qr_code_detected + ': ' + safeData + '</p>');
+            const safeLabel = $('<span>').text(bm_normal_object.qr_code_detected).html();
+            $('#scanner-result').html('<p>' + safeLabel + ': ' + safeData + '</p>');
             verifyQRCode(code.data);
             stopScanner();
         } else {

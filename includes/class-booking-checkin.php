@@ -153,7 +153,8 @@ class BM_Checkin {
 
 		$now        = ( new BM_Request() )->bm_fetch_current_wordpress_datetime_stamp();
 		$qr_token   = $db->get_value( 'BOOKING', 'booking_key', $booking_id, 'id' );
-		$table      = $wpdb->prefix . 'checkin';
+		// esc_sql() ensures the table name is safe even if the DB prefix contains unusual chars.
+		$table      = esc_sql( $wpdb->prefix . 'checkin' );
 
 		$data = array(
 			'booking_id'      => $booking_id,
@@ -287,7 +288,7 @@ class BM_Checkin {
 		}
 
 		global $wpdb;
-		$table = $wpdb->prefix . 'checkin';
+		$table = esc_sql( $wpdb->prefix . 'checkin' );
 		$now   = ( new BM_Request() )->bm_fetch_current_wordpress_datetime_stamp();
 		$count = 0;
 		$uid   = get_current_user_id();
@@ -379,7 +380,7 @@ class BM_Checkin {
 		}
 
 		global $wpdb;
-		$table = $wpdb->prefix . 'checkin';
+		$table = esc_sql( $wpdb->prefix . 'checkin' );
 		$now   = ( new BM_Request() )->bm_fetch_current_wordpress_datetime_stamp();
 
 		/**
@@ -460,7 +461,7 @@ class BM_Checkin {
 		global $wpdb;
 
 		$table   = $wpdb->prefix . 'checkin';
-		$booking = $wpdb->prefix . 'booking';
+		$booking = esc_sql( $wpdb->prefix . 'booking' );
 
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			"SELECT ch.status, COUNT(*) AS cnt
@@ -554,26 +555,35 @@ class BM_Checkin {
 		}
 
 		global $wpdb;
-		$table = $wpdb->prefix . 'checkin';
+		$table = esc_sql( $wpdb->prefix . 'checkin' );
+
+		// Guard: table name must match a safe pattern before use in DDL.
+		if ( ! preg_match( '/^[a-z0-9_]+$/i', $table ) ) {
+			return;
+		}
+
+		// Use $wpdb->dbname for the current DB name rather than the DB_NAME constant
+		// so we work correctly in all WordPress configurations.
+		$db_name = $wpdb->dbname;
 
 		// Add checked_in_by column.
 		$col_exists = $wpdb->get_results( $wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s',
-			DB_NAME, $table, 'checked_in_by'
+			$db_name, $table, 'checked_in_by'
 		) );
 
 		if ( empty( $col_exists ) ) {
-			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN `checked_in_by` int(11) DEFAULT NULL AFTER `service_expired`" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN `checked_in_by` int(11) DEFAULT NULL AFTER `service_expired`" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		}
 
 		// Add notes column.
 		$notes_exists = $wpdb->get_results( $wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s',
-			DB_NAME, $table, 'notes'
+			$db_name, $table, 'notes'
 		) );
 
 		if ( empty( $notes_exists ) ) {
-			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN `notes` text DEFAULT NULL AFTER `checked_in_by`" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN `notes` text DEFAULT NULL AFTER `checked_in_by`" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		}
 
 		update_option( 'bm_checkin_db_version', BM_CHECKIN_VERSION );

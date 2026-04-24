@@ -10386,7 +10386,8 @@ function bm_search_checkin_data(type = '') {
 								// Inline badge alongside the dropdown for quick visual scan.
 								const badgeClass = 'bm-ci-badge bm-ci-badge--' + bmEscAttr(status);
 								checkinListing += `<td style='text-align: center;'>`;
-								checkinListing += `<span class="${badgeClass}" aria-label="${bmEscAttr(status)}">${bmEscHtml(status.replace('_', ' '))}</span>`;
+								// Badge: visible text is sufficient for screen readers; no redundant aria-label.
+								checkinListing += `<span class="${badgeClass}">${bmEscHtml(status.replace('_', ' '))}</span>`;
 								checkinListing += `<select class="checkin-status-dropdown"
 												aria-label="Change check-in status"
 												data-checkin-id="${checkins[i].checkin_id}"
