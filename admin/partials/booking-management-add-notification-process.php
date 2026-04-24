@@ -254,7 +254,7 @@ $templates = $dbhandler->get_all_result( 'EMAIL_TMPL', '*', 1, 'results' );
                                     <span><?php esc_html_e( 'Add condition', 'service-booking' ); ?></span>
                                 </button>
                             </td>
-                            <td style="position:relative;right:135px; width:250px;top:12px;vertical-align: top;">
+                            <td style="width:250px;vertical-align: top;">
                                 <label for="conditions_logic" style="font-weight:600;"><?php esc_html_e( 'Condition logic:', 'service-booking' ); ?></label><br />
                                 <select name="conditions_logic" id="conditions_logic" class="regular-text emailselect">
                                     <option value="AND" <?php selected( isset( $conditions_logic ) ? $conditions_logic : 'AND', 'AND' ); ?>><?php esc_html_e( 'AND (all conditions must match)', 'service-booking' ); ?></option>
