@@ -2562,15 +2562,21 @@ class Booking_Management_Public {
 	 *
 	 * @author Darpan
 	 */
-	public function bm_fetch_order_info_and_redirect_to_checkout() {
-			$nonce = filter_input( INPUT_POST, 'nonce' );
-		if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
-			die( esc_html__( 'Failed security check', 'service-booking' ) );
-		}
+	public function bm_fetch_order_info_and_redirect_to_checkout($post_data = []) {
+                $bmrequests     = new BM_Request();
+                $is_ajax = defined('DOING_AJAX') && DOING_AJAX;
+                if($is_ajax){
+                    $nonce = filter_input( INPUT_POST, 'nonce' );
+                    if ( ! isset( $nonce ) || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+                            die( esc_html__( 'Failed security check', 'service-booking' ) );
+                    }
+                    $post           = filter_input( INPUT_POST, 'post', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY );
+		
+                }else{
+                    $post = !empty($post_data) ? $post_data: [];
+                }
 
-		$bmrequests     = new BM_Request();
-		$post           = filter_input( INPUT_POST, 'post', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY );
-		$booking_fields = array();
+                $booking_fields = array();
 		$resp           = '';
 		$data['status'] = 'error';
 
@@ -2652,6 +2658,7 @@ class Booking_Management_Public {
 											if ( $add_to_cart ) {
 												$data['data']   = $checkout_page_url;
 												$data['status'] = 'success';
+                                                                                                do_action('fb_wc_service_add_to_cart',$data, $post, $booking_string);
 											} else {
 												$data['data'] = '<div class="textcenter">' . esc_html__( 'Products could not be added to woocommerce cart !!', 'service-booking' ) . '</div>';
 											}
@@ -2678,6 +2685,7 @@ class Booking_Management_Public {
 
 										$data['data']   = $checkout_page_url . $separator . 'flexi_booking=' . $booking_string;
 										$data['status'] = 'success';
+                                                                                do_action('fb_service_add_to_cart',$data, $post, $booking_string);
 									} else {
 										if ( isset( $time_slot ) && $time_slot == '-1' ) {
 											$resp = '<div class="textcenter">' . esc_html__( 'No slots available, try booking another slot or service !!', 'service-booking' ) . '</div>';
@@ -2707,9 +2715,11 @@ class Booking_Management_Public {
 				$data['data'] = '<div class="textcenter">' . esc_html__( 'Error fetching booking info !!', 'service-booking' ) . '</div>';
 			}
 		} //end if
-
-		echo wp_json_encode( $data );
-		die;
+                if($is_ajax){
+                    echo wp_json_encode( $data );
+                    die;
+                }
+                return $data;
 	} //end bm_fetch_checkout_form()
 
 
