@@ -27,12 +27,16 @@ if ( filter_input( INPUT_POST, 'save_event' ) ) {
 
         if ( !$is_condition ) {
             $_POST['trigger_conditions'] = null;
+            $_POST['conditions_logic']   = 'AND';
         } else {
             $event_trigger_conditions = filter_input( INPUT_POST, 'trigger_conditions', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY );
 
             $_POST['trigger_conditions']['type']     = array_values( $event_trigger_conditions['type'] );
             $_POST['trigger_conditions']['operator'] = array_values( $event_trigger_conditions['operator'] );
             $_POST['trigger_conditions']['values']   = array_values( $event_trigger_conditions['values'] );
+
+            $raw_logic                 = filter_input( INPUT_POST, 'conditions_logic' );
+            $_POST['conditions_logic'] = ( $raw_logic === 'OR' ) ? 'OR' : 'AND';
         }
 
         if ( !$is_offset ) {
@@ -95,9 +99,12 @@ if ( filter_input( INPUT_POST, 'save_event' ) ) {
 
 
 if ( !empty( $notification_event_id ) ) {
-    $event       = $dbhandler->get_row( $identifier, $notification_event_id );
-    $conditions  = isset( $event->trigger_conditions ) ? maybe_unserialize( $event->trigger_conditions ) : array();
-    $time_offset = isset( $event->time_offset ) ? maybe_unserialize( $event->time_offset ) : array();
+    $event            = $dbhandler->get_row( $identifier, $notification_event_id );
+    $conditions       = isset( $event->trigger_conditions ) ? maybe_unserialize( $event->trigger_conditions ) : array();
+    $conditions_logic = isset( $event->conditions_logic ) ? $event->conditions_logic : 'AND';
+    $time_offset      = isset( $event->time_offset ) ? maybe_unserialize( $event->time_offset ) : array();
+} else {
+    $conditions_logic = 'AND';
 }
 
 $templates = $dbhandler->get_all_result( 'EMAIL_TMPL', '*', 1, 'results' );
@@ -244,11 +251,15 @@ $templates = $dbhandler->get_all_result( 'EMAIL_TMPL', '*', 1, 'results' );
                             <td class="add_trigger_conditions_class">
                                 <button type="button" class="add_condition_box_btn" onclick="bm_add_condition_box()">
                                     <i class="fa fa-plus" aria-hidden="true"></i>
-                                    <span><?php esc_html_e( 'AND', 'service-booking' ); ?></span>
+                                    <span><?php esc_html_e( 'Add condition', 'service-booking' ); ?></span>
                                 </button>
                             </td>
-                            <td style="position:relative;right:135px; width:200px;top:12px;vertical-align: top;">
-                                <?php esc_html_e( 'Set conditions for this event', 'service-booking' ); ?>
+                            <td style="position:relative;right:135px; width:250px;top:12px;vertical-align: top;">
+                                <label for="conditions_logic" style="font-weight:600;"><?php esc_html_e( 'Condition logic:', 'service-booking' ); ?></label><br />
+                                <select name="conditions_logic" id="conditions_logic" class="regular-text emailselect">
+                                    <option value="AND" <?php selected( isset( $conditions_logic ) ? $conditions_logic : 'AND', 'AND' ); ?>><?php esc_html_e( 'AND (all conditions must match)', 'service-booking' ); ?></option>
+                                    <option value="OR" <?php selected( isset( $conditions_logic ) ? $conditions_logic : 'AND', 'OR' ); ?>><?php esc_html_e( 'OR (any condition must match)', 'service-booking' ); ?></option>
+                                </select>
                             </td>
                         </tr>
                     </table>

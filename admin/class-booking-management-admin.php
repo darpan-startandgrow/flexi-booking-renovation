@@ -15051,9 +15051,9 @@ class Booking_Management_Admin {
 	/**
 	 * Evaluate EVENTNOTIFICATION trigger_conditions and time_offset for scheduling.
 	 *
-	 * Implements strict AND logic: every condition row must pass before the
-	 * notification is considered scheduleable.  The loop breaks on the first
-	 * failing condition so that later conditions cannot flip the result.
+	 * Supports both AND logic (every condition row must pass) and OR logic
+	 * (at least one condition row must pass).  The $conditions_logic parameter
+	 * controls which mode is used; defaults to 'AND' for backward compatibility.
 	 *
 	 * time_offset.position:
 	 *   1 = after the event  → fire_at = time() + delay
@@ -15068,16 +15068,18 @@ class Booking_Management_Admin {
 	 * @param string $payment_status    Current TRANSACTIONS.payment_status value.
 	 * @param int    $booking_timestamp Unix timestamp of the booking's appointment start
 	 *                                  (0 when not available, e.g. failed-order callbacks).
+	 * @param string $conditions_logic  'AND' (default) or 'OR'.
 	 *
 	 * @return array {
-	 *     'scheduleable' => bool  All conditions passed.
+	 *     'scheduleable' => bool  Conditions passed per the selected logic.
 	 *     'non_existing' => bool  True when no condition explicitly covered this booking
 	 *                             (triggers the generic / no-template fallback mail).
 	 *     'fire_at'      => int   Unix timestamp to pass directly to wp_schedule_single_event.
 	 * }
 	 */
-	private function bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp = 0 ) {
-		$scheduleable = true;
+	private function bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp = 0, $conditions_logic = 'AND' ) {
+		$use_or_logic = ( strtoupper( (string) $conditions_logic ) === 'OR' );
+		$scheduleable = ! $use_or_logic; // AND starts true; OR starts false.
 		$non_existing = true;
 		$delay        = 0;
 		$seconds      = 1;
@@ -15100,7 +15102,12 @@ class Booking_Management_Admin {
 				} elseif ( $type == 3 ) {
 					$module = $payment_status;
 				} else {
-					continue; // unknown condition type — skip without failing
+					continue; // unknown condition type — skip without affecting result
+				}
+
+				// Track whether any condition explicitly references this booking.
+				if ( $non_existing && in_array( $module, $value ) ) {
+					$non_existing = false;
 				}
 
 				// Unknown operator: treat as no-opinion (pass).
@@ -15111,13 +15118,16 @@ class Booking_Management_Admin {
 					$condition_passes = ! in_array( $module, $value );
 				}
 
-				if ( ! $condition_passes ) {
-					$scheduleable = false;
-					// Detect whether this condition explicitly covered this booking.
-					if ( $non_existing && in_array( $module, $value ) ) {
-						$non_existing = false;
+				if ( $use_or_logic ) {
+					if ( $condition_passes ) {
+						$scheduleable = true;
+						break; // OR logic: stop on first success.
 					}
-					break; // AND logic: stop on first failure.
+				} else {
+					if ( ! $condition_passes ) {
+						$scheduleable = false;
+						break; // AND logic: stop on first failure.
+					}
 				}
 			}
 		}
@@ -15227,12 +15237,13 @@ class Booking_Management_Admin {
 				$booking_timestamp = $this->bm_get_booking_timestamp_from_order( $order_id );
 
 				foreach ( $processes as $process ) {
-					$process_id  = isset( $process->id ) ? $process->id : 0;
-					$template_id = isset( $process->template_id ) ? maybe_unserialize( $process->template_id ) : 0;
-					$condition   = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
-					$time_offset = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
+					$process_id       = isset( $process->id ) ? $process->id : 0;
+					$template_id      = isset( $process->template_id ) ? maybe_unserialize( $process->template_id ) : 0;
+					$condition        = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
+					$time_offset      = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
+					$conditions_logic = isset( $process->conditions_logic ) ? $process->conditions_logic : 'AND';
 
-					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp );
+					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp, $conditions_logic );
 
 					if ( $result['scheduleable'] ) {
 						wp_schedule_single_event( $result['fire_at'], 'flexibooking_mail_order_refund', array( $order_id, $template_id, $process_id ), true );
@@ -15473,12 +15484,13 @@ class Booking_Management_Admin {
 				$booking_timestamp = $this->bm_get_booking_timestamp_from_order( $order_id );
 
 				foreach ( $processes as $process ) {
-					$process_id  = isset( $process->id ) ? $process->id : 0;
-					$template_id = isset( $process->template_id ) ? maybe_unserialize( $process->template_id ) : 0;
-					$condition   = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
-					$time_offset = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
+					$process_id       = isset( $process->id ) ? $process->id : 0;
+					$template_id      = isset( $process->template_id ) ? maybe_unserialize( $process->template_id ) : 0;
+					$condition        = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
+					$time_offset      = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
+					$conditions_logic = isset( $process->conditions_logic ) ? $process->conditions_logic : 'AND';
 
-					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp );
+					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp, $conditions_logic );
 
 					if ( $result['scheduleable'] ) {
 						wp_schedule_single_event( $result['fire_at'], 'flexibooking_mail_cancel_order', array( $order_id, $template_id, $process_id ), true );
@@ -15719,12 +15731,13 @@ class Booking_Management_Admin {
 				$booking_timestamp = $this->bm_get_booking_timestamp_from_order( $order_id );
 
 				foreach ( $processes as $process ) {
-					$process_id  = isset( $process->id ) ? $process->id : 0;
-					$template_id = isset( $process->template_id ) ? maybe_unserialize( $process->template_id ) : 0;
-					$condition   = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
-					$time_offset = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
+					$process_id       = isset( $process->id ) ? $process->id : 0;
+					$template_id      = isset( $process->template_id ) ? maybe_unserialize( $process->template_id ) : 0;
+					$condition        = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
+					$time_offset      = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
+					$conditions_logic = isset( $process->conditions_logic ) ? $process->conditions_logic : 'AND';
 
-					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp );
+					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp, $conditions_logic );
 
 					if ( $result['scheduleable'] ) {
 						wp_schedule_single_event( $result['fire_at'], 'flexibooking_mail_approved_order', array( $order_id, $template_id, $process_id ), true );
@@ -15966,12 +15979,13 @@ class Booking_Management_Admin {
 				$payment_status = 'failed';
 
 				foreach ( $processes as $process ) {
-					$process_id  = isset( $process->id ) ? $process->id : 0;
-					$template_id = isset( $process->template_id ) ? maybe_unserialize( $process->template_id ) : 0;
-					$condition   = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
-					$time_offset = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
+					$process_id       = isset( $process->id ) ? $process->id : 0;
+					$template_id      = isset( $process->template_id ) ? maybe_unserialize( $process->template_id ) : 0;
+					$condition        = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
+					$time_offset      = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
+					$conditions_logic = isset( $process->conditions_logic ) ? $process->conditions_logic : 'AND';
 
-					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, 0 );
+					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, 0, $conditions_logic );
 
 					if ( $result['scheduleable'] ) {
 						wp_schedule_single_event( $result['fire_at'], 'flexibooking_mail_failed_order', array( $order_key, $template_id, $process_id ), true );
