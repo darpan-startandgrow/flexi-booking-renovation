@@ -356,7 +356,7 @@ function bm_checkin_manually() {
         url: checkinRest.url + 'checkins/bulk',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({ booking_ids: bookingIds.map(Number) }),
+        data: JSON.stringify({ booking_ids: bookingIds.map(function(id) { return parseInt(id, 10) || 0; }).filter(function(id) { return id > 0; }) }),
         beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
         success: function(response) {
             jQuery('#resendProcess').addClass('hidden');
