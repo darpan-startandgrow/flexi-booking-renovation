@@ -352,6 +352,10 @@ table.manual_checkin_records_table thead td {
   display: none;
   z-index: 9999;
   position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, .72);
 }
 
 /* ===================================================================

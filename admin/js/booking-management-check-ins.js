@@ -146,10 +146,9 @@ jQuery(document).ready(function($) {
             if (response.success) {
                 $('#scanner-container').hide();
                 $('#scanner-result').append(`<p class="success">${bm_success_object.checked_in_successfully}</p>`);
-                const url = new URL(document.referrer || window.location.href); 
-                url.searchParams.set('qr_scan_done', qrData); 
-
-                window.location.href = url.toString();
+                var base = qrScannerData.scannerPageUrl || window.location.href.split('?')[0];
+                var sep  = base.indexOf('?') >= 0 ? '&' : '?';
+                window.location.href = base + sep + 'qr_scan_done=' + encodeURIComponent(qrData);
             } else {
                 $('#scanner-result').append(`<p class="error">${response.data ? response.data : bm_error_object.server_error}</p>`);
                 setTimeout(startScanner, 3000);
@@ -477,7 +476,6 @@ jQuery(document).ready(function($) {
         $confirmBtn.hide();
         
         $cropperImg.off("load").one("load", function() {
-            console.log("Image loaded into cropper");
             $spinner.hide();
             $cropperImg.show();
             $confirmBtn.show();
@@ -551,7 +549,10 @@ jQuery(document).ready(function($) {
         let code = jsQR(imageData.data, imageData.width, imageData.height);
         if (code) {
             let bookingRef = code.data;
-            $("#scanner-result").html("<p>" + bm_normal_object.qr_code_detected + ": " + bookingRef + "</p>");
+            // Escape bookingRef as text to prevent XSS from malicious QR codes.
+            let safeRef = $('<span>').text(bookingRef).html();
+            let safeLabel = $('<span>').text(bm_normal_object.qr_code_detected).html();
+            $("#scanner-result").html("<p>" + safeLabel + ": " + safeRef + "</p>");
 
             $.post(bm_ajax_object.ajax_url, {
                 action: "qr_checkin_process",
@@ -559,18 +560,17 @@ jQuery(document).ready(function($) {
                 booking_reference: bookingRef
             }, function(response) {
                 if (response.success) {
-                    $("#scanner-result").append("<p class='success'>" + response.data.message + "</p>");
-
-                    $("#scanner-result").append("<p class='success'>Redirecting...</p>");
-                    window.location.href = qrScannerData.scannerPageUrl + "?qr_scan_done=" + encodeURIComponent(bookingRef);
-
+                    $("#scanner-result").append("<p class='success'>" + $('<span>').text(response.data.message).html() + "</p>");
+                    var base = qrScannerData.scannerPageUrl || window.location.href.split('?')[0];
+                    var sep  = base.indexOf('?') >= 0 ? '&' : '?';
+                    window.location.href = base + sep + 'qr_scan_done=' + encodeURIComponent(bookingRef);
                     $("#scanner-container").hide();
                 } else {
-                    $("#scanner-result").append("<p class='error'>" + response.data + "</p>");
+                    $("#scanner-result").append("<p class='error'>" + $('<span>').text(response.data || '').html() + "</p>");
                 }
             });
         } else {
-            $("#scanner-result").html("<p class='error'>" + bm_error_object.no_qr_code_found + "</p>");
+            $("#scanner-result").html("<p class='error'>" + $('<span>').text(bm_error_object.no_qr_code_found).html() + "</p>");
         }
 
         $modal.hide();

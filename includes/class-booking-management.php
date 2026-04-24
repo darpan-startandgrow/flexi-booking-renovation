@@ -358,6 +358,8 @@ class Booking_Management {
 		$this->loader->add_action( 'wp_ajax_bm_get_email_content', $plugin_admin, 'bm_get_email_content' );
 		$this->loader->add_action( 'wp_ajax_bm_retry_failed_payment', $plugin_admin, 'bm_retry_failed_payment' );
 		$this->loader->add_action( 'wp_ajax_qr_checkin_process', $plugin_admin, 'bm_qr_checkin_process' );
+		// Note: wp_ajax_verify_qr_code is intentionally admin-only (manage_options).
+		// The public frontend scanner uses wp_ajax_bm_qr_scanner_checkin instead.
 
 		$this->loader->add_action( 'wp_ajax_bm_export_checkin_options_html', $plugin_admin, 'bm_export_checkin_options_html' );
 		$this->loader->add_action( 'wp_ajax_bm_fetch_export_checkin_records', $plugin_admin, 'bm_fetch_export_checkin_records_as_per_type' );
@@ -508,10 +510,15 @@ class Booking_Management {
 		$this->loader->add_action( 'wp_ajax_nopriv_bm_fetch_service_extras_for_backend_order', $plugin_public, 'bm_fetch_service_extras_for_backend_order' );
 		$this->loader->add_action( 'wp_ajax_bm_fetch_discount_module_for_backend_order', $plugin_public, 'bm_fetch_price_discount_module_for_backend_order' );
 		$this->loader->add_action( 'wp_ajax_nopriv_bm_fetch_discount_module_for_backend_order', $plugin_public, 'bm_fetch_price_discount_module_for_backend_order' );
-		$this->loader->add_action( 'wp_ajax_qr_checkin_process', $plugin_public, 'bm_qr_checkin_process' );
-    	$this->loader->add_action( 'wp_ajax_nopriv_qr_checkin_process', $plugin_public, 'bm_qr_checkin_process' );
-		$this->loader->add_action( 'wp_ajax_verify_qr_code', $plugin_public, 'bm_handle_qr_verification' );
-		$this->loader->add_action( 'wp_ajax_nopriv_verify_qr_code', $plugin_public, 'bm_handle_qr_verification' );
+		// Public frontend scanner check-in (customers, no account required).
+		// Uses a dedicated action separate from the admin check-in action to avoid
+		// the manage_options guard in the admin handler firing first for authenticated users.
+		$this->loader->add_action( 'wp_ajax_bm_qr_scanner_checkin', $plugin_public, 'bm_qr_scanner_checkin' );
+		$this->loader->add_action( 'wp_ajax_nopriv_bm_qr_scanner_checkin', $plugin_public, 'bm_qr_scanner_checkin' );
+		// Legacy admin-initiated handlers still kept for the admin check-ins dashboard.
+		// The duplicate wp_ajax_qr_checkin_process and wp_ajax_verify_qr_code registrations
+		// from the public class have been removed to prevent the admin's manage_options
+		// guard from silently blocking non-admin authenticated users on the frontend.
 		$this->loader->add_action( 'flexibooking_set_process_new_order', $plugin_public, 'bm_flexibooking_set_process_new_order_callback', 10, 1 );
 		$this->loader->add_action( 'flexibooking_mail_new_order', $plugin_public, 'bm_flexibooking_mail_on_new_order_callback', 10, 3 );
 		$this->loader->add_action( 'flexibooking_set_process_voucher_redeem', $plugin_public, 'bm_flexibooking_set_process_voucher_redeem_callback', 10, 1 );

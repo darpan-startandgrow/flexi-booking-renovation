@@ -348,7 +348,29 @@ do_action( 'bm_checkin_page_loaded' );
         <div class="scanner-controls">
             <button id="start-scan" class="button button-primary"><?php esc_html_e( 'Start Scan', 'service-booking' ); ?></button>
             <button id="stop-scan" class="button"><?php esc_html_e( 'Stop Scan', 'service-booking' ); ?></button>
+            <input type="file" id="qr-file-input" accept="image/*,application/pdf" style="display:none;">
+            <button id="upload-qr" class="button button-primary"><?php esc_html_e( 'Upload QR / PDF', 'service-booking' ); ?></button>
         </div>
+    </div>
+</div>
+
+<!-- QR crop modal (shared by upload-image and upload-PDF paths) -->
+<div id="qr-cropper-modal" class="qr-modal" style="display:none;">
+    <div id="qr-modal-box" class="qr-modal-content">
+        <div id="qr-modal-header" class="qr-modal-header">
+            <span><?php esc_html_e( 'Crop QR Code Region', 'service-booking' ); ?></span>
+            <span class="qr-modal-close" title="<?php esc_attr_e( 'Close', 'service-booking' ); ?>">&times;</span>
+        </div>
+        <div class="qr-modal-body">
+            <div id="qr-loading-spinner" class="qr-spinner" style="display:none;"></div>
+            <div class="qr-cropper-wrapper">
+                <img id="cropper-image" src="" alt="" style="display:none;max-width:100%;">
+            </div>
+            <button id="crop-confirm" class="button button-primary" style="margin-top:10px;display:none;">
+                <?php esc_html_e( 'Crop &amp; Scan', 'service-booking' ); ?>
+            </button>
+        </div>
+        <div class="qr-resizer"></div>
     </div>
 </div>
 
