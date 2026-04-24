@@ -1,5 +1,9 @@
 <?php
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * The public-facing functionality of the plugin.
  *
@@ -3541,7 +3545,8 @@ class Booking_Management_Public {
 			return;
 		}
 
-		$reference = filter_input( INPUT_POST, 'booking_reference', FILTER_SANITIZE_STRING );
+		// FILTER_SANITIZE_STRING deprecated in PHP 8.1; use sanitize_text_field instead.
+		$reference = sanitize_text_field( filter_input( INPUT_POST, 'booking_reference' ) ?? '' );
 		if ( ! $reference ) {
 			wp_send_json_error( __( 'Invalid QR code.', 'service-booking' ) );
 			return;
@@ -3549,13 +3554,20 @@ class Booking_Management_Public {
 
 		$db         = new BM_DBhandler();
 		$booking_id = $db->get_value( 'BOOKING', 'id', $reference, 'booking_key' );
+		$is_active  = $booking_id ? $db->get_value( 'BOOKING', 'is_active', $booking_id, 'id' ) : 0;
 
 		if ( ! $booking_id ) {
 			wp_send_json_error( __( 'Booking not found.', 'service-booking' ) );
 			return;
 		}
 
-		$success = $this->bm_mark_booking_checked_in( (int) $booking_id, $db );
+		if ( $is_active != 1 ) {
+			wp_send_json_error( __( 'Can not check in cancelled or refunded orders', 'service-booking' ) );
+			return;
+		}
+
+		// Delegate to BM_Checkin which fires extensibility hooks.
+		$success = BM_Checkin::do_checkin( (int) $booking_id, $db, get_current_user_id() );
 
 		if ( $success ) {
 			wp_send_json_success( array( 'message' => __( 'Booking checked in successfully.', 'service-booking' ) ) );
@@ -3587,7 +3599,7 @@ class Booking_Management_Public {
 			return;
 		}
 
-		$qr_data = isset( $_POST['qr_data'] ) ? filter_input( INPUT_POST, 'qr_data' ) : '';
+		$qr_data = sanitize_text_field( filter_input( INPUT_POST, 'qr_data' ) ?? '' );
 		if ( ! $qr_data ) {
 			wp_send_json_error( __( 'Invalid QR code', 'service-booking' ) );
 			return;
@@ -3601,50 +3613,18 @@ class Booking_Management_Public {
 			return;
 		}
 
-		$checkin = $dbhandler->get_row( 'CHECKIN', $booking->id, 'booking_id' );
-
-		if ( ! $checkin ) {
-			$checkin_data = array(
-				'booking_id' => $booking->id,
-				'qr_token'   => $booking->booking_key,
-				'status'     => 'pending',
-			);
-			$checkin_id   = $dbhandler->insert_row( 'CHECKIN', $checkin_data );
-			$checkin      = $dbhandler->get_row( 'CHECKIN', $checkin_id );
+		if ( $booking->is_active != 1 ) {
+			wp_send_json_error( __( 'Can not check in cancelled or refunded orders', 'service-booking' ) );
+			return;
 		}
 
-		// if ( strtotime( $booking->booking_date ) < time() ) {
-		// $dbhandler->update_row(
-		// 'CHECKIN',
-		// 'id',
-		// $checkin->id,
-		// array(
-		// 'status'          => 'expired',
-		// 'service_expired' => 1,
-		// )
-		// );
-		// wp_send_json_error( __( 'Service date has expired', 'service-booking' ) );
-		// return;
-		// }
+		// Delegate to BM_Checkin which fires extensibility hooks and uses atomic update.
+		$success = BM_Checkin::do_checkin( (int) $booking->id, $dbhandler, get_current_user_id() );
 
-		// if ( $checkin->status === 'checked_in' ) {
-		// wp_send_json_error( __( 'Ticket already used', 'service-booking' ) );
-		// return;
-		// }
-
-		$updated = $dbhandler->update_row(
-			'CHECKIN',
-			'id',
-			$checkin->id,
-			array(
-				'booking_id'   => $booking->id ?? 0,
-				'status'       => 'checked_in',
-				'qr_scanned'   => 1,
-				'qr_token'     => $qr_data,
-				'checkin_time' => ( new BM_Request() )->bm_fetch_current_wordpress_datetime_stamp(),
-				'updated_at'   => ( new BM_Request() )->bm_fetch_current_wordpress_datetime_stamp(),
-			)
-		);
+		if ( ! $success ) {
+			wp_send_json_error( __( 'Booking already checked in or check-in not permitted.', 'service-booking' ) );
+			return;
+		}
 
 		wp_send_json_success();
 	}

@@ -149,6 +149,8 @@ class Booking_Management {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-planner-rest.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-react-shortcodes.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-validation.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-checkin.php';
+		BM_Checkin::init();
 		$this->loader = new Booking_Management_Loader();
 	}
 

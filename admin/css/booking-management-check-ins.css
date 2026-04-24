@@ -353,3 +353,149 @@ table.manual_checkin_records_table thead td {
   z-index: 9999;
   position: fixed;
 }
+
+/* ===================================================================
+   CHECKIN v2.0.0 additions
+   =================================================================== */
+
+/* ------------------------------------------------------------------
+   Status counter bar
+   ------------------------------------------------------------------ */
+.bm-ci-counter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+}
+
+.bm-ci-counter-item {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 80px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    background: #f6f7f7;
+    border: 1px solid #e0e0e0;
+}
+
+.bm-ci-counter-label {
+    font-size: 11px;
+    color: #646970;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+
+.bm-ci-counter-value {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.bm-ci-counter-item--checked_in { border-color: #00a32a; }
+.bm-ci-counter-item--checked_in .bm-ci-counter-value { color: #00a32a; }
+
+.bm-ci-counter-item--pending { border-color: #dba617; }
+.bm-ci-counter-item--pending .bm-ci-counter-value { color: #dba617; }
+
+.bm-ci-counter-item--expired { border-color: #d63638; }
+.bm-ci-counter-item--expired .bm-ci-counter-value { color: #d63638; }
+
+.bm-ci-counter-item--no_show { border-color: #8c8f94; }
+.bm-ci-counter-item--no_show .bm-ci-counter-value { color: #8c8f94; }
+
+/* ------------------------------------------------------------------
+   Inline status badges
+   ------------------------------------------------------------------ */
+.bm-ci-badge {
+    display: inline-block;
+    margin-bottom: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    white-space: nowrap;
+}
+
+.bm-ci-badge--pending    { background: #fcf0d2; color: #a07800; }
+.bm-ci-badge--checked_in { background: #d7eddf; color: #00520f; }
+.bm-ci-badge--expired    { background: #fce8e8; color: #8b0000; }
+.bm-ci-badge--no_show    { background: #ebebeb; color: #50575e; }
+
+/* ------------------------------------------------------------------
+   Action button alignment
+   ------------------------------------------------------------------ */
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+}
+
+.action-buttons a,
+.action-buttons span[class*="resend"] {
+    cursor: pointer;
+    text-decoration: none;
+    color: #2271b1;
+}
+
+.action-buttons a:hover,
+.action-buttons span[class*="resend"]:hover {
+    color: #135e96;
+}
+
+/* Undo icon */
+.bm-undo-checkin { color: #d63638; }
+.bm-undo-checkin:hover { color: #8b0000; }
+
+/* No-show icon */
+.bm-mark-no-show { color: #8c8f94; }
+.bm-mark-no-show:hover { color: #50575e; }
+
+/* ------------------------------------------------------------------
+   Responsive layout (≤ 768 px)
+   ------------------------------------------------------------------ */
+@media screen and (max-width: 768px) {
+    .bm-ci-counter-bar {
+        gap: 6px;
+    }
+
+    .bm-ci-counter-item {
+        min-width: calc(50% - 6px);
+        flex: 1 1 calc(50% - 6px);
+    }
+
+    #checkin_listing {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .bm-bulk-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .bm-dynamic-pagination {
+        margin-left: 0 !important;
+    }
+
+    .checkin-default-modal .modal-content {
+        width: 95vw !important;
+        max-width: 95vw !important;
+    }
+
+    .manual_checkin-container select,
+    .manual_checkin-container input[type="text"],
+    .manual_checkin-container input[type="email"] {
+        width: 100%;
+        box-sizing: border-box;
+    }
+}

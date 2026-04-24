@@ -126,7 +126,9 @@ jQuery(document).ready(function($) {
         const code = jsQR(imageData.data, canvas.width, canvas.height);
         
         if (code) {
-            $('#scanner-result').html('<p>QR Code detected: ' + code.data + '</p>');
+            // Escape QR data before inserting into DOM to prevent XSS.
+            const safeData = $('<span>').text(code.data).html();
+            $('#scanner-result').html('<p>' + bm_normal_object.qr_code_detected + ': ' + safeData + '</p>');
             verifyQRCode(code.data);
             stopScanner();
         } else {
@@ -574,3 +576,72 @@ jQuery(document).ready(function($) {
         if (cropper) cropper.destroy();
     });
 });
+
+// -----------------------------------------------------------------------
+// Undo check-in handler (bm_checkin_undo)
+// -----------------------------------------------------------------------
+jQuery(document).on('click', '.bm-undo-checkin', function (e) {
+    e.preventDefault();
+    var bookingId = jQuery(this).data('booking-id');
+    var checkinId = jQuery(this).data('checkin-id') || 0;
+    if (!bookingId) return;
+
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_checkin_undo',
+        booking_id: bookingId,
+        checkin_id: checkinId,
+        nonce: bm_ajax_object.nonce
+    }, function (response) {
+        if (response.success) {
+            showMessage(response.data.message, 'success');
+            setTimeout(function () { window.location.reload(); }, 1500);
+        } else {
+            showMessage(response.data ? response.data : bm_error_object.server_error, 'error');
+        }
+    }).fail(function () {
+        showMessage(bm_error_object.server_error, 'error');
+    });
+});
+
+// -----------------------------------------------------------------------
+// No-show handler (bm_checkin_no_show)
+// -----------------------------------------------------------------------
+jQuery(document).on('click', '.bm-mark-no-show', function (e) {
+    e.preventDefault();
+    var bookingId = jQuery(this).data('booking-id');
+    if (!bookingId) return;
+
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_checkin_no_show',
+        booking_ids: [bookingId],
+        nonce: bm_ajax_object.nonce
+    }, function (response) {
+        if (response.success) {
+            showMessage(response.data.message, 'success');
+            setTimeout(function () { window.location.reload(); }, 1500);
+        } else {
+            showMessage(response.data ? response.data : bm_error_object.server_error, 'error');
+        }
+    }).fail(function () {
+        showMessage(bm_error_object.server_error, 'error');
+    });
+});
+
+// -----------------------------------------------------------------------
+// Status counter refresh
+// -----------------------------------------------------------------------
+function bm_refresh_checkin_counter() {
+    jQuery.post(bm_ajax_object.ajax_url, {
+        action: 'bm_checkin_counter',
+        nonce: bm_ajax_object.nonce
+    }, function (response) {
+        if (response.success && response.data) {
+            var counts = response.data;
+            jQuery('#bm-ci-count-total').text(counts.total || 0);
+            jQuery('#bm-ci-count-checked_in').text(counts.checked_in || 0);
+            jQuery('#bm-ci-count-pending').text(counts.pending || 0);
+            jQuery('#bm-ci-count-expired').text(counts.expired || 0);
+            jQuery('#bm-ci-count-no_show').text(counts.no_show || 0);
+        }
+    });
+}
