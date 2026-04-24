@@ -126,7 +126,10 @@ jQuery(document).ready(function($) {
         const code = jsQR(imageData.data, canvas.width, canvas.height);
         
         if (code) {
-            $('#scanner-result').html('<p>QR Code detected: ' + code.data + '</p>');
+            // Escape all dynamic content before inserting into DOM to prevent XSS.
+            const safeData = $('<span>').text(code.data).html();
+            const safeLabel = $('<span>').text(bm_normal_object.qr_code_detected).html();
+            $('#scanner-result').html('<p>' + safeLabel + ': ' + safeData + '</p>');
             verifyQRCode(code.data);
             stopScanner();
         } else {
@@ -135,20 +138,22 @@ jQuery(document).ready(function($) {
     }
     
     function verifyQRCode(qrData) {
-        $.post(bm_ajax_object.ajax_url, {
-            action: 'verify_qr_code',
-            qr_data: qrData,
-            nonce: bm_ajax_object.nonce
-        }, function(response) {
-            if (response.success) {
+        $.ajax({
+            url: checkinRest.url + 'checkins/scan',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ booking_key: qrData }),
+            beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+            success: function() {
                 $('#scanner-container').hide();
-                $('#scanner-result').append(`<p class="success">${bm_success_object.checked_in_successfully}</p>`);
-                const url = new URL(document.referrer || window.location.href); 
-                url.searchParams.set('qr_scan_done', qrData); 
-
-                window.location.href = url.toString();
-            } else {
-                $('#scanner-result').append(`<p class="error">${response.data ? response.data : bm_error_object.server_error}</p>`);
+                $('#scanner-result').append('<p class="success">' + $('<span>').text(bm_success_object.checked_in_successfully).html() + '</p>');
+                var base = qrScannerData.scannerPageUrl || window.location.href.split('?')[0];
+                var sep  = base.indexOf('?') >= 0 ? '&' : '?';
+                window.location.href = base + sep + 'qr_scan_done=' + encodeURIComponent(qrData);
+            },
+            error: function(jqXHR) {
+                var msg = (jqXHR.responseJSON || {}).message || bm_error_object.server_error;
+                $('#scanner-result').append('<p class="error">' + $('<span>').text(msg).html() + '</p>');
                 setTimeout(startScanner, 3000);
             }
         });
@@ -158,38 +163,39 @@ jQuery(document).ready(function($) {
         e.preventDefault();
         const bookingId = $(this).data('id');
         
-        $.post(bm_ajax_object.ajax_url, {
-            action: 'get_order_details',
-            booking_id: bookingId,
-            nonce: bm_ajax_object.nonce
-        }, function(response) {
-            if (response.success) {
-                $('#order-details-content').html(response.data);
+        $.ajax({
+            url: checkinRest.url + 'checkins/' + bookingId + '/details',
+            method: 'GET',
+            beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+            success: function(data) {
+                $('#order-details-content').html(bmCheckinBuildDetailsCard(data));
                 $('#order-details-modal').show();
-            } else {
-				showMessage(response.data ? response.data : bm_error_object.server_error, 'error');
+            },
+            error: function(jqXHR) {
+                var msg = (jqXHR.responseJSON || {}).message || bm_error_object.server_error;
+                showMessage(msg, 'error');
             }
         });
     });
     
     $(document).on('change', '.checkin-status-dropdown', function() {
         const checkinId = $(this).data('checkin-id');
-        const booking_id = $(this).data('booking-id');
         const newStatus = $(this).val();
         
         if (newStatus) {
-            $.post(bm_ajax_object.ajax_url, {
-                action: 'update_checkin_status',
-                booking_id: booking_id,
-                checkin_id: checkinId,
-                new_status: newStatus,
-                nonce: bm_ajax_object.nonce
-            }, function(response) {
-                if (response.success) {
+            $.ajax({
+                url: checkinRest.url + 'checkins/' + checkinId + '/status',
+                method: 'PATCH',
+                contentType: 'application/json',
+                data: JSON.stringify({ status: newStatus }),
+                beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+                success: function() {
                     showMessage(bm_success_object.status_successfully_changed, 'success');
                     window.location.reload();
-                } else {
-                    showMessage(response.data ? response.data : bm_error_object.server_error, 'error');
+                },
+                error: function(jqXHR) {
+                    var msg = (jqXHR.responseJSON || {}).message || bm_error_object.server_error;
+                    showMessage(msg, 'error');
                     window.location.reload();
                 }
             });
@@ -267,18 +273,24 @@ jQuery(document).ready(function($) {
             }
         }
 
-        $.post(bm_ajax_object.ajax_url, {
-            action: 'manual_checkin_check',
-            search_type: searchType,
-            search_value: searchValue,
-            nonce: bm_ajax_object.nonce
-        }, function(response) {
-            if (response.success) {
-                $('#manual_checkin-result').html(response.data);
-                jQuery('.manual_checkin_records_table').DataTable();
-                $('.manual-cherckin-buttons').removeClass('hidden');
-            } else {
-                $('#manual_checkin-error').html(response.data ? response.data : bm_error_object.server_error);
+        $.ajax({
+            url: checkinRest.url + 'checkins/search',
+            method: 'GET',
+            data: { search_type: searchType, search_value: searchType === 'service' ? (Array.isArray(searchValue) ? searchValue.join(',') : searchValue) : searchValue },
+            beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+            success: function(data) {
+                if (data.results && data.results.length > 0) {
+                    $('#manual_checkin-result').html(bmCheckinBuildSearchTable(data.results, searchType));
+                    jQuery('.manual_checkin_records_table').DataTable();
+                    $('.manual-cherckin-buttons').removeClass('hidden');
+                } else {
+                    $('#manual_checkin-error').html(bm_normal_object.no_records || 'No bookings found');
+                    $('.manual-cherckin-buttons').addClass('hidden');
+                }
+            },
+            error: function(jqXHR) {
+                var msg = (jqXHR.responseJSON || {}).message || bm_error_object.server_error;
+                $('#manual_checkin-error').html(msg);
                 $('.manual-cherckin-buttons').addClass('hidden');
             }
         });
@@ -340,29 +352,27 @@ function bm_checkin_manually() {
     jQuery('#resendProcess').removeClass('hidden');
     jQuery('#manual-checkin-button').prop('disabled', true);
 
-    jQuery.post(bm_ajax_object.ajax_url, {
-        action: 'manual_checkin_process',
-        search_type: searchType,
-        search_value: searchValue,
-        booking_ids: bookingIds,
-        nonce: bm_ajax_object.nonce
-    }, function(response) {
-        jQuery('#resendProcess').addClass('hidden');
-        jQuery('.manual-cherckin-buttons').addClass('hidden');
-
-        if (response.success) {
-            jQuery('#manual_checkin-result').html('<p class="success">' + response.data.message + '</p>');
+    jQuery.ajax({
+        url: checkinRest.url + 'checkins/bulk',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ booking_ids: bookingIds.map(function(id) { return parseInt(id, 10) || 0; }).filter(function(id) { return id > 0; }) }),
+        beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+        success: function(response) {
+            jQuery('#resendProcess').addClass('hidden');
+            jQuery('.manual-cherckin-buttons').addClass('hidden');
+            jQuery('#manual_checkin-result').html('<p class="success">' + jQuery('<span>').text(response.message).html() + '</p>');
             setTimeout(function() {
                 jQuery('#manual_checkin-modal').hide();
                 window.location.reload();
             }, 2000);
-        } else {
-            jQuery('#manual_checkin-error').html(response.data ? response.data : bm_error_object.server_error);
+        },
+        error: function(jqXHR) {
+            jQuery('#resendProcess').addClass('hidden');
+            jQuery('.manual-cherckin-buttons').addClass('hidden');
+            var msg = (jqXHR.responseJSON || {}).message || bm_error_object.server_error;
+            jQuery('#manual_checkin-error').html(msg);
         }
-    }).fail(function() {
-        jQuery('#resendProcess').addClass('hidden');
-        jQuery('.manual-cherckin-buttons').addClass('hidden');
-        jQuery('#manual_checkin-error').html(bm_error_object.server_error);
     });
 }
 
@@ -384,20 +394,19 @@ jQuery(document).on('click', '.bm-view-details', function(e) {
     let bookingId = jQuery(this).data('id');
     if (!bookingId) return;
 
-    jQuery.post(bm_ajax_object.ajax_url, {
-        action: 'manual_checkin_view_details',
-        booking_id: bookingId,
-        nonce: bm_ajax_object.nonce
-    }, function(response) {
-        jQuery('#loader_modal').hide();
-        if (response.success) {
-            jQuery('.checkin-order-details-container').html(response.data);
-        } else {
-            jQuery('.checkin-order-details-container').html(response.data ? response.data : bm_error_object.server_error);
+    jQuery.ajax({
+        url: checkinRest.url + 'checkins/' + bookingId + '/details',
+        method: 'GET',
+        beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+        success: function(data) {
+            jQuery('#loader_modal').hide();
+            jQuery('.checkin-order-details-container').html(bmCheckinBuildDetailsCard(data));
+        },
+        error: function(jqXHR) {
+            jQuery('#loader_modal').hide();
+            var msg = (jqXHR.responseJSON || {}).message || bm_error_object.server_error;
+            jQuery('.checkin-order-details-container').html(jQuery('<span>').text(msg).html());
         }
-    }).fail(function() {
-        jQuery('#loader_modal').hide();
-        jQuery('.checkin-order-details-container').html(bm_error_object.server_error);
     });
 });
 
@@ -474,7 +483,6 @@ jQuery(document).ready(function($) {
         $confirmBtn.hide();
         
         $cropperImg.off("load").one("load", function() {
-            console.log("Image loaded into cropper");
             $spinner.hide();
             $cropperImg.show();
             $confirmBtn.show();
@@ -548,29 +556,178 @@ jQuery(document).ready(function($) {
         let code = jsQR(imageData.data, imageData.width, imageData.height);
         if (code) {
             let bookingRef = code.data;
-            $("#scanner-result").html("<p>" + bm_normal_object.qr_code_detected + ": " + bookingRef + "</p>");
+            // Escape bookingRef as text to prevent XSS from malicious QR codes.
+            let safeRef = $('<span>').text(bookingRef).html();
+            let safeLabel = $('<span>').text(bm_normal_object.qr_code_detected).html();
+            $("#scanner-result").html("<p>" + safeLabel + ": " + safeRef + "</p>");
 
-            $.post(bm_ajax_object.ajax_url, {
-                action: "qr_checkin_process",
-                nonce: bm_ajax_object.nonce,
-                booking_reference: bookingRef
-            }, function(response) {
-                if (response.success) {
-                    $("#scanner-result").append("<p class='success'>" + response.data.message + "</p>");
-
-                    $("#scanner-result").append("<p class='success'>Redirecting...</p>");
-                    window.location.href = qrScannerData.scannerPageUrl + "?qr_scan_done=" + encodeURIComponent(bookingRef);
-
+            $.ajax({
+                url: checkinRest.url + 'checkins/scan',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ booking_key: bookingRef }),
+                beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+                success: function(response) {
+                    $("#scanner-result").append("<p class='success'>" + $('<span>').text(response.message).html() + "</p>");
+                    var base = qrScannerData.scannerPageUrl || window.location.href.split('?')[0];
+                    var sep  = base.indexOf('?') >= 0 ? '&' : '?';
+                    window.location.href = base + sep + 'qr_scan_done=' + encodeURIComponent(bookingRef);
                     $("#scanner-container").hide();
-                } else {
-                    $("#scanner-result").append("<p class='error'>" + response.data + "</p>");
+                },
+                error: function(jqXHR) {
+                    var msg = (jqXHR.responseJSON || {}).message || '';
+                    $("#scanner-result").append("<p class='error'>" + $('<span>').text(msg).html() + "</p>");
                 }
             });
         } else {
-            $("#scanner-result").html("<p class='error'>" + bm_error_object.no_qr_code_found + "</p>");
+            $("#scanner-result").html("<p class='error'>" + $('<span>').text(bm_error_object.no_qr_code_found).html() + "</p>");
         }
 
         $modal.hide();
         if (cropper) cropper.destroy();
     });
 });
+
+// -----------------------------------------------------------------------
+// Undo check-in handler (bm_checkin_undo)
+// -----------------------------------------------------------------------
+jQuery(document).on('click', '.bm-undo-checkin', function (e) {
+    e.preventDefault();
+    var bookingId = jQuery(this).data('booking-id');
+    if (!bookingId) return;
+
+    jQuery.ajax({
+        url: checkinRest.url + 'checkins/' + bookingId + '/undo',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({}),
+        beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+        success: function(response) {
+            showMessage(response.message, 'success');
+            setTimeout(function () { window.location.reload(); }, 1500);
+        },
+        error: function(jqXHR) {
+            var msg = (jqXHR.responseJSON || {}).message || bm_error_object.server_error;
+            showMessage(msg, 'error');
+        }
+    });
+});
+
+// -----------------------------------------------------------------------
+// No-show handler (bm_checkin_no_show)
+// -----------------------------------------------------------------------
+jQuery(document).on('click', '.bm-mark-no-show', function (e) {
+    e.preventDefault();
+    var bookingId = jQuery(this).data('booking-id');
+    if (!bookingId) return;
+
+    jQuery.ajax({
+        url: checkinRest.url + 'checkins/' + bookingId + '/no-show',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({}),
+        beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+        success: function(response) {
+            showMessage(response.message, 'success');
+            setTimeout(function () { window.location.reload(); }, 1500);
+        },
+        error: function(jqXHR) {
+            var msg = (jqXHR.responseJSON || {}).message || bm_error_object.server_error;
+            showMessage(msg, 'error');
+        }
+    });
+});
+
+// -----------------------------------------------------------------------
+// Status counter refresh
+// -----------------------------------------------------------------------
+function bm_refresh_checkin_counter() {
+    jQuery.ajax({
+        url: checkinRest.url + 'checkins/stats',
+        method: 'GET',
+        beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+        success: function(counts) {
+            jQuery('#bm-ci-count-total').text(counts.total || 0);
+            jQuery('#bm-ci-count-checked_in').text(counts.checked_in || 0);
+            jQuery('#bm-ci-count-pending').text(counts.pending || 0);
+            jQuery('#bm-ci-count-expired').text(counts.expired || 0);
+            jQuery('#bm-ci-count-no_show').text(counts.no_show || 0);
+        }
+    });
+}
+
+// -----------------------------------------------------------------------
+// REST helper: build a booking details card from JSON
+// Used by .view-details and .bm-view-details to replace the AJAX HTML response.
+// -----------------------------------------------------------------------
+function bmCheckinBuildDetailsCard(data) {
+    var esc = function(v) { return jQuery('<span>').text(v || '').html(); };
+    var n   = bm_normal_object || {};
+    return '<table class="widefat striped bm-checkin-details-card">' +
+        '<tr><th>' + esc(n.booking || 'Booking Key') + '</th><td>' + esc(data.booking_key) + '</td></tr>' +
+        '<tr><th>' + esc(n.first_name || 'First Name') + '</th><td>' + esc(data.first_name) + '</td></tr>' +
+        '<tr><th>' + esc(n.last_name  || 'Last Name')  + '</th><td>' + esc(data.last_name)  + '</td></tr>' +
+        '<tr><th>' + esc(n.email      || 'Email')      + '</th><td>' + esc(data.email)       + '</td></tr>' +
+        '<tr><th>' + esc(n.phone      || 'Phone')      + '</th><td>' + esc(data.contact_no)  + '</td></tr>' +
+        '<tr><th>' + esc(n.service    || 'Service')    + '</th><td>' + esc(data.service_name) + '</td></tr>' +
+        '<tr><th>' + esc(n.booking_date || 'Date')     + '</th><td>' + esc(data.booking_date) + '</td></tr>' +
+        '<tr><th>' + esc(n.order_status || 'Order Status') + '</th><td>' + esc(data.order_status) + '</td></tr>' +
+        '<tr><th>' + esc(n.checkin_status || 'Check-in Status') + '</th><td>' + esc(data.checkin_status) + '</td></tr>' +
+        '<tr><th>' + esc(n.checkin_time   || 'Check-in Time')   + '</th><td>' + esc(data.checkin_time)   + '</td></tr>' +
+    '</table>';
+}
+
+// -----------------------------------------------------------------------
+// REST helper: build search results table from JSON
+// Used by #manual-checkin-search to replace the AJAX HTML response.
+// -----------------------------------------------------------------------
+function bmCheckinBuildSearchTable(results, searchType) {
+    var esc = function(v) { return jQuery('<span>').text(v || '').html(); };
+    var n   = bm_normal_object || {};
+
+    var thead = '<thead><tr>' +
+        '<th><input type="checkbox" id="bm-checkall"></th>' +
+        '<th>' + esc(n.booking   || 'Booking Key')  + '</th>' +
+        '<th>' + esc(n.service   || 'Service Name') + '</th>';
+    if (searchType === 'email') {
+        thead += '<th>' + esc(n.email || 'Email') + '</th>';
+    } else {
+        thead += '<th>' + esc(n.first_name || 'First Name') + '</th>' +
+                 '<th>' + esc(n.last_name  || 'Last Name')  + '</th>';
+    }
+    thead += '<th>' + esc(n.svc_participants  || 'Service Participants')       + '</th>' +
+             '<th>' + esc(n.ex_participants   || 'Extra Service Participants') + '</th>' +
+             '<th>' + esc(n.checkin_status    || 'Check-in Status')            + '</th>' +
+             '<th>' + esc(n.checkin_time      || 'Check-in Date')              + '</th>' +
+             '<th>' + esc(n.edit             || 'Actions')                     + '</th>' +
+             '</tr></thead>';
+
+    var tbody = '<tbody>';
+    jQuery.each(results, function(i, row) {
+        var statusLabel = row.checkin_label || (row.checkin_status ? row.checkin_status : 'Pending');
+        var checkinDate = row.checkin_time || '-';
+        tbody += '<tr>' +
+            '<td><input type="checkbox" class="bm-booking-select" value="' + esc(row.id) + '"></td>' +
+            '<td>' + esc(row.booking_key)  + '</td>' +
+            '<td>' + esc(row.service_name) + '</td>';
+        if (searchType === 'email') {
+            tbody += '<td>' + esc(row.email_address) + '</td>';
+        } else {
+            tbody += '<td>' + esc(row.first_name) + '</td><td>' + esc(row.last_name) + '</td>';
+        }
+        tbody += '<td>' + esc(row.svc_participants) + '</td>' +
+            '<td>' + esc(row.ex_participants)  + '</td>' +
+            '<td>' + esc(statusLabel)          + '</td>' +
+            '<td>' + esc(checkinDate)          + '</td>' +
+            '<td><div class="bm-view-details" data-id="' + esc(row.id) + '" style="cursor:pointer;">' +
+                '<i class="fa fa-eye"></i> ' + esc(n.edit || 'View') +
+            '</div></td>' +
+            '</tr>';
+    });
+    tbody += '</tbody>';
+
+    return '<div class="bm-bookings-list">' +
+        '<table class="manual_checkin_records_table widefat striped">' +
+        thead + tbody +
+        '</table></div>';
+}

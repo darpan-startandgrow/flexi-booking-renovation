@@ -626,6 +626,18 @@ class Booking_Management_Admin {
             $normal['svc_btn_txt_colour'] = $dbhandler->get_global_option_value( 'bm_frontend_book_button_txt_color', $contrast );
             $normal['svc_info_svg_icon']  = esc_url( plugin_dir_url( dirname( __FILE__ ) ) . 'public/img/si_info-line.svg' );
             $normal['admin_side_link']    = admin_url( 'admin.php?' );
+			// Check-in module i18n strings for JS status dropdowns and action buttons.
+			$normal['status_pending']    = __( 'Pending', 'service-booking' );
+			$normal['status_checked_in'] = __( 'Checked In', 'service-booking' );
+			$normal['status_expired']    = __( 'Expired', 'service-booking' );
+			$normal['status_no_show']    = __( 'No Show', 'service-booking' );
+			$normal['status_late']        = __( 'Late', 'service-booking' );
+			$normal['status_early']       = __( 'Early', 'service-booking' );
+			$normal['status_checked_out'] = __( 'Checked Out', 'service-booking' );
+			$normal['undo_checkin']       = __( 'Undo Check-in', 'service-booking' );
+			$normal['mark_no_show']       = __( 'Mark as No Show', 'service-booking' );
+			$normal['do_checkout']        = __( 'Check Out', 'service-booking' );
+			$normal['view_details']       = __( 'View Details', 'service-booking' );
 
 			wp_localize_script( $this->plugin_name, 'bm_error_object', $error );
 			wp_localize_script( $this->plugin_name, 'bm_success_object', $success );
@@ -667,6 +679,16 @@ class Booking_Management_Admin {
 					array(
 						'scannerPageUrl' => get_permalink( get_option( 'bm_qr_scanner_page_id' ) ),
 						'plugin_url'     => plugin_dir_url( __FILE__ ),
+					)
+				);
+				// REST API config for the check-in dashboard JS.
+				// wp_localize_script is the ONLY place PHP variables enter check-in JS.
+				wp_localize_script(
+					'check-in-script',
+					'checkinRest',
+					array(
+						'url'   => rest_url( 'bm-checkin/v1/' ),
+						'nonce' => wp_create_nonce( 'wp_rest' ),
 					)
 				);
 			}
@@ -2512,7 +2534,8 @@ class Booking_Management_Admin {
 	 * @return string[]
 	 */
 	private static function bm_get_allowed_checkin_statuses() {
-		return array( 'pending', 'checked_in', 'expired' );
+		// Delegate to BM_Checkin so the filter bm_checkin_allowed_statuses applies here too.
+		return BM_Checkin::get_allowed_statuses();
 	}
 
 
@@ -7570,6 +7593,8 @@ class Booking_Management_Admin {
 			$data['saved_search']       = $saved_search;
 			$data['current_pagenumber'] = ( 1 + $offset );
 			$data['pagination']         = wp_kses_post( is_string( $pagination ) ? $pagination : '' );
+			// Real-time status counter for the counter bar.
+			$data['status_counts']      = BM_Checkin::get_status_counts();
 		}
 
 		echo wp_json_encode( $data );
@@ -14487,6 +14512,9 @@ class Booking_Management_Admin {
 	 * @author Darpan
 	 */
 	public function bm_handle_qr_verification() {
+		// DEPRECATED: migrated to REST API in v2.2.0 — remove in next major version.
+		_deprecated_function( __FUNCTION__, '2.2.0', 'POST /wp-json/bm-checkin/v1/checkins/scan' );
+
 		$nonce = filter_input( INPUT_POST, 'nonce' );
 
 		if ( ! $nonce || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
@@ -14494,7 +14522,12 @@ class Booking_Management_Admin {
 			return;
 		}
 
-		$qr_data = isset( $_POST['qr_data'] ) ? filter_input( INPUT_POST, 'qr_data' ) : '';
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Insufficient permissions', 'service-booking' ) );
+			return;
+		}
+
+		$qr_data = sanitize_text_field( filter_input( INPUT_POST, 'qr_data' ) ?? '' );
 		if ( ! $qr_data ) {
 			wp_send_json_error( __( 'Invalid QR code', 'service-booking' ) );
 			return;
@@ -14508,57 +14541,21 @@ class Booking_Management_Admin {
 			return;
 		}
 
-		$is_active = $db->get_value( 'BOOKING', 'is_active', $booking->id, 'id' );
+		// Fixed: was using undefined $db variable — must use $dbhandler.
+		$is_active = $dbhandler->get_value( 'BOOKING', 'is_active', $booking->id, 'id' );
 
 		if ( $is_active != 1 ) {
 			wp_send_json_error( __( 'Can not check in cancelled or refunded orders', 'service-booking' ) );
 			return;
 		}
 
-		$checkin = $dbhandler->get_row( 'CHECKIN', $booking->id, 'booking_id' );
+		// Delegate to shared helper which fires extensibility hooks.
+		$success = BM_Checkin::do_checkin( (int) $booking->id, $dbhandler, get_current_user_id() );
 
-		if ( ! $checkin ) {
-			$checkin_data = array(
-				'booking_id' => $booking->id,
-				'qr_token'   => $booking->booking_key,
-				'status'     => 'pending',
-			);
-			$checkin_id   = $dbhandler->insert_row( 'CHECKIN', $checkin_data );
-			$checkin      = $dbhandler->get_row( 'CHECKIN', $checkin_id );
+		if ( ! $success ) {
+			wp_send_json_error( __( 'Booking already checked in or check-in not permitted.', 'service-booking' ) );
+			return;
 		}
-
-		// if ( strtotime( $booking->booking_date ) < time() ) {
-		// $dbhandler->update_row(
-		// 'CHECKIN',
-		// 'id',
-		// $checkin->id,
-		// array(
-		// 'status'          => 'expired',
-		// 'service_expired' => 1,
-		// )
-		// );
-		// wp_send_json_error( __( 'Service date has expired', 'service-booking' ) );
-		// return;
-		// }
-
-		// if ( $checkin->status === 'checked_in' ) {
-		// wp_send_json_error( __( 'Ticket already used', 'service-booking' ) );
-		// return;
-		// }
-
-		$updated = $dbhandler->update_row(
-			'CHECKIN',
-			'id',
-			$checkin->id,
-			array(
-				'booking_id'   => $booking->id ?? 0,
-				'status'       => 'checked_in',
-				'qr_scanned'   => 1,
-				'qr_token'     => $qr_data,
-				'checkin_time' => ( new BM_Request() )->bm_fetch_current_wordpress_datetime_stamp(),
-				'updated_at'   => ( new BM_Request() )->bm_fetch_current_wordpress_datetime_stamp(),
-			)
-		);
 
 		wp_send_json_success();
 	} ///end bm_handle_qr_verification()
@@ -14579,7 +14576,8 @@ class Booking_Management_Admin {
 
 		$db         = new BM_DBhandler();
 		$booking_id = $db->get_value( 'BOOKING', 'id', $reference, 'booking_key' );
-		$is_active  = $db->get_value( 'BOOKING', 'is_active', $search_value, 'booking_key' );
+		// Fixed: was referencing undefined $search_value — use $reference.
+		$is_active  = $db->get_value( 'BOOKING', 'is_active', $reference, 'booking_key' );
 
 		if ( $is_active != 1 ) {
 			wp_send_json_error( __( 'Can not check in cancelled or refunded orders', 'service-booking' ) );
@@ -14591,7 +14589,8 @@ class Booking_Management_Admin {
 			return;
 		}
 
-		$success = $this->bm_mark_booking_checked_in( (int) $booking_id, $db );
+		// Delegate to BM_Checkin which fires extensibility hooks.
+		$success = BM_Checkin::do_checkin( (int) $booking_id, $db, get_current_user_id() );
 
 		if ( $success ) {
 			wp_send_json_success( array( 'message' => __( 'Booking checked in successfully.', 'service-booking' ) ) );
@@ -14610,6 +14609,11 @@ class Booking_Management_Admin {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
 		if ( ! $nonce || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
+			return;
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Insufficient permissions', 'service-booking' ) );
+			return;
 		}
 
 		$search_type = sanitize_text_field( filter_input( INPUT_POST, 'search_type' ) ?? '' );
@@ -14623,7 +14627,8 @@ class Booking_Management_Admin {
 
 		$booking_ids = filter_input( INPUT_POST, 'booking_ids', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY );
 
-		$db = new BM_DBhandler();
+		$db  = new BM_DBhandler();
+		$uid = get_current_user_id();
 
 		if ( $search_type === 'reference' ) {
 			$booking_id = $db->get_value( 'BOOKING', 'id', $search_value, 'booking_key' );
@@ -14639,16 +14644,19 @@ class Booking_Management_Admin {
 				return;
 			}
 
-			$success = $this->bm_mark_booking_checked_in( (int) $booking_id, $db );
+			$success = BM_Checkin::do_checkin( (int) $booking_id, $db, $uid );
 			if ( ! $success ) {
-				wp_send_json_error( __( 'Already checked in or expired.', 'service-booking' ) );
+				wp_send_json_error( __( 'Already checked in or check-in not permitted.', 'service-booking' ) );
+				return;
 			}
 
 			wp_send_json_success( array( 'message' => __( 'Booking successfully checked in.', 'service-booking' ) ) );
+			return;
 		}
 
 		if ( empty( $booking_ids ) ) {
 			wp_send_json_error( __( 'No bookings selected.', 'service-booking' ) );
+			return;
 		}
 
 		$count = 0;
@@ -14659,16 +14667,21 @@ class Booking_Management_Admin {
 				continue;
 			}
 
-			if ( $this->bm_mark_booking_checked_in( (int) $id, $db ) ) {
+			if ( BM_Checkin::do_checkin( (int) $id, $db, $uid ) ) {
 				++$count;
 			}
 		}
 
 		if ( $count === 0 ) {
 			wp_send_json_error( __( 'No valid bookings were checked in.', 'service-booking' ) );
+			return;
 		}
 
-		wp_send_json_success( array( 'message' => sprintf( __( '%d bookings successfully checked in.', 'service-booking' ), $count ) ) );
+		wp_send_json_success( array( 'message' => sprintf(
+			/* translators: %d number of bookings */
+			_n( '%d booking successfully checked in.', '%d bookings successfully checked in.', $count, 'service-booking' ),
+			$count
+		) ) );
 	}//end bm_manual_checkin_process()
 
 
@@ -14781,8 +14794,16 @@ class Booking_Management_Admin {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
 			return;
 		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Insufficient permissions', 'service-booking' ) );
+			return;
+		}
 
-		$booking_id = sanitize_text_field( filter_input( INPUT_POST, 'booking_id', FILTER_VALIDATE_INT ) );
+		$booking_id = absint( filter_input( INPUT_POST, 'booking_id', FILTER_VALIDATE_INT ) );
+		if ( ! $booking_id ) {
+			wp_send_json_error( esc_html__( 'Invalid booking ID', 'service-booking' ) );
+			return;
+		}
 		$dbhandler  = new BM_DBhandler();
 		$booking    = $dbhandler->get_row( 'BOOKING', $booking_id, 'id' );
 
@@ -14798,18 +14819,17 @@ class Booking_Management_Admin {
 			return;
 		}
 
-		$html  = '<div class="order-details">';
+		// Fixed: operator-precedence bug and missing esc_html on all output.
 		$html  = '<div class="fx-modal-header">';
-		$html .= '<h2>' . esc_html__( 'Order Details ', 'service-booking' ) . '#' . $booking->id . '</h2>';
+		$html .= '<h2>' . esc_html__( 'Order Details', 'service-booking' ) . ' #' . absint( $booking->id ) . '</h2>';
 		$html .= '</div>';
 		$html .= '<table class="widefat fixed">';
-		$html .= '<tr><th>' . esc_html__( 'Attendee', 'service-booking' ) . ':</th><td>' . $customer_data['billing_first_name'] ?? '' . '</td></tr>';
-		$html .= '<tr><th>' . esc_html__( 'Email', 'service-booking' ) . ':</th><td>' . $customer_data['billing_email'] ?? '' . '</td></tr>';
-		$html .= '<tr><th>' . esc_html__( 'Service', 'service-booking' ) . ':</th><td>' . $booking->service_name . '</td></tr>';
-		$html .= '<tr><th>' . esc_html__( 'Booking Date', 'service-booking' ) . ':</th><td>' . $booking->booking_date . '</td></tr>';
-		$html .= '<tr><th>' . esc_html__( 'Order Status', 'service-booking' ) . ':</th><td>' . ucfirst( $booking->order_status ) . '</td></tr>';
-
-		$html .= '</table></div>';
+		$html .= '<tr><th>' . esc_html__( 'Attendee', 'service-booking' ) . ':</th><td>' . esc_html( $customer_data['billing_first_name'] ?? '' ) . '</td></tr>';
+		$html .= '<tr><th>' . esc_html__( 'Email', 'service-booking' ) . ':</th><td>' . esc_html( $customer_data['billing_email'] ?? '' ) . '</td></tr>';
+		$html .= '<tr><th>' . esc_html__( 'Service', 'service-booking' ) . ':</th><td>' . esc_html( $booking->service_name ) . '</td></tr>';
+		$html .= '<tr><th>' . esc_html__( 'Booking Date', 'service-booking' ) . ':</th><td>' . esc_html( $booking->booking_date ) . '</td></tr>';
+		$html .= '<tr><th>' . esc_html__( 'Order Status', 'service-booking' ) . ':</th><td>' . esc_html( ucfirst( $booking->order_status ) ) . '</td></tr>';
+		$html .= '</table>';
 
 		wp_send_json_success( $html );
 	}//end bm_get_order_detail_for_check_in()
@@ -14827,13 +14847,17 @@ class Booking_Management_Admin {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
 			return;
 		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Insufficient permissions', 'service-booking' ) );
+			return;
+		}
 
 		$checkin_id = filter_input( INPUT_POST, 'checkin_id', FILTER_VALIDATE_INT );
 		$status     = sanitize_text_field( filter_input( INPUT_POST, 'new_status' ) );
 		$booking_id = filter_input( INPUT_POST, 'booking_id', FILTER_VALIDATE_INT );
 
-		// Validate status against allowed values.
-		$allowed_statuses = self::bm_get_allowed_checkin_statuses();
+		// Validate status against the extended allowed-statuses list (includes no_show).
+		$allowed_statuses = BM_Checkin::get_allowed_statuses();
 		if ( ! in_array( $status, $allowed_statuses, true ) ) {
 			wp_send_json_error( esc_html__( 'Invalid checkin status.', 'service-booking' ) );
 			return;
@@ -14845,7 +14869,7 @@ class Booking_Management_Admin {
 		$data = array(
 			'status'       => $status,
 			'updated_at'   => current_time( 'mysql' ),
-			'checkin_time' => ( $status === 'checked_in' ) ? current_time( 'mysql' ) : null,
+			'checkin_time' => ( BM_CHECKIN_STATUS_CHECKED_IN === $status ) ? current_time( 'mysql' ) : null,
 		);
 
 		if ( $checkin ) {
@@ -14858,7 +14882,7 @@ class Booking_Management_Admin {
 
 			$data['booking_id'] = $booking_id;
 			$data['qr_token']   = $dbhandler->get_value( 'BOOKING', 'booking_key', $booking_id, 'id' );
-			$data['qr_scanned'] = ( $status === 'checked_in' ) ? 1 : 0;
+			$data['qr_scanned'] = ( BM_CHECKIN_STATUS_CHECKED_IN === $status ) ? 1 : 0;
 			$data['created_at'] = current_time( 'mysql' );
 
 			$updated = $dbhandler->insert_row( 'CHECKIN', $data );
@@ -14866,6 +14890,7 @@ class Booking_Management_Admin {
 
 		if ( ! $updated ) {
 			wp_send_json_error( __( 'Unable to update or create checkin.', 'service-booking' ) );
+			return;
 		}
 
 		wp_send_json_success();
@@ -14882,6 +14907,11 @@ class Booking_Management_Admin {
 		$nonce = filter_input( INPUT_POST, 'nonce' );
 		if ( ! $nonce || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
+			return;
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Insufficient permissions', 'service-booking' ) );
+			return;
 		}
 
 		$search_type = sanitize_text_field( filter_input( INPUT_POST, 'search_type' ) ?? '' );
@@ -15031,14 +15061,18 @@ class Booking_Management_Admin {
 			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
 			return;
 		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( __( 'Insufficient permissions', 'service-booking' ) );
+			return;
+		}
 
-		$booking_id = intval( filter_input( INPUT_POST, 'booking_id' ) ?? 0 );
+		$booking_id = absint( filter_input( INPUT_POST, 'booking_id', FILTER_VALIDATE_INT ) );
 		if ( ! $booking_id ) {
 			wp_send_json_error( __( 'Invalid booking ID', 'service-booking' ) );
 			return;
 		}
 
-		$html = ( new BM_Request() )->bm_get_order_details_attachment( (int) $booking_id, false, false );
+		$html = ( new BM_Request() )->bm_get_order_details_attachment( $booking_id, false, false );
 		if ( empty( $html ) ) {
 			wp_send_json_error( __( 'Booking data not found', 'service-booking' ) );
 			return;

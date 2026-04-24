@@ -1555,4 +1555,40 @@ class BM_DBhandler {
 
 		return (int) $wpdb->get_var( $sql );
 	}
+
+	// -------------------------------------------------------------------------
+	// Schema introspection & DDL helpers
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Check whether a column already exists in the given table.
+	 *
+	 * Uses get_table_columns() so the check goes through the activator
+	 * identifier system rather than raw table-name strings.
+	 *
+	 * @since 2.0.0
+	 * @param string $identifier Table identifier (e.g. 'CHECKIN').
+	 * @param string $column     Column name to look for.
+	 * @return bool True if the column exists.
+	 */
+	public function column_exists( string $identifier, string $column ): bool {
+		$columns = $this->get_table_columns( $identifier );
+		return is_array( $columns ) && in_array( $column, $columns, true );
+	}
+
+	/**
+	 * Execute a raw DDL statement (CREATE TABLE, ALTER TABLE, DROP INDEX, …).
+	 *
+	 * DDL cannot use parameterized placeholders — the SQL must be constructed
+	 * entirely from trusted, internally-generated strings (never from user
+	 * input). This method intentionally does NOT accept user-supplied values.
+	 *
+	 * @since 2.0.0
+	 * @param string $sql Fully-formed DDL statement (no placeholders).
+	 * @return bool True if the statement executed without a database error.
+	 */
+	public function execute_ddl( string $sql ): bool {
+		global $wpdb;
+		return false !== $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+	}
 }//end class

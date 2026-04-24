@@ -40,6 +40,15 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
 
 ?>
 
+<?php
+/**
+ * Fires when the Check Ins admin page is rendered.
+ *
+ * @since 2.0.0
+ */
+do_action( 'bm_checkin_page_loaded' );
+?>
+
 <!-- Check ins -->
 <div class="sg-admin-main-box checkin-listing-admin-main-box">
 <div class="wrap listing_table">
@@ -132,8 +141,42 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
     </div>
     <?php
     if ( isset( $checkins ) && !empty( $checkins ) ) {
+		// Build status counts for the counter bar.
+		$ci_counts = BM_Checkin::get_status_counts();
 		;
 		?>
+        <!-- Real-time status counter bar -->
+        <div id="bm-ci-counter-bar" class="bm-ci-counter-bar" role="status" aria-live="polite">
+            <span class="bm-ci-counter-item bm-ci-counter-item--total">
+                <span class="bm-ci-counter-label"><?php esc_html_e( 'Total', 'service-booking' ); ?></span>
+                <span class="bm-ci-counter-value" id="bm-ci-count-total"><?php echo absint( $ci_counts['total'] ); ?></span>
+            </span>
+            <span class="bm-ci-counter-item bm-ci-counter-item--checked_in">
+                <span class="bm-ci-counter-label"><?php esc_html_e( 'Checked In', 'service-booking' ); ?></span>
+                <span class="bm-ci-counter-value" id="bm-ci-count-checked_in"><?php echo absint( $ci_counts['checked_in'] ); ?></span>
+            </span>
+            <span class="bm-ci-counter-item bm-ci-counter-item--pending">
+                <span class="bm-ci-counter-label"><?php esc_html_e( 'Pending', 'service-booking' ); ?></span>
+                <span class="bm-ci-counter-value" id="bm-ci-count-pending"><?php echo absint( $ci_counts['pending'] ); ?></span>
+            </span>
+            <span class="bm-ci-counter-item bm-ci-counter-item--expired">
+                <span class="bm-ci-counter-label"><?php esc_html_e( 'Expired', 'service-booking' ); ?></span>
+                <span class="bm-ci-counter-value" id="bm-ci-count-expired"><?php echo absint( $ci_counts['expired'] ); ?></span>
+            </span>
+            <span class="bm-ci-counter-item bm-ci-counter-item--no_show">
+                <span class="bm-ci-counter-label"><?php esc_html_e( 'No Show', 'service-booking' ); ?></span>
+                <span class="bm-ci-counter-value" id="bm-ci-count-no_show"><?php echo absint( $ci_counts['no_show'] ); ?></span>
+            </span>
+            <span class="bm-ci-counter-item bm-ci-counter-item--checked_out">
+                <span class="bm-ci-counter-label"><?php esc_html_e( 'Checked Out', 'service-booking' ); ?></span>
+                <span class="bm-ci-counter-value" id="bm-ci-count-checked_out"><?php echo absint( $ci_counts['checked_out'] ); ?></span>
+            </span>
+            <span class="bm-ci-counter-item bm-ci-counter-item--late">
+                <span class="bm-ci-counter-label"><?php esc_html_e( 'Late', 'service-booking' ); ?></span>
+                <span class="bm-ci-counter-value" id="bm-ci-count-late"><?php echo absint( $ci_counts['late'] ); ?></span>
+            </span>
+        </div>
+
         <!-- Bulk Actions Bar -->
         <div class="bm-bulk-bar" data-table="checkin" style="margin-bottom:10px;padding:8px 12px;background:#f0f0f1;border:1px solid #c3c4c7;border-radius:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <select class="bm-bulk-action-select" data-table="checkin" style="min-width:180px;">
@@ -146,6 +189,10 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
                     <option value="pending"><?php esc_html_e( 'Pending', 'service-booking' ); ?></option>
                     <option value="checked_in"><?php esc_html_e( 'Checked In', 'service-booking' ); ?></option>
                     <option value="expired"><?php esc_html_e( 'Expired', 'service-booking' ); ?></option>
+                    <option value="no_show"><?php esc_html_e( 'No Show', 'service-booking' ); ?></option>
+                    <option value="late"><?php esc_html_e( 'Late', 'service-booking' ); ?></option>
+                    <option value="early"><?php esc_html_e( 'Early', 'service-booking' ); ?></option>
+                    <option value="checked_out"><?php esc_html_e( 'Checked Out', 'service-booking' ); ?></option>
                 </select>
             </span>
             <button type="button" class="button button-primary bm-bulk-apply" data-table="checkin" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
@@ -301,7 +348,29 @@ add_action( 'media_buttons', array( $this, 'bm_fields_list_for_email' ) );
         <div class="scanner-controls">
             <button id="start-scan" class="button button-primary"><?php esc_html_e( 'Start Scan', 'service-booking' ); ?></button>
             <button id="stop-scan" class="button"><?php esc_html_e( 'Stop Scan', 'service-booking' ); ?></button>
+            <input type="file" id="qr-file-input" accept="image/*,application/pdf" style="display:none;">
+            <button id="upload-qr" class="button button-primary"><?php esc_html_e( 'Upload QR / PDF', 'service-booking' ); ?></button>
         </div>
+    </div>
+</div>
+
+<!-- QR crop modal (shared by upload-image and upload-PDF paths) -->
+<div id="qr-cropper-modal" class="qr-modal" style="display:none;">
+    <div id="qr-modal-box" class="qr-modal-content">
+        <div id="qr-modal-header" class="qr-modal-header">
+            <span><?php esc_html_e( 'Crop QR Code Region', 'service-booking' ); ?></span>
+            <span class="qr-modal-close" title="<?php esc_attr_e( 'Close', 'service-booking' ); ?>">&times;</span>
+        </div>
+        <div class="qr-modal-body">
+            <div id="qr-loading-spinner" class="qr-spinner" style="display:none;"></div>
+            <div class="qr-cropper-wrapper">
+                <img id="cropper-image" src="" alt="" style="display:none;max-width:100%;">
+            </div>
+            <button id="crop-confirm" class="button button-primary" style="margin-top:10px;display:none;">
+                <?php esc_html_e( 'Crop &amp; Scan', 'service-booking' ); ?>
+            </button>
+        </div>
+        <div class="qr-resizer"></div>
     </div>
 </div>
 

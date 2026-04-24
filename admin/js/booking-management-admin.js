@@ -10228,6 +10228,34 @@ function bm_fetch_archived_order_as_per_search(type = '') {
 
 
 // Sort results
+/**
+ * Escape a value for safe insertion as HTML text content.
+ * Mirrors PHP esc_html().
+ *
+ * @param  {*} str
+ * @return {string}
+ */
+function bmEscHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+/**
+ * Escape a value for safe insertion inside an HTML attribute.
+ * Mirrors PHP esc_attr().
+ *
+ * @param  {*} str
+ * @return {string}
+ */
+function bmEscAttr(str) {
+    return bmEscHtml(str);
+}
+
 function bm_sort_orders(column, direction) {
     var url = new URL(window.location.href);
     url.searchParams.set('orderby', column);
@@ -10324,22 +10352,22 @@ function bm_search_checkin_data(type = '') {
 								checkinListing += "<td style='text-align: center;'>" + (current_pagenumber ? current_pagenumber : i + 1) + "</td>";
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'service_name') {
-								checkinListing += "<td style='text-align: center;width:140px;' title='" + checkins[i].service_name + "'>" + checkins[i].service_name.substring(0, 20) + '...' + " </td>";
+								checkinListing += "<td style='text-align: center;width:140px;' title='" + bmEscAttr(checkins[i].service_name) + "'>" + bmEscHtml(checkins[i].service_name.substring(0, 20)) + '...' + " </td>";
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'booking_date') {
-								checkinListing += "<td style='text-align: center;'>" + checkins[i].booking_date + " </td>";
+								checkinListing += "<td style='text-align: center;'>" + bmEscHtml(checkins[i].booking_date) + " </td>";
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'first_name') {
-								checkinListing += "<td style='text-align: center;'>" + checkins[i].first_name + " </td>";
+								checkinListing += "<td style='text-align: center;'>" + bmEscHtml(checkins[i].first_name) + " </td>";
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'last_name') {
-								checkinListing += "<td style='text-align: center;'>" + checkins[i].last_name + " </td>";
+								checkinListing += "<td style='text-align: center;'>" + bmEscHtml(checkins[i].last_name) + " </td>";
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'contact_no') {
-								checkinListing += "<td style='text-align: center;'>" + checkins[i].contact_no + " </td>";
+								checkinListing += "<td style='text-align: center;'>" + bmEscHtml(checkins[i].contact_no) + " </td>";
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'email_address') {
-								checkinListing += "<td style='text-align: center;'>" + checkins[i].email_address + " </td>";
+								checkinListing += "<td style='text-align: center;'>" + bmEscHtml(checkins[i].email_address) + " </td>";
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'total_cost') {
 								checkinListing += "<td style='text-align: center;'>";
@@ -10351,18 +10379,23 @@ function bm_search_checkin_data(type = '') {
 								checkinListing += "</td>";
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'checkin_time') {
-								checkinListing += "<td style='text-align: center;'>" + (checkins[i].checkin_time) + " </td>";
+								checkinListing += "<td style='text-align: center;'>" + bmEscHtml(checkins[i].checkin_time) + " </td>";
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'checkin_status') {
 								const status = checkins[i].checkin_status;
-								
+								// Inline badge alongside the dropdown for quick visual scan.
+								const badgeClass = 'bm-ci-badge bm-ci-badge--' + bmEscAttr(status);
 								checkinListing += `<td style='text-align: center;'>`;
-								checkinListing += `<select class="checkin-status-dropdown" 
+								// Badge: visible text is sufficient for screen readers; no redundant aria-label.
+								checkinListing += `<span class="${badgeClass}">${bmEscHtml(status.replace('_', ' '))}</span>`;
+								checkinListing += `<select class="checkin-status-dropdown"
+												aria-label="Change check-in status"
 												data-checkin-id="${checkins[i].checkin_id}"
 												data-booking-id="${checkins[i].booking_id}">
-									<option value="pending" ${status == 'pending' ? 'selected' : ''}>Pending</option>
-									<option value="checked_in" ${status == 'checked_in' ? 'selected' : ''}>Checked In</option>
-									<option value="expired" ${status == 'expired' ? 'selected' : ''}>Expired</option>
+									<option value="pending" ${status == 'pending' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_pending || 'Pending')}</option>
+									<option value="checked_in" ${status == 'checked_in' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_checked_in || 'Checked In')}</option>
+									<option value="expired" ${status == 'expired' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_expired || 'Expired')}</option>
+									<option value="no_show" ${status == 'no_show' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_no_show || 'No Show')}</option>
 								</select>`;
 								checkinListing += "</td>";
 							}
@@ -10370,15 +10403,19 @@ function bm_search_checkin_data(type = '') {
 								checkinListing += "<td style='text-align: center;'><div class='show-order-ticket' style='cursor:pointer;font-size:16px;' id=" + checkins[i].booking_id + "><i class='fa fa-paperclip' aria-hidden='true'></i></div></td>";
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'actions') {
+								const canUndo = (checkins[i].checkin_status === 'checked_in');
 								checkinListing += `<td style='text-align: center;'>
 									<div class="action-buttons">
-										<a href="#" class="view-details" data-id="${checkins[i].booking_id}" 
-										title="View Details">
+										<a href="#" class="view-details" data-id="${checkins[i].booking_id}"
+										title="${bmEscAttr(bm_normal_object.view_details || 'View Details')}"
+										aria-label="${bmEscAttr(bm_normal_object.view_details || 'View Details')}">
 											<span class="dashicons dashicons-visibility"></span>
 										</a>
-										<span class="resend-email" title="${bm_normal_object.resend_ticket_mail}" id="${checkins[i].email_id ?? 0}" data-id="${i}" onclick="bm_open_email_body(this, 'checkin')">
+										<span class="resend-email" title="${bmEscAttr(bm_normal_object.resend_ticket_mail)}" id="${checkins[i].email_id ?? 0}" data-id="${i}" onclick="bm_open_email_body(this, 'checkin')" aria-label="${bmEscAttr(bm_normal_object.resend_ticket_mail)}">
 											<span class="dashicons dashicons-email-alt"></span>
 										</span>
+										${canUndo ? `<a href="#" class="bm-undo-checkin" data-booking-id="${checkins[i].booking_id}" data-checkin-id="${checkins[i].checkin_id}" title="${bmEscAttr(bm_normal_object.undo_checkin || 'Undo Check-in')}" aria-label="${bmEscAttr(bm_normal_object.undo_checkin || 'Undo Check-in')}"><span class="dashicons dashicons-undo"></span></a>` : ''}
+										<a href="#" class="bm-mark-no-show" data-booking-id="${checkins[i].booking_id}" title="${bmEscAttr(bm_normal_object.mark_no_show || 'Mark as No Show')}" aria-label="${bmEscAttr(bm_normal_object.mark_no_show || 'Mark as No Show')}"><span class="dashicons dashicons-minus"></span></a>
 									</div>
 								</td>`;
 							}
@@ -10388,6 +10425,16 @@ function bm_search_checkin_data(type = '') {
 					}
 					jQuery(".checkin_records").append(checkinListing);
 					jQuery("#checkin_pagination").append(pagination);
+
+					// Update real-time status counter if present on this page.
+					if (typeof jsondata.status_counts !== 'undefined' && jQuery('#bm-ci-counter-bar').length) {
+						var sc = jsondata.status_counts;
+						jQuery('#bm-ci-count-total').text(sc.total || 0);
+						jQuery('#bm-ci-count-checked_in').text(sc.checked_in || 0);
+						jQuery('#bm-ci-count-pending').text(sc.pending || 0);
+						jQuery('#bm-ci-count-expired').text(sc.expired || 0);
+						jQuery('#bm-ci-count-no_show').text(sc.no_show || 0);
+					}
 				} else {
 					jQuery(".checkin_records").append('<div class="no_records_class">' + bm_normal_object.no_records + '</div>');
 				}

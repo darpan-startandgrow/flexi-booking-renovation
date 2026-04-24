@@ -1,5 +1,9 @@
 <?php
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * The public-facing functionality of the plugin.
  *
@@ -489,343 +493,430 @@ class Booking_Management_Public {
 
 
 	/**
-	 * QR scanner shortcode page
+	 * QR scanner shortcode page — customer-facing self-service check-in.
+	 *
+	 * Renders a three-tab interface: Camera scan, Upload QR image, Upload PDF.
+	 * When ?bm_ci_token=<token> is present the one-time confirmation detail
+	 * view is shown instead of the scanner UI.
 	 *
 	 * @author Darpan
 	 */
 	public function bm_qr_scanner_shortcode() {
+		// Dedicated public scanner JS (does NOT load admin dashboard code).
 		wp_enqueue_script(
 			'bm-qr-scanner',
-			plugin_dir_url( __FILE__ ) . '../admin/js/booking-management-check-ins.js',
-			array( 'jquery' ),
+			plugin_dir_url( __FILE__ ) . 'js/booking-management-qr-scanner.js',
+			array( 'jquery', 'public-jsqr', 'jquery-cropper', 'jquery-pdf-cropper' ),
 			$this->version,
 			true
 		);
 
-		wp_localize_script(
-			'bm-qr-scanner',
-			'bm_ajax_object',
-			array(
-				'ajax_url'   => admin_url( 'admin-ajax.php' ),
-				'nonce'      => wp_create_nonce( 'ajax-nonce' ),
-				'plugin_url' => plugin_dir_url( __FILE__ ),
-			)
-		);
-
-		wp_enqueue_script(
-			'pdfjs-lib',
-			plugin_dir_url( __FILE__ ) . '../public/js/booking-management-pdf-cropper.worker.js',
+		wp_enqueue_style(
+			'bm-qr-scanner-css',
+			plugin_dir_url( __FILE__ ) . 'css/booking-management-qr-scanner.css',
 			array(),
-			'2.14.305',
-			true
+			$this->version,
+			'all'
 		);
 
-		wp_enqueue_script( 'public-jsqr', plugin_dir_url( __FILE__ ) . 'js/booking-management-jsqr.js', array( 'jquery' ), $this->version, true );
+		wp_enqueue_script( 'public-jsqr', plugin_dir_url( __FILE__ ) . 'js/booking-management-jsqr.js', array(), $this->version, true );
+
+		$scanner_page_url = get_permalink( get_option( 'bm_qr_scanner_page_id' ) );
 
 		wp_localize_script(
 			'bm-qr-scanner',
-			'qrScannerData',
+			'bm_qr_scanner_obj',
 			array(
-				'scannerPageUrl' => get_permalink( get_option( 'bm_qr_scanner_page_id' ) ),
+				'ajax_url'       => admin_url( 'admin-ajax.php' ),
+				'nonce'          => wp_create_nonce( 'ajax-nonce' ),
+				'scannerPageUrl' => $scanner_page_url,
+				// URL for the PDF.js worker so pdfjsLib.GlobalWorkerOptions.workerSrc is set correctly.
+				'workerSrc'      => plugin_dir_url( __FILE__ ) . 'js/booking-management-pdf-cropper.worker.js',
+				'strings'        => array(
+					'checked_in_successfully' => __( 'Checked in successfully.', 'service-booking' ),
+					'server_error'            => __( 'An error occurred. Please try again.', 'service-booking' ),
+					'no_qr_code_found'        => __( 'No QR code found in the selected area.', 'service-booking' ),
+					'checking_in'             => __( 'Checking in…', 'service-booking' ),
+					'camera_not_supported'    => __( 'Camera is not supported on this browser.', 'service-booking' ),
+					'pdfjs_missing'           => __( 'PDF library not loaded. Please refresh the page.', 'service-booking' ),
+					'pdf_render_error'        => __( 'Could not render PDF page.', 'service-booking' ),
+					'NotAllowedError'         => __( 'Camera access denied. Please allow camera access in your browser settings.', 'service-booking' ),
+					'NotFoundError'           => __( 'No camera found. Please check if your device has a camera.', 'service-booking' ),
+					'NotReadableError'        => __( 'Camera is already in use by another application.', 'service-booking' ),
+					'OverconstrainedError'    => __( 'Camera does not support the required constraints.', 'service-booking' ),
+					'SecurityError'           => __( 'Camera access is blocked by browser security settings.', 'service-booking' ),
+					'tab_camera'              => __( 'Camera', 'service-booking' ),
+					'tab_image'               => __( 'Upload Image', 'service-booking' ),
+					'tab_pdf'                 => __( 'Upload PDF', 'service-booking' ),
+					'start_scanner'           => __( 'Start Scanner', 'service-booking' ),
+					'stop_scanner'            => __( 'Stop Scanner', 'service-booking' ),
+					'choose_qr_image'         => __( 'Choose QR Image', 'service-booking' ),
+					'choose_pdf'              => __( 'Choose Booking PDF', 'service-booking' ),
+					'crop_and_scan'           => __( 'Crop & Scan', 'service-booking' ),
+				),
 			)
 		);
 
 		ob_start();
-		?>
-		<div id="qr-scanner-container">
-		<div id="qr-scanner-page">
-			<h2><?php echo __( 'QR Code Scanner', 'service-booking' ); ?></h2>
-			<div id="scanner-result"></div>
-			<?php
-			if ( isset( $_GET['qr_scan_done'] ) ) {
-				$booking_key = filter_input( INPUT_GET, 'qr_scan_done' );
-				if ( ! empty( $booking_key ) ) {
-					$bmrequests = new BM_Request();
-					$dbhandler  = new BM_DBhandler();
 
-					$payment_txn_id = $booking_key;
-					$booking_id     = $dbhandler->get_value( 'BOOKING', 'id', $booking_key, 'booking_key' );
-					$transaction    = $dbhandler->get_row( 'TRANSACTIONS', $booking_id, 'booking_id' );
+		// ------------------------------------------------------------------
+		// One-time confirmation view (shown after successful check-in).
+		// The ?bm_ci_token param contains a short-lived transient key that
+		// maps to the booking_id — the raw booking_key is never exposed in URL.
+		// ------------------------------------------------------------------
+		$ci_token = isset( $_GET['bm_ci_token'] ) ? sanitize_text_field( filter_input( INPUT_GET, 'bm_ci_token' ) ) : '';
+		if ( ! empty( $ci_token ) ) {
+			$booking_id = (int) get_transient( 'bm_ci_confirm_' . $ci_token );
+			if ( $booking_id > 0 ) {
+				// Consume the token so it cannot be replayed.
+				delete_transient( 'bm_ci_confirm_' . $ci_token );
 
-					if ( ! empty( $transaction ) ) {
-						$payment_ref_id            = isset( $transaction->id ) ? $transaction->id : 0;
-						$booking_type              = $dbhandler->get_value( 'BOOKING', 'booking_type', $booking_id, 'id' );
-						$serviceDate               = $dbhandler->get_value( 'BOOKING', 'booking_date', $booking_id, 'id' );
-						$coupons                   = $dbhandler->get_value( 'BOOKING', 'coupons', $booking_id, 'id' );
-						$productDetails            = $bmrequests->bm_fetch_product_info_order_details_page( $booking_id );
-						$customer_id               = isset( $transaction->customer_id ) ? $transaction->customer_id : 0;
-						$customer                  = $dbhandler->get_row( 'CUSTOMERS', $customer_id );
-						$customer_billing          = ! empty( $customer ) && isset( $customer->billing_details ) ? maybe_unserialize( $customer->billing_details ) : '';
-						$customer_shipping         = ! empty( $customer ) && isset( $customer->shipping_details ) ? maybe_unserialize( $customer->shipping_details ) : '';
-						$price_module_data         = $dbhandler->get_value( 'BOOKING', 'price_module_data', $booking_id, 'id' );
-						$price_module_data         = ! empty( $price_module_data ) ? maybe_unserialize( $price_module_data ) : array();
-						$order_confirmation_header = esc_html__( 'QR code scan is successfully done.', 'service-booking' );
+				$bmrequests = new BM_Request();
+				$dbhandler  = new BM_DBhandler();
 
-						$total_discounted_infants  = isset( $price_module_data['infant']['total'] ) ? intval( $price_module_data['infant']['total'] ) : 0;
-						$total_discounted_children = isset( $price_module_data['children']['total'] ) ? intval( $price_module_data['children']['total'] ) : 0;
-						$total_discounted_adults   = isset( $price_module_data['adult']['total'] ) ? intval( $price_module_data['adult']['total'] ) : 0;
-						$total_discounted_seniors  = isset( $price_module_data['senior']['total'] ) ? intval( $price_module_data['senior']['total'] ) : 0;
+				$booking_key    = $dbhandler->get_value( 'BOOKING', 'booking_key', $booking_id, 'id' );
+				$payment_txn_id = $booking_key;
+				$transaction    = $dbhandler->get_row( 'TRANSACTIONS', $booking_id, 'booking_id' );
 
-						$infants_age_from  = isset( $price_module_data['infant']['age']['from'] ) ? intval( $price_module_data['infant']['age']['from'] ) : 0;
-						$children_age_from = isset( $price_module_data['children']['age']['from'] ) ? intval( $price_module_data['children']['age']['from'] ) : 0;
-						$adults_age_from   = isset( $price_module_data['adult']['age']['from'] ) ? intval( $price_module_data['adult']['age']['from'] ) : 0;
-						$seniors_age_from  = isset( $price_module_data['senior']['age']['from'] ) ? intval( $price_module_data['senior']['age']['from'] ) : 0;
+				if ( ! empty( $transaction ) ) {
+					$payment_ref_id            = isset( $transaction->id ) ? $transaction->id : 0;
+					$booking_type              = $dbhandler->get_value( 'BOOKING', 'booking_type', $booking_id, 'id' );
+					$serviceDate               = $dbhandler->get_value( 'BOOKING', 'booking_date', $booking_id, 'id' );
+					$coupons                   = $dbhandler->get_value( 'BOOKING', 'coupons', $booking_id, 'id' );
+					$productDetails            = $bmrequests->bm_fetch_product_info_order_details_page( $booking_id );
+					$customer_id               = isset( $transaction->customer_id ) ? $transaction->customer_id : 0;
+					$customer                  = $dbhandler->get_row( 'CUSTOMERS', $customer_id );
+					$customer_billing          = ! empty( $customer ) && isset( $customer->billing_details ) ? maybe_unserialize( $customer->billing_details ) : '';
+					$customer_shipping         = ! empty( $customer ) && isset( $customer->shipping_details ) ? maybe_unserialize( $customer->shipping_details ) : '';
+					$price_module_data         = $dbhandler->get_value( 'BOOKING', 'price_module_data', $booking_id, 'id' );
+					$price_module_data         = ! empty( $price_module_data ) ? maybe_unserialize( $price_module_data ) : array();
+					$order_confirmation_header = esc_html__( 'QR code scan is successfully done.', 'service-booking' );
 
-						$infants_age_to  = isset( $price_module_data['infant']['age']['to'] ) ? intval( $price_module_data['infant']['age']['to'] ) : 0;
-						$children_age_to = isset( $price_module_data['children']['age']['to'] ) ? intval( $price_module_data['children']['age']['to'] ) : 0;
-						$adults_age_to   = isset( $price_module_data['adult']['age']['to'] ) ? intval( $price_module_data['adult']['age']['to'] ) : 0;
-						$seniors_age_to  = isset( $price_module_data['senior']['age']['to'] ) ? intval( $price_module_data['senior']['age']['to'] ) : 0;
+					$total_discounted_infants  = isset( $price_module_data['infant']['total'] ) ? intval( $price_module_data['infant']['total'] ) : 0;
+					$total_discounted_children = isset( $price_module_data['children']['total'] ) ? intval( $price_module_data['children']['total'] ) : 0;
+					$total_discounted_adults   = isset( $price_module_data['adult']['total'] ) ? intval( $price_module_data['adult']['total'] ) : 0;
+					$total_discounted_seniors  = isset( $price_module_data['senior']['total'] ) ? intval( $price_module_data['senior']['total'] ) : 0;
 
-						$infants_total_discount  = isset( $price_module_data['infant']['total_discount'] ) ? floatval( $price_module_data['infant']['total_discount'] ) : 0;
-						$children_total_discount = isset( $price_module_data['children']['total_discount'] ) ? floatval( $price_module_data['children']['total_discount'] ) : 0;
-						$adults_total_discount   = isset( $price_module_data['adult']['total_discount'] ) ? floatval( $price_module_data['adult']['total_discount'] ) : 0;
-						$seniors_total_discount  = isset( $price_module_data['senior']['total_discount'] ) ? floatval( $price_module_data['senior']['total_discount'] ) : 0;
+					$infants_age_from  = isset( $price_module_data['infant']['age']['from'] ) ? intval( $price_module_data['infant']['age']['from'] ) : 0;
+					$children_age_from = isset( $price_module_data['children']['age']['from'] ) ? intval( $price_module_data['children']['age']['from'] ) : 0;
+					$adults_age_from   = isset( $price_module_data['adult']['age']['from'] ) ? intval( $price_module_data['adult']['age']['from'] ) : 0;
+					$seniors_age_from  = isset( $price_module_data['senior']['age']['from'] ) ? intval( $price_module_data['senior']['age']['from'] ) : 0;
 
-						$infants_total  = isset( $price_module_data['infant']['total_cost'] ) ? floatval( $price_module_data['infant']['total_cost'] ) : 0;
-						$children_total = isset( $price_module_data['children']['total_cost'] ) ? floatval( $price_module_data['children']['total_cost'] ) : 0;
-						$adults_total   = isset( $price_module_data['adult']['total_cost'] ) ? floatval( $price_module_data['adult']['total_cost'] ) : 0;
-						$seniors_total  = isset( $price_module_data['senior']['total_cost'] ) ? floatval( $price_module_data['senior']['total_cost'] ) : 0;
+					$infants_age_to  = isset( $price_module_data['infant']['age']['to'] ) ? intval( $price_module_data['infant']['age']['to'] ) : 0;
+					$children_age_to = isset( $price_module_data['children']['age']['to'] ) ? intval( $price_module_data['children']['age']['to'] ) : 0;
+					$adults_age_to   = isset( $price_module_data['adult']['age']['to'] ) ? intval( $price_module_data['adult']['age']['to'] ) : 0;
+					$seniors_age_to  = isset( $price_module_data['senior']['age']['to'] ) ? intval( $price_module_data['senior']['age']['to'] ) : 0;
 
-						$infants_discount_type  = isset( $price_module_data['infant']['discount_type'] ) ? $price_module_data['infant']['discount_type'] : 'positive';
-						$children_discount_type = isset( $price_module_data['children']['discount_type'] ) ? $price_module_data['children']['discount_type'] : 'positive';
-						$adults_discount_type   = isset( $price_module_data['adult']['discount_type'] ) ? $price_module_data['adult']['discount_type'] : 'positive';
-						$seniors_discount_type  = isset( $price_module_data['senior']['discount_type'] ) ? $price_module_data['senior']['discount_type'] : 'positive';
+					$infants_total_discount  = isset( $price_module_data['infant']['total_discount'] ) ? floatval( $price_module_data['infant']['total_discount'] ) : 0;
+					$children_total_discount = isset( $price_module_data['children']['total_discount'] ) ? floatval( $price_module_data['children']['total_discount'] ) : 0;
+					$adults_total_discount   = isset( $price_module_data['adult']['total_discount'] ) ? floatval( $price_module_data['adult']['total_discount'] ) : 0;
+					$seniors_total_discount  = isset( $price_module_data['senior']['total_discount'] ) ? floatval( $price_module_data['senior']['total_discount'] ) : 0;
 
-						$group_discount          = isset( $price_module_data['group_discount'] ) ? floatval( $price_module_data['group_discount'] ) : 0;
-						$discount_type           = isset( $price_module_data['discount_type'] ) ? $price_module_data['discount_type'] : 'positive';
-						$negative_group_discount = $dbhandler->get_global_option_value( 'negative_group_discount_' . $booking_key, 0 );
+					$infants_total  = isset( $price_module_data['infant']['total_cost'] ) ? floatval( $price_module_data['infant']['total_cost'] ) : 0;
+					$children_total = isset( $price_module_data['children']['total_cost'] ) ? floatval( $price_module_data['children']['total_cost'] ) : 0;
+					$adults_total   = isset( $price_module_data['adult']['total_cost'] ) ? floatval( $price_module_data['adult']['total_cost'] ) : 0;
+					$seniors_total  = isset( $price_module_data['senior']['total_cost'] ) ? floatval( $price_module_data['senior']['total_cost'] ) : 0;
 
-						if ( ! empty( $coupons ) ) {
-							if ( $group_discount > 0 ) {
-								$coupon_discount = isset( $productDetails['discount'] ) ? ( $productDetails['discount'] - ( $infants_total_discount + $children_total_discount + $group_discount ) ) : 0;
-							} else {
-								$coupon_discount = isset( $productDetails['discount'] ) ? ( $productDetails['discount'] - ( $infants_total_discount + $children_total_discount + $adults_total_discount + $seniors_total_discount ) ) : 0;
-							}
-						} else {
-							$coupon_discount = 0;
-						}
+					$infants_discount_type  = isset( $price_module_data['infant']['discount_type'] ) ? $price_module_data['infant']['discount_type'] : 'positive';
+					$children_discount_type = isset( $price_module_data['children']['discount_type'] ) ? $price_module_data['children']['discount_type'] : 'positive';
+					$adults_discount_type   = isset( $price_module_data['adult']['discount_type'] ) ? $price_module_data['adult']['discount_type'] : 'positive';
+					$seniors_discount_type  = isset( $price_module_data['senior']['discount_type'] ) ? $price_module_data['senior']['discount_type'] : 'positive';
 
-						wp_enqueue_style( 'add-order-detials-final-page', plugin_dir_url( __FILE__ ) . 'css/booking-management-booking-final-page.css', array(), $this->version, 'all' );
-
-						ob_start();
-						?>
-		<div class="booking_details qr_scan_details">
-		<table class="booking-container">
-				<tr>
-					<td>
-						<table class="header">
-							<tr>
-								<td>
-									<h1><?php esc_html_e( 'Hey ', 'service-booking' ); ?> <?php echo isset( $customer_billing['billing_first_name'] ) ? esc_html( $customer_billing['billing_first_name'] ) . ' ' . esc_html( $customer_billing['billing_last_name'] ) : ''; ?>!</h1>
-									<p><?php echo esc_html( $order_confirmation_header ); ?></p>
-								</td>
-							</tr>
-						</table>
-						
-						<table class="order-details">
-							<tr>
-								<td class="subheading"><strong><?php esc_html_e( 'Service Date: ', 'service-booking' ); ?></strong><br/>
-									<span><?php echo isset( $serviceDate ) ? esc_html( $bmrequests->bm_month_year_date_format( $serviceDate ) ) : ''; ?></span>
-								</td>
-								<td colspan="1" class="subheading td-center-align"><strong><?php esc_html_e( 'Order Ref: ', 'service-booking' ); ?></strong><br/>
-									<span><?php echo esc_html( $payment_txn_id ); ?></span></td>
-								<td colspan="3" class="subheading td-right-align"><strong><?php esc_html_e( 'Payment via ', 'service-booking' ); ?></strong><br/>
-									<span><?php esc_html_e( 'Card ', 'service-booking' ); ?></span></td>
-							</tr>
-						<?php
-						$count = 1;
-						foreach ( $productDetails['products'] as $product ) {
-							?>
-							
-							<tr>
-								<td colspan="2">
-							<?php if ( $count == 1 ) { ?>
-										<span class="theading"><?php esc_html_e( 'Main Product ', 'service-booking' ); ?></span><br>
-							<?php } elseif ( $count == 2 ) { ?>
-										<span class="theading"><?php esc_html_e( 'Extra Products ', 'service-booking' ); ?></span><br>
-							<?php } ?>
-										<span class="subtext"><?php echo isset( $product['name'] ) ? esc_html( $product['name'] ) : 'N/A'; ?></span>
-								</td>
-								<td><span class="theading"><?php esc_html_e( 'Price ', 'service-booking' ); ?></span><br/><span class="subtext"> <?php echo isset( $product['base_price'] ) ? esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $product['base_price'], true ) ) : 'N/A'; ?></span></td>
-								<td><span class="theading"><?php esc_html_e( 'Qty ', 'service-booking' ); ?></span><br/><span class="subtext"> <?php echo isset( $product['quantity'] ) ? esc_html( $product['quantity'] ) : 'N/A'; ?></span></td>
-								<td class="td-right-align"><span class="theading td-right-align"><?php esc_html_e( 'Total ', 'total' ); ?></span><br/><span class="subtext"><?php echo isset( $product['total'] ) ? esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $product['total'], true ) ) : 'N/A'; ?></span></td>
-							</tr>
-							<?php
-							++$count;
-						}
-						?>
-							<tr >
-								<td class="subtotal " colspan="4"><?php esc_html_e( 'Subtotal ', 'service-booking' ); ?></td>
-								<td class="subtotal td-right-align"><?php echo isset( $productDetails['subtotal'] ) ? esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $productDetails['subtotal'], true ) ) : 'N/A'; ?></td>
-							</tr>
-							<tr class="noborder">
-								<td colspan="4"><?php esc_html_e( 'Discount ', 'service-booking' ); ?></td>
-								<td class="discountvalue td-right-align">-<?php echo isset( $productDetails['discount'] ) ? esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $productDetails['discount'], true ) ) : 'N/A'; ?></td>
-							</tr>
-							<tr class="totalbar">
-								<td colspan="4"><?php esc_html_e( 'Total ', 'service-booking' ); ?></td>
-								<td class="td-right-align"><?php echo isset( $productDetails['total'] ) ? esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $productDetails['total'], true ) ) : 'N/A'; ?></td>
-							</tr>
-						</table>
-						<table class="billing-shipping noborder">
-							<tr>
-								<th><?php esc_html_e( 'Billing Address', 'service-booking' ); ?></th>
-								<th class="td-right-align"><?php esc_html_e( 'Shipping Address', 'service-booking' ); ?></th>
-							</tr>
-							<tr>
-								<td class="addresstext"><?php echo isset( $customer_billing['billing_first_name'] ) ? esc_html( $customer_billing['billing_first_name'] ) . ' ' . esc_html( $customer_billing['billing_last_name'] ) : ''; ?><br><?php echo isset( $customer_billing['billing_address'] ) ? esc_html( $customer_billing['billing_address'] ) : ''; ?><br><?php echo isset( $customer_billing['billing_state'] ) ? esc_html( $customer_billing['billing_state'] ) : ''; ?><br><?php echo isset( $customer_billing['billing_email'] ) ? esc_html( $customer_billing['billing_email'] ) : ''; ?></td>
-								<td class="addresstext td-right-align" style="padding-right:0px;"><?php echo isset( $customer_shipping['shipping_first_name'] ) ? esc_html( $customer_shipping['shipping_first_name'] ) . ' ' . esc_html( $customer_shipping['shipping_last_name'] ) : ''; ?><br><?php echo isset( $customer_shipping['shipping_address'] ) ? esc_html( $customer_shipping['shipping_address'] ) : ''; ?><br><?php echo isset( $customer_shipping['shipping_state'] ) ? esc_html( $customer_shipping['shipping_state'] ) : ''; ?><br><?php echo isset( $customer_shipping['shipping_email'] ) ? esc_html( $customer_shipping['shipping_email'] ) : ''; ?></td>
-							</tr>
-							
-						</table>
-						<?php
-						if ( ! empty( $price_module_data ) || ! empty( $coupons ) ) {
-							?>
-						<table class="billing-shipping-notification noborder hidden">
-							<tr>
-								<th>
-								<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>    
-								<?php esc_html_e( 'This order has', 'service-booking' ); ?></th>
-							</tr>
-							<?php
-							if ( ! empty( $price_module_data ) && is_array( $price_module_data ) ) {
-								if ( ! empty( $total_discounted_infants ) ) {
-									$infants_total_discount = $bmrequests->bm_fetch_price_in_global_settings_format( $infants_total_discount, true );
-									$class                  = $infants_discount_type == 'negative' ? 'negative_discount' : 'postive_price_module_discount';
-									?>
-								<tr>
-									<td class="addresstext addresstext-notic">
-									<i class="fa fa-hand-o-right" aria-hidden="true"></i>
-									<?php echo esc_html( $total_discounted_infants ) . ' <strong>' . esc_html__( 'infant/s of the age group from ', 'service-booking' ) . esc_html( $infants_age_from ) . ' ' . esc_html__( 'to ', 'service-booking' ) . esc_html( $infants_age_to ) . '</strong> ' . esc_html__( 'with total discount of ' ) . '<span class=' . esc_html( $class ) . '>' . esc_html( $infants_total_discount ) . '</span>'; ?>
-									</td>
-								</tr>
-								<?php } ?>
-
-								<?php
-								if ( ! empty( $total_discounted_children ) ) {
-									$children_total_discount = $bmrequests->bm_fetch_price_in_global_settings_format( $children_total_discount, true );
-									$class                   = $children_discount_type == 'negative' ? 'negative_discount' : 'postive_price_module_discount';
-									?>
-								<tr>
-									<td class="addresstext addresstext-notic">
-									<i class="fa fa-hand-o-right" aria-hidden="true"></i>
-									<?php
-									echo esc_html( $total_discounted_children ) . ' <strong>' . esc_html__( 'child/children of the age group from ', 'service-booking' ) . esc_html( $children_age_from ) . ' ' . esc_html__( 'to ', 'service-booking' ) . esc_html( $children_age_to ) . '</strong> ' . esc_html__( 'with total discount of ' ) . '<span class=' . esc_html( $class ) . '>' . esc_html( $children_total_discount ) . '</span>';
-									?>
-									</td>
-								</tr>
-								<?php } ?>
-
-								<?php
-								if ( empty( $group_discount ) ) {
-									if ( ! empty( $total_discounted_adults ) ) {
-										$adults_total_discount = $bmrequests->bm_fetch_price_in_global_settings_format( $adults_total_discount, true );
-										$class                 = $adults_discount_type == 'negative' ? 'negative_discount' : 'postive_price_module_discount';
-										?>
-								<tr>
-									<td class="addresstext addresstext-notic">
-									<i class="fa fa-hand-o-right" aria-hidden="true"></i>
-										<?php echo esc_html( $total_discounted_adults ) . ' <strong>' . esc_html__( 'adult/s of the age group from ', 'service-booking' ) . esc_html( $adults_age_from ) . ' ' . esc_html__( 'to ', 'service-booking' ) . esc_html( $adults_age_to ) . '</strong> ' . esc_html__( 'with total discount of ' ) . '<span class=' . esc_html( $class ) . '>' . esc_html( $adults_total_discount ) . '</span>'; ?>
-									</td>
-								</tr>
-									<?php } ?>
-
-									<?php
-									if ( ! empty( $total_discounted_seniors ) ) {
-										$seniors_total_discount = $bmrequests->bm_fetch_price_in_global_settings_format( $seniors_total_discount, true );
-										$class                  = $seniors_discount_type == 'negative' ? 'negative_discount' : 'postive_price_module_discount';
-										?>
-								<tr>
-									<td class="addresstext addresstext-notic">
-									<i class="fa fa-hand-o-right" aria-hidden="true"></i>
-										<?php echo esc_html( $total_discounted_seniors ) . ' <strong>' . esc_html__( 'senior/s of the age group from ', 'service-booking' ) . esc_html( $seniors_age_from ) . ' ' . esc_html__( 'to ', 'service-booking' ) . esc_html( $seniors_age_to ) . '</strong> ' . esc_html__( 'with total discount of ' ) . '<span class=' . esc_html( $class ) . '>' . esc_html( $seniors_total_discount ) . '</span>'; ?>
-									</td>
-								</tr>
-										<?php
-									}
-								} else {
-										$class = $negative_group_discount == 1 ? 'negative_discount' : 'postive_price_module_discount';
-									?>
-										<tr>
-									<td class="addresstext addresstext-notic">
-									<i class="fa fa-hand-o-right" aria-hidden="true"></i>
-									<?php echo esc_html( $total_discounted_adults + $total_discounted_seniors ) . ' <strong>' . esc_html__( 'adult/s and senior/s of the age group from ', 'service-booking' ) . esc_html( $adults_age_from ) . ' ' . esc_html__( 'to ', 'service-booking' ) . esc_html( $seniors_age_to ) . '</strong> ' . esc_html__( 'with total discount of ' ) . '<span class=' . esc_html( $class ) . '>' . esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $group_discount, true ) ) . '</span>'; ?>
-									</td>
-								</tr>
-									<?php
-								}
-								?>
-								<?php
-							}
-							if ( ! empty( $coupons ) && $coupon_discount > 0 ) {
-								$coupon_discount = $bmrequests->bm_fetch_price_in_global_settings_format( $coupon_discount, true );
-								?>
-						<tr>
-						<td class="addresstext addresstext-notic">
-						<i class="fa fa-hand-o-right" aria-hidden="true"></i>
-								<?php echo esc_html__( 'coupon/s ', 'service-booking' ) . '<strong>' . esc_html( $coupons ) . '</strong>' . ' ' . esc_html__( 'with total discount of ', 'service-booking' ) . '<span class="postive_price_module_discount">' . esc_html( $coupon_discount ) . '</span>'; ?>
-						</td>
-						</tr>
-								<?php
-							}
-							?>
-				</table>
-						<?php } ?>
-						<table class="footer">
-							<tr>
-								<td colspan="2" class="copyright"><img src="<?php echo esc_url( plugin_dir_url( __FILE__ ) . 'partials/images/logo.png' ); ?>" style="width:200px;"/><br/><?php esc_html_e( 'Copyrights Reserved ', 'service-booking' ); ?> &copy; <?php echo esc_html( gmdate( 'Y' ) ); ?></td>
-							</tr>
-						</table>
-					</td>
-				</tr>
-			</table>
-		</div>
-						<?php
-						$html = ob_get_clean();
-						return $html;
-					} else {
-						return '<div class="booking-success">' . __( 'Booking info could not be fetched!', 'service-booking' ) . '</div>';
-					}
-				} else {
-					return '<div class="booking-success">' . __( 'Booking info could not be fetched!', 'service-booking' ) . '</div>';
-				}
-			}
-
-			?>
-		   
-			<div id="scanner-container"> 
-				<img id="arrowLeft" src="<?php echo esc_url( plugin_dir_url( __FILE__ ) . 'partials/image/camera.svg' ); ?>"/>
-				<video id="scanner-video" width="100%" playsinline></video>
-				<canvas id="scanner-canvas" style="display: none;"></canvas>
-			</div>
-		   
-			<div id="scanner-actions">
-				<button id="start-scan" class="button button-primary"><?php echo esc_html__( 'Start Scanner', 'service-booking' ); ?></button>
-				<button id="stop-scan" class="button button-primary"><?php echo esc_html__( 'Stop Scanner', 'service-booking' ); ?></button>
-				<input type="file" id="qr-file-input" accept="image/*,application/pdf" style="display: none;">
-				<button id="upload-qr" class="button button-primary"><?php echo esc_html__( 'Upload QR Code image', 'service-booking' ); ?></button>
-			</div>
-
-			<div id="qr-cropper-modal" style="display:none;">
-				<div id="qr-modal-box">
-					<div id="qr-modal-header">
-					<span class="qr-modal-close">×</span>
-					</div>
-					<div id="qr-loading-spinner" style="display:none;"><?php echo esc_html__( 'Loading...', 'service-booking' ); ?></div>
-					<img id="cropper-image" src="" style="max-width:100%; display:none;" />
-					<button id="crop-confirm"><?php echo esc_html__( 'Confirm Crop', 'service-booking' ); ?></button>
-				</div>
-			</div>
-
-		</div>
-	</div>
-		<?php
-		return ob_get_clean();
-	}
+					$group_discount          = isset( $price_module_data['group_discount'] ) ? floatval( $price_module_data['group_discount'] ) : 0;
+					$discount_type           = isset( $price_module_data['discount_type'] ) ? $price_module_data['discount_type'] : 'positive';
+					$negative_group_discount = $dbhandler->get_global_option_value( 'negative_group_discount_' . $booking_key, 0 );
 
 
-	/**
-	 * add order form
+if ( ! empty( $coupons ) ) {
+if ( $group_discount > 0 ) {
+$coupon_discount = isset( $productDetails['discount'] ) ? ( $productDetails['discount'] - ( $infants_total_discount + $children_total_discount + $group_discount ) ) : 0;
+} else {
+$coupon_discount = isset( $productDetails['discount'] ) ? ( $productDetails['discount'] - ( $infants_total_discount + $children_total_discount + $adults_total_discount + $seniors_total_discount ) ) : 0;
+}
+} else {
+$coupon_discount = 0;
+}
+
+wp_enqueue_style( 'add-order-detials-final-page', plugin_dir_url( __FILE__ ) . 'css/booking-management-booking-final-page.css', array(), $this->version, 'all' );
+
+ob_start();
+?>
+<div class="booking_details qr_scan_details">
+<table class="booking-container">
+<tr>
+<td>
+<table class="header">
+<tr>
+<td>
+<h1><?php esc_html_e( 'Hey ', 'service-booking' ); ?> <?php echo isset( $customer_billing['billing_first_name'] ) ? esc_html( $customer_billing['billing_first_name'] ) . ' ' . esc_html( $customer_billing['billing_last_name'] ) : ''; ?>!</h1>
+<p><?php echo esc_html( $order_confirmation_header ); ?></p>
+</td>
+</tr>
+</table>
+
+<table class="order-details">
+<tr>
+<td class="subheading"><strong><?php esc_html_e( 'Service Date: ', 'service-booking' ); ?></strong><br/>
+<span><?php echo isset( $serviceDate ) ? esc_html( $bmrequests->bm_month_year_date_format( $serviceDate ) ) : ''; ?></span>
+</td>
+<td colspan="1" class="subheading td-center-align"><strong><?php esc_html_e( 'Order Ref: ', 'service-booking' ); ?></strong><br/>
+<span><?php echo esc_html( $payment_txn_id ); ?></span></td>
+<td colspan="3" class="subheading td-right-align"><strong><?php esc_html_e( 'Payment via ', 'service-booking' ); ?></strong><br/>
+<span><?php esc_html_e( 'Card ', 'service-booking' ); ?></span></td>
+</tr>
+<?php
+$count = 1;
+foreach ( $productDetails['products'] as $product ) {
+?>
+<tr>
+<td colspan="2">
+<?php if ( $count == 1 ) { ?>
+<span class="theading"><?php esc_html_e( 'Main Product ', 'service-booking' ); ?></span><br>
+<?php } elseif ( $count == 2 ) { ?>
+<span class="theading"><?php esc_html_e( 'Extra Products ', 'service-booking' ); ?></span><br>
+<?php } ?>
+<span class="subtext"><?php echo isset( $product['name'] ) ? esc_html( $product['name'] ) : 'N/A'; ?></span>
+</td>
+<td><span class="theading"><?php esc_html_e( 'Price ', 'service-booking' ); ?></span><br/><span class="subtext"> <?php echo isset( $product['base_price'] ) ? esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $product['base_price'], true ) ) : 'N/A'; ?></span></td>
+<td><span class="theading"><?php esc_html_e( 'Qty ', 'service-booking' ); ?></span><br/><span class="subtext"> <?php echo isset( $product['quantity'] ) ? esc_html( $product['quantity'] ) : 'N/A'; ?></span></td>
+<td class="td-right-align"><span class="theading td-right-align"><?php esc_html_e( 'Total ', 'total' ); ?></span><br/><span class="subtext"><?php echo isset( $product['total'] ) ? esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $product['total'], true ) ) : 'N/A'; ?></span></td>
+</tr>
+<?php
+++$count;
+}
+?>
+<tr >
+<td class="subtotal " colspan="4"><?php esc_html_e( 'Subtotal ', 'service-booking' ); ?></td>
+<td class="subtotal td-right-align"><?php echo isset( $productDetails['subtotal'] ) ? esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $productDetails['subtotal'], true ) ) : 'N/A'; ?></td>
+</tr>
+<tr class="noborder">
+<td colspan="4"><?php esc_html_e( 'Discount ', 'service-booking' ); ?></td>
+<td class="discountvalue td-right-align">-<?php echo isset( $productDetails['discount'] ) ? esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $productDetails['discount'], true ) ) : 'N/A'; ?></td>
+</tr>
+<tr class="totalbar">
+<td colspan="4"><?php esc_html_e( 'Total ', 'service-booking' ); ?></td>
+<td class="td-right-align"><?php echo isset( $productDetails['total'] ) ? esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $productDetails['total'], true ) ) : 'N/A'; ?></td>
+</tr>
+</table>
+<table class="billing-shipping noborder">
+<tr>
+<th><?php esc_html_e( 'Billing Address', 'service-booking' ); ?></th>
+<th class="td-right-align"><?php esc_html_e( 'Shipping Address', 'service-booking' ); ?></th>
+</tr>
+<tr>
+<td class="addresstext"><?php echo isset( $customer_billing['billing_first_name'] ) ? esc_html( $customer_billing['billing_first_name'] ) . ' ' . esc_html( $customer_billing['billing_last_name'] ) : ''; ?><br><?php echo isset( $customer_billing['billing_address'] ) ? esc_html( $customer_billing['billing_address'] ) : ''; ?><br><?php echo isset( $customer_billing['billing_state'] ) ? esc_html( $customer_billing['billing_state'] ) : ''; ?><br><?php echo isset( $customer_billing['billing_email'] ) ? esc_html( $customer_billing['billing_email'] ) : ''; ?></td>
+<td class="addresstext td-right-align" style="padding-right:0px;"><?php echo isset( $customer_shipping['shipping_first_name'] ) ? esc_html( $customer_shipping['shipping_first_name'] ) . ' ' . esc_html( $customer_shipping['shipping_last_name'] ) : ''; ?><br><?php echo isset( $customer_shipping['shipping_address'] ) ? esc_html( $customer_shipping['shipping_address'] ) : ''; ?><br><?php echo isset( $customer_shipping['shipping_state'] ) ? esc_html( $customer_shipping['shipping_state'] ) : ''; ?><br><?php echo isset( $customer_shipping['shipping_email'] ) ? esc_html( $customer_shipping['shipping_email'] ) : ''; ?></td>
+</tr>
+</table>
+<?php
+if ( ! empty( $price_module_data ) || ! empty( $coupons ) ) {
+?>
+<table class="billing-shipping-notification noborder hidden">
+<tr>
+<th>
+<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+<?php esc_html_e( 'This order has', 'service-booking' ); ?></th>
+</tr>
+<?php
+if ( ! empty( $price_module_data ) && is_array( $price_module_data ) ) {
+if ( ! empty( $total_discounted_infants ) ) {
+$infants_total_discount = $bmrequests->bm_fetch_price_in_global_settings_format( $infants_total_discount, true );
+$class                  = $infants_discount_type == 'negative' ? 'negative_discount' : 'postive_price_module_discount';
+?>
+<tr>
+<td class="addresstext addresstext-notic">
+<i class="fa fa-hand-o-right" aria-hidden="true"></i>
+<?php echo esc_html( $total_discounted_infants ) . ' <strong>' . esc_html__( 'infant/s of the age group from ', 'service-booking' ) . esc_html( $infants_age_from ) . ' ' . esc_html__( 'to ', 'service-booking' ) . esc_html( $infants_age_to ) . '</strong> ' . esc_html__( 'with total discount of ' ) . '<span class=' . esc_html( $class ) . '>' . esc_html( $infants_total_discount ) . '</span>'; ?>
+</td>
+</tr>
+<?php } ?>
+<?php
+if ( ! empty( $total_discounted_children ) ) {
+$children_total_discount = $bmrequests->bm_fetch_price_in_global_settings_format( $children_total_discount, true );
+$class                   = $children_discount_type == 'negative' ? 'negative_discount' : 'postive_price_module_discount';
+?>
+<tr>
+<td class="addresstext addresstext-notic">
+<i class="fa fa-hand-o-right" aria-hidden="true"></i>
+<?php
+echo esc_html( $total_discounted_children ) . ' <strong>' . esc_html__( 'child/children of the age group from ', 'service-booking' ) . esc_html( $children_age_from ) . ' ' . esc_html__( 'to ', 'service-booking' ) . esc_html( $children_age_to ) . '</strong> ' . esc_html__( 'with total discount of ' ) . '<span class=' . esc_html( $class ) . '>' . esc_html( $children_total_discount ) . '</span>';
+?>
+</td>
+</tr>
+<?php } ?>
+<?php
+if ( empty( $group_discount ) ) {
+if ( ! empty( $total_discounted_adults ) ) {
+$adults_total_discount = $bmrequests->bm_fetch_price_in_global_settings_format( $adults_total_discount, true );
+$class                 = $adults_discount_type == 'negative' ? 'negative_discount' : 'postive_price_module_discount';
+?>
+<tr>
+<td class="addresstext addresstext-notic">
+<i class="fa fa-hand-o-right" aria-hidden="true"></i>
+<?php echo esc_html( $total_discounted_adults ) . ' <strong>' . esc_html__( 'adult/s of the age group from ', 'service-booking' ) . esc_html( $adults_age_from ) . ' ' . esc_html__( 'to ', 'service-booking' ) . esc_html( $adults_age_to ) . '</strong> ' . esc_html__( 'with total discount of ' ) . '<span class=' . esc_html( $class ) . '>' . esc_html( $adults_total_discount ) . '</span>'; ?>
+</td>
+</tr>
+<?php } ?>
+<?php
+if ( ! empty( $total_discounted_seniors ) ) {
+$seniors_total_discount = $bmrequests->bm_fetch_price_in_global_settings_format( $seniors_total_discount, true );
+$class                  = $seniors_discount_type == 'negative' ? 'negative_discount' : 'postive_price_module_discount';
+?>
+<tr>
+<td class="addresstext addresstext-notic">
+<i class="fa fa-hand-o-right" aria-hidden="true"></i>
+<?php echo esc_html( $total_discounted_seniors ) . ' <strong>' . esc_html__( 'senior/s of the age group from ', 'service-booking' ) . esc_html( $seniors_age_from ) . ' ' . esc_html__( 'to ', 'service-booking' ) . esc_html( $seniors_age_to ) . '</strong> ' . esc_html__( 'with total discount of ' ) . '<span class=' . esc_html( $class ) . '>' . esc_html( $seniors_total_discount ) . '</span>'; ?>
+</td>
+</tr>
+<?php
+}
+} else {
+$class = $negative_group_discount == 1 ? 'negative_discount' : 'postive_price_module_discount';
+?>
+<tr>
+<td class="addresstext addresstext-notic">
+<i class="fa fa-hand-o-right" aria-hidden="true"></i>
+<?php echo esc_html( $total_discounted_adults + $total_discounted_seniors ) . ' <strong>' . esc_html__( 'adult/s and senior/s of the age group from ', 'service-booking' ) . esc_html( $adults_age_from ) . ' ' . esc_html__( 'to ', 'service-booking' ) . esc_html( $seniors_age_to ) . '</strong> ' . esc_html__( 'with total discount of ' ) . '<span class=' . esc_html( $class ) . '>' . esc_html( $bmrequests->bm_fetch_price_in_global_settings_format( $group_discount, true ) ) . '</span>'; ?>
+</td>
+</tr>
+<?php
+}
+?>
+<?php
+}
+if ( ! empty( $coupons ) && $coupon_discount > 0 ) {
+$coupon_discount = $bmrequests->bm_fetch_price_in_global_settings_format( $coupon_discount, true );
+?>
+<tr>
+<td class="addresstext addresstext-notic">
+<i class="fa fa-hand-o-right" aria-hidden="true"></i>
+<?php echo esc_html__( 'coupon/s ', 'service-booking' ) . '<strong>' . esc_html( $coupons ) . '</strong>' . ' ' . esc_html__( 'with total discount of ', 'service-booking' ) . '<span class="postive_price_module_discount">' . esc_html( $coupon_discount ) . '</span>'; ?>
+</td>
+</tr>
+<?php
+}
+?>
+</table>
+<?php } ?>
+<table class="footer">
+<tr>
+<td colspan="2" class="copyright"><img src="<?php echo esc_url( plugin_dir_url( __FILE__ ) . 'partials/images/logo.png' ); ?>" style="width:200px;"/><br/><?php esc_html_e( 'Copyrights Reserved ', 'service-booking' ); ?> &copy; <?php echo esc_html( gmdate( 'Y' ) ); ?></td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</div>
+<?php
+$html = ob_get_clean();
+return $html;
+} else {
+return '<div class="booking-success">' . __( 'Booking info could not be fetched!', 'service-booking' ) . '</div>';
+}
+} else {
+return '<div class="booking-success">' . __( 'Booking info could not be fetched!', 'service-booking' ) . '</div>';
+}
+}
+
+// ------------------------------------------------------------------
+// Scanner UI (no confirmation token in URL)
+// ------------------------------------------------------------------
+?>
+<div id="bm-qrs-container">
+<h2><?php esc_html_e( 'Check-In QR Scanner', 'service-booking' ); ?></h2>
+
+<div id="bm-qrs-result"></div>
+<div class="bm-qrs-spinner"></div>
+
+<!-- Tab navigation -->
+<div class="bm-qrs-tabs" role="tablist">
+<div class="bm-qrs-tab bm-qrs-tab--active" data-tab="camera" role="tab" tabindex="0" aria-selected="true">
+<span class="bm-qrs-tab-icon">&#128247;</span>
+<?php esc_html_e( 'Camera', 'service-booking' ); ?>
+</div>
+<div class="bm-qrs-tab" data-tab="image" role="tab" tabindex="0" aria-selected="false">
+<span class="bm-qrs-tab-icon">&#128444;</span>
+<?php esc_html_e( 'Upload Image', 'service-booking' ); ?>
+</div>
+<div class="bm-qrs-tab" data-tab="pdf" role="tab" tabindex="0" aria-selected="false">
+<span class="bm-qrs-tab-icon">&#128196;</span>
+<?php esc_html_e( 'Upload PDF', 'service-booking' ); ?>
+</div>
+</div>
+
+<!-- Tab 1: Camera -->
+<div class="bm-qrs-panel bm-qrs-panel--active" id="bm-qrs-panel-camera">
+<div class="bm-qrs-video-wrap">
+<div class="bm-qrs-video-placeholder">
+<span class="bm-qrs-cam-icon">&#128247;</span>
+<span><?php esc_html_e( 'Click Start Scanner to begin', 'service-booking' ); ?></span>
+</div>
+<video id="bm-qrs-video" playsinline autoplay muted></video>
+<canvas id="bm-qrs-canvas"></canvas>
+<div id="bm-qrs-scanline"></div>
+</div>
+<div class="bm-qrs-camera-actions">
+<button id="bm-qrs-start" class="bm-qrs-btn bm-qrs-btn--primary">
+<?php esc_html_e( 'Start Scanner', 'service-booking' ); ?>
+</button>
+<button id="bm-qrs-stop" class="bm-qrs-btn bm-qrs-btn--danger" style="display:none;">
+<?php esc_html_e( 'Stop Scanner', 'service-booking' ); ?>
+</button>
+</div>
+</div>
+
+<!-- Tab 2: Upload QR image -->
+<div class="bm-qrs-panel" id="bm-qrs-panel-image">
+<div class="bm-qrs-upload-area">
+<span class="bm-qrs-upload-icon">&#128444;</span>
+<p><?php esc_html_e( 'Upload a QR code image (PNG, JPG, GIF, WebP)', 'service-booking' ); ?></p>
+<button id="bm-qrs-upload-btn" class="bm-qrs-btn bm-qrs-btn--primary">
+<?php esc_html_e( 'Choose QR Image', 'service-booking' ); ?>
+</button>
+<input type="file" id="bm-qrs-file" accept="image/*" style="display:none;">
+</div>
+</div>
+
+<!-- Tab 3: Upload PDF -->
+<div class="bm-qrs-panel" id="bm-qrs-panel-pdf">
+<div class="bm-qrs-upload-area">
+<span class="bm-qrs-upload-icon">&#128196;</span>
+<p><?php esc_html_e( 'Upload your booking confirmation PDF, then crop the QR code region to scan it.', 'service-booking' ); ?></p>
+<button id="bm-qrs-pdf-upload-btn" class="bm-qrs-btn bm-qrs-btn--primary">
+<?php esc_html_e( 'Choose PDF', 'service-booking' ); ?>
+</button>
+<input type="file" id="bm-qrs-pdf-file" accept="application/pdf" style="display:none;">
+</div>
+</div>
+
+<!-- Crop modal (image + PDF share this) -->
+<div id="bm-qrs-crop-modal">
+<div id="bm-qrs-crop-box">
+<div id="bm-qrs-crop-header">
+<h3><?php esc_html_e( 'Crop QR Code Region', 'service-booking' ); ?></h3>
+<span class="bm-qrs-crop-close" role="button" tabindex="0" aria-label="<?php esc_attr_e( 'Close', 'service-booking' ); ?>">&#215;</span>
+</div>
+<div class="bm-qrs-crop-body">
+<div id="bm-qrs-crop-spinner"></div>
+<div class="bm-qrs-crop-img-wrap">
+<img id="bm-qrs-crop-img" src="" alt="" style="display:none;max-width:100%;">
+</div>
+<button id="bm-qrs-crop-confirm" class="bm-qrs-btn bm-qrs-btn--primary" style="display:none;">
+<?php esc_html_e( 'Crop &amp; Scan', 'service-booking' ); ?>
+</button>
+</div>
+<div class="bm-qrs-resizer"></div>
+</div>
+</div>
+
+</div>
+<?php
+return ob_get_clean();
+}
+
+
+/**
+ * add order form
 	 *
 	 * @author Darpan
 	 */
@@ -3541,7 +3632,8 @@ class Booking_Management_Public {
 			return;
 		}
 
-		$reference = filter_input( INPUT_POST, 'booking_reference', FILTER_SANITIZE_STRING );
+		// FILTER_SANITIZE_STRING deprecated in PHP 8.1; use sanitize_text_field instead.
+		$reference = sanitize_text_field( filter_input( INPUT_POST, 'booking_reference' ) ?? '' );
 		if ( ! $reference ) {
 			wp_send_json_error( __( 'Invalid QR code.', 'service-booking' ) );
 			return;
@@ -3549,13 +3641,20 @@ class Booking_Management_Public {
 
 		$db         = new BM_DBhandler();
 		$booking_id = $db->get_value( 'BOOKING', 'id', $reference, 'booking_key' );
+		$is_active  = $booking_id ? $db->get_value( 'BOOKING', 'is_active', $booking_id, 'id' ) : 0;
 
 		if ( ! $booking_id ) {
 			wp_send_json_error( __( 'Booking not found.', 'service-booking' ) );
 			return;
 		}
 
-		$success = $this->bm_mark_booking_checked_in( (int) $booking_id, $db );
+		if ( $is_active != 1 ) {
+			wp_send_json_error( __( 'Can not check in cancelled or refunded orders', 'service-booking' ) );
+			return;
+		}
+
+		// Delegate to BM_Checkin which fires extensibility hooks.
+		$success = BM_Checkin::do_checkin( (int) $booking_id, $db, get_current_user_id() );
 
 		if ( $success ) {
 			wp_send_json_success( array( 'message' => __( 'Booking checked in successfully.', 'service-booking' ) ) );
@@ -3587,7 +3686,7 @@ class Booking_Management_Public {
 			return;
 		}
 
-		$qr_data = isset( $_POST['qr_data'] ) ? filter_input( INPUT_POST, 'qr_data' ) : '';
+		$qr_data = sanitize_text_field( filter_input( INPUT_POST, 'qr_data' ) ?? '' );
 		if ( ! $qr_data ) {
 			wp_send_json_error( __( 'Invalid QR code', 'service-booking' ) );
 			return;
@@ -3601,52 +3700,94 @@ class Booking_Management_Public {
 			return;
 		}
 
-		$checkin = $dbhandler->get_row( 'CHECKIN', $booking->id, 'booking_id' );
-
-		if ( ! $checkin ) {
-			$checkin_data = array(
-				'booking_id' => $booking->id,
-				'qr_token'   => $booking->booking_key,
-				'status'     => 'pending',
-			);
-			$checkin_id   = $dbhandler->insert_row( 'CHECKIN', $checkin_data );
-			$checkin      = $dbhandler->get_row( 'CHECKIN', $checkin_id );
+		if ( $booking->is_active != 1 ) {
+			wp_send_json_error( __( 'Can not check in cancelled or refunded orders', 'service-booking' ) );
+			return;
 		}
 
-		// if ( strtotime( $booking->booking_date ) < time() ) {
-		// $dbhandler->update_row(
-		// 'CHECKIN',
-		// 'id',
-		// $checkin->id,
-		// array(
-		// 'status'          => 'expired',
-		// 'service_expired' => 1,
-		// )
-		// );
-		// wp_send_json_error( __( 'Service date has expired', 'service-booking' ) );
-		// return;
-		// }
+		// Delegate to BM_Checkin which fires extensibility hooks and uses atomic update.
+		$success = BM_Checkin::do_checkin( (int) $booking->id, $dbhandler, get_current_user_id() );
 
-		// if ( $checkin->status === 'checked_in' ) {
-		// wp_send_json_error( __( 'Ticket already used', 'service-booking' ) );
-		// return;
-		// }
-
-		$updated = $dbhandler->update_row(
-			'CHECKIN',
-			'id',
-			$checkin->id,
-			array(
-				'booking_id'   => $booking->id ?? 0,
-				'status'       => 'checked_in',
-				'qr_scanned'   => 1,
-				'qr_token'     => $qr_data,
-				'checkin_time' => ( new BM_Request() )->bm_fetch_current_wordpress_datetime_stamp(),
-				'updated_at'   => ( new BM_Request() )->bm_fetch_current_wordpress_datetime_stamp(),
-			)
-		);
+		if ( ! $success ) {
+			wp_send_json_error( __( 'Booking already checked in or check-in not permitted.', 'service-booking' ) );
+			return;
+		}
 
 		wp_send_json_success();
+	}
+
+
+	/**
+	 * Public AJAX handler for the [sgbm_qr_scanner] shortcode check-in action.
+	 *
+	 * Registered for both wp_ajax_ (logged-in) and wp_ajax_nopriv_ (guests) so
+	 * customers can check in from the frontend scanner page without an account.
+	 *
+	 * Security layers:
+	 *   1. Nonce verification (ajax-nonce, per-page token).
+	 *   2. IP-based rate limiting via transients (max 20 attempts per minute).
+	 *   3. Booking must exist, be active, and still be in a check-in-able state
+	 *      (enforced atomically inside BM_Checkin::do_checkin()).
+	 *   4. A one-time confirmation token (transient, 10-minute TTL) is returned
+	 *      and used for the confirmation redirect instead of the raw booking_key.
+	 *
+	 * @author Darpan
+	 */
+	public function bm_qr_scanner_checkin() {
+		$nonce = filter_input( INPUT_POST, 'nonce' );
+		if ( ! $nonce || ! wp_verify_nonce( $nonce, 'ajax-nonce' ) ) {
+			wp_send_json_error( __( 'Failed security check', 'service-booking' ) );
+			return;
+		}
+
+		// IP-based rate limiting: max 20 check-in attempts per minute per IP.
+		$ip          = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
+		$rate_key    = 'bm_qr_attempts_' . md5( $ip );
+		$attempts    = (int) get_transient( $rate_key );
+		if ( $attempts >= 20 ) {
+			wp_send_json_error( __( 'Too many attempts. Please try again in a minute.', 'service-booking' ) );
+			return;
+		}
+		set_transient( $rate_key, $attempts + 1, 60 );
+
+		$reference = sanitize_text_field( filter_input( INPUT_POST, 'booking_reference' ) ?? '' );
+		if ( ! $reference ) {
+			wp_send_json_error( __( 'Invalid QR code.', 'service-booking' ) );
+			return;
+		}
+
+		$db         = new BM_DBhandler();
+		$booking_id = $db->get_value( 'BOOKING', 'id', $reference, 'booking_key' );
+
+		if ( ! $booking_id ) {
+			wp_send_json_error( __( 'Booking not found.', 'service-booking' ) );
+			return;
+		}
+
+		$is_active = $db->get_value( 'BOOKING', 'is_active', $booking_id, 'id' );
+		if ( $is_active != 1 ) {
+			wp_send_json_error( __( 'Cannot check in a cancelled or refunded booking.', 'service-booking' ) );
+			return;
+		}
+
+		$success = BM_Checkin::do_checkin( (int) $booking_id, $db, get_current_user_id() );
+
+		if ( ! $success ) {
+			wp_send_json_error( __( 'Unable to check in. The booking may already be checked in or check-in is not permitted.', 'service-booking' ) );
+			return;
+		}
+
+		// Issue a one-time token so the confirmation page can display details
+		// without exposing the booking_key in the URL.
+		$token = wp_generate_password( 32, false );
+		set_transient( 'bm_ci_confirm_' . $token, $booking_id, 10 * MINUTE_IN_SECONDS );
+
+		wp_send_json_success(
+			array(
+				'message'       => __( 'Checked in successfully.', 'service-booking' ),
+				'confirm_token' => $token,
+			)
+		);
 	}
 
 
