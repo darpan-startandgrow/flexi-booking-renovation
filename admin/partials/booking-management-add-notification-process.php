@@ -296,7 +296,7 @@ $templates = $dbhandler->get_all_result( 'EMAIL_TMPL', '*', 1, 'results' );
                                     <label><?php esc_html_e( 'Event Type', 'service-booking' ); ?></label><br />
                                     <select name="time_offset[position]" id="time_offset_position" class="regular-text" style="vertical-align:baseline; width:100%; min-width:inherit !important; max-width:inherit !important;">
                                         <option value="1" <?php isset( $time_offset['position'] ) ? selected( $time_offset['position'], '1' ) : ''; ?>><?php esc_html_e( 'after the event', 'service-booking' ); ?></option>
-                                        <!-- <option value="0" <?php isset( $time_offset['position'] ) ? selected( $time_offset['position'], '0' ) : ''; ?>><?php esc_html_e( 'before the event', 'service-booking' ); ?></option> -->
+                                        <option value="0" <?php isset( $time_offset['position'] ) ? selected( $time_offset['position'], '0' ) : ''; ?>><?php esc_html_e( 'before the event', 'service-booking' ); ?></option>
                                     </select>
                                 </div>
                             </td>

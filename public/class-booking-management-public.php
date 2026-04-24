@@ -5347,15 +5347,164 @@ class Booking_Management_Public {
 
 
 	/**
+	 * Evaluate EVENTNOTIFICATION trigger_conditions and time_offset for scheduling.
+	 *
+	 * Implements strict AND logic: every condition row must pass before the
+	 * notification is considered scheduleable.  The loop breaks on the first
+	 * failing condition so that later conditions cannot flip the result.
+	 *
+	 * time_offset.position:
+	 *   1 = after the event  → fire_at = time() + delay
+	 *   0 = before the event → fire_at = booking_timestamp - delay
+	 *                          (falls back to time() + delay when no booking_timestamp)
+	 *
+	 * @param array  $condition         Deserialized trigger_conditions array.
+	 * @param array  $time_offset       Deserialized time_offset array.
+	 * @param mixed  $service_id        Service ID of the booking.
+	 * @param mixed  $category_id       Category ID of the service.
+	 * @param string $order_status      Current BOOKING.order_status value.
+	 * @param string $payment_status    Current TRANSACTIONS.payment_status value.
+	 * @param int    $booking_timestamp Unix timestamp of the booking's appointment start
+	 *                                  (0 when not available, e.g. failed-order callbacks).
+	 *
+	 * @return array {
+	 *     'scheduleable' => bool  All conditions passed.
+	 *     'non_existing' => bool  True when no condition explicitly covered this booking
+	 *                             (triggers the generic / no-template fallback mail).
+	 *     'fire_at'      => int   Unix timestamp to pass directly to wp_schedule_single_event.
+	 * }
+	 */
+	private function bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp = 0 ) {
+		$scheduleable = true;
+		$non_existing = true;
+		$delay        = 0;
+		$seconds      = 1;
+
+		if ( ! empty( $condition ) && is_array( $condition ) ) {
+			$types     = isset( $condition['type'] )     ? $condition['type']     : array();
+			$operators = isset( $condition['operator'] ) ? $condition['operator'] : array();
+			$values    = isset( $condition['values'] )   ? $condition['values']   : array();
+
+			foreach ( $types as $key => $type ) {
+				$operator = isset( $operators[ $key ] ) ? $operators[ $key ] : -1;
+				$value    = isset( $values[ $key ] )    ? $values[ $key ]    : array();
+
+				if ( $type == 0 ) {
+					$module = $service_id;
+				} elseif ( $type == 1 ) {
+					$module = $category_id;
+				} elseif ( $type == 2 ) {
+					$module = $order_status;
+				} elseif ( $type == 3 ) {
+					$module = $payment_status;
+				} else {
+					continue; // unknown condition type — skip without failing
+				}
+
+				// Unknown operator: treat as no-opinion (pass).
+				$condition_passes = true;
+				if ( $operator == 1 ) {
+					$condition_passes = in_array( $module, $value );
+				} elseif ( $operator == 0 ) {
+					$condition_passes = ! in_array( $module, $value );
+				}
+
+				if ( ! $condition_passes ) {
+					$scheduleable = false;
+					// Detect whether this condition explicitly covered this booking.
+					if ( $non_existing && in_array( $module, $value ) ) {
+						$non_existing = false;
+					}
+					break; // AND logic: stop on first failure.
+				}
+			}
+		}
+
+		if ( ! empty( $time_offset ) && is_array( $time_offset ) ) {
+			$offset   = isset( $time_offset['value'] )    ? intval( $time_offset['value'] )    : 0;
+			$unit     = isset( $time_offset['unit'] )     ? intval( $time_offset['unit'] )     : -1;
+			$position = isset( $time_offset['position'] ) ? intval( $time_offset['position'] ) : 1;
+
+			if ( $unit == 0 ) {
+				$seconds = 60;
+			} elseif ( $unit == 1 ) {
+				$seconds = 60 * 60;
+			} elseif ( $unit == 2 ) {
+				$seconds = 24 * 60 * 60;
+			}
+
+			$delay = $offset * $seconds;
+		} else {
+			$position = 1;
+		}
+
+		// Compute the absolute fire timestamp.
+		// position=0 (before): subtract delay from the booking appointment time.
+		// position=1 (after) or no valid booking timestamp: add delay to now.
+		if ( $position == 0 && $booking_timestamp > 0 ) {
+			$fire_at = max( time(), $booking_timestamp - $delay );
+		} else {
+			$fire_at = time() + $delay;
+		}
+
+		return array(
+			'scheduleable' => $scheduleable,
+			'non_existing' => $non_existing,
+			'fire_at'      => $fire_at,
+		);
+	}//end bm_resolve_notification_schedule()
+
+
+	/**
+	 * Build the Unix timestamp for a booking's appointment start time.
+	 *
+	 * Reads booking_date (Y-m-d) and booking_slots (e.g. "10:00" or "10:00 - 11:00")
+	 * from the BOOKING table and returns the corresponding Unix timestamp using the
+	 * site's configured booking timezone.  Returns 0 on any failure.
+	 *
+	 * @param int $order_id BOOKING.id
+	 * @return int Unix timestamp, or 0 when unavailable.
+	 */
+	private function bm_get_booking_timestamp_from_order( $order_id ) {
+		if ( empty( $order_id ) ) {
+			return 0;
+		}
+
+		$dbhandler    = new BM_DBhandler();
+		$booking_date = $dbhandler->get_value( 'BOOKING', 'booking_date', $order_id, 'id' );
+		$booking_slot = $dbhandler->get_value( 'BOOKING', 'booking_slots', $order_id, 'id' );
+
+		if ( empty( $booking_date ) ) {
+			return 0;
+		}
+
+		// booking_slots may be "HH:MM" or "HH:MM - HH:MM"; use the start time.
+		$start_time = '00:00';
+		if ( ! empty( $booking_slot ) ) {
+			$parts      = explode( ' - ', $booking_slot );
+			$start_time = trim( $parts[0] );
+		}
+
+		try {
+			$timezone  = $dbhandler->get_global_option_value( 'bm_booking_time_zone', 'Asia/Kolkata' );
+			$dt        = new DateTime( $booking_date . ' ' . $start_time, new DateTimeZone( $timezone ) );
+			return $dt->getTimestamp();
+		} catch ( Exception $e ) {
+			return 0;
+		}
+	}//end bm_get_booking_timestamp_from_order()
+
+
+	/**
 	 * New order creation hook callbak
 	 *
 	 * @author Darpan
 	 */
 	public function bm_flexibooking_set_process_new_order_callback( $order_id = 0 ) {
-			$dbhandler = new BM_DBhandler();
-		$bmrequests    = new BM_Request();
-		$process_id    = 0;
-		$template_id   = 0;
+		$dbhandler   = new BM_DBhandler();
+		$bmrequests  = new BM_Request();
+		$process_id  = 0;
+		$template_id = 0;
 
 		if ( ! empty( $order_id ) ) {
 			$is_frontend_booking = $dbhandler->get_value( 'BOOKING', 'is_frontend_booking', $order_id, 'id' );
@@ -5385,15 +5534,11 @@ class Booking_Management_Public {
 			}
 
 			if ( ! empty( $processes ) && is_array( $processes ) ) {
-				$scheduleable   = false;
-				$non_existing   = true;
-				$service_id     = $dbhandler->get_value( 'SLOTCOUNT', 'service_id', $order_id, 'booking_id' );
-				$category_id    = $bmrequests->bm_fetch_category_id_by_service_id( $service_id );
-				$order_status   = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
-				$payment_status = $dbhandler->get_value( 'TRANSACTIONS', 'payment_status', $order_id, 'booking_id' );
-				$delay          = 0;
-				$seconds        = 1;
-				$module         = '';
+				$service_id        = $dbhandler->get_value( 'SLOTCOUNT', 'service_id', $order_id, 'booking_id' );
+				$category_id       = $bmrequests->bm_fetch_category_id_by_service_id( $service_id );
+				$order_status      = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
+				$payment_status    = $dbhandler->get_value( 'TRANSACTIONS', 'payment_status', $order_id, 'booking_id' );
+				$booking_timestamp = $this->bm_get_booking_timestamp_from_order( $order_id );
 
 				foreach ( $processes as $process ) {
 					$process_id  = isset( $process->id ) ? $process->id : 0;
@@ -5401,77 +5546,16 @@ class Booking_Management_Public {
 					$condition   = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
 					$time_offset = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
 
-					if ( ! empty( $condition ) && is_array( $condition ) ) {
-						$types     = isset( $condition['type'] ) ? $condition['type'] : array();
-						$operators = isset( $condition['operator'] ) ? $condition['operator'] : array();
-						$values    = isset( $condition['values'] ) ? $condition['values'] : array();
+					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp );
 
-						if ( ! empty( $types ) && is_array( $types ) ) {
-							foreach ( $types as $key => $type ) {
-								$operator = isset( $operators[ $key ] ) ? $operators[ $key ] : -1;
-								$value    = isset( $values[ $key ] ) ? $values[ $key ] : array();
-
-								if ( $type == 0 ) {
-									$module = $service_id;
-								} elseif ( $type == 1 ) {
-									$module = $category_id;
-								} elseif ( $type == 2 ) {
-									$module = $order_status;
-								} elseif ( $type == 3 ) {
-									$module = $payment_status;
-								}
-
-								if ( $operator == 1 ) {
-									if ( in_array( $module, $value ) ) {
-										$scheduleable = true;
-									} else {
-										$scheduleable = false;
-									}
-								} elseif ( $operator == 0 ) {
-									if ( ! in_array( $module, $value ) ) {
-										$scheduleable = true;
-									} else {
-										$scheduleable = false;
-									}
-								}
-
-								if ( ! $scheduleable ) {
-									if ( $non_existing && in_array( $module, $value ) ) {
-										$non_existing = false;
-									}
-								}
-							}
-						}
-					} else {
-						$scheduleable = true;
-					}
-
-					if ( ! empty( $time_offset ) && is_array( $time_offset ) ) {
-						$offset   = isset( $time_offset['value'] ) ? $time_offset['value'] : 0;
-						$unit     = isset( $time_offset['unit'] ) ? $time_offset['unit'] : -1;
-						$position = isset( $time_offset['position'] ) ? $time_offset['position'] : -1;
-
-						if ( $unit == 0 ) {
-							$seconds = 60;
-						} elseif ( $unit == 1 ) {
-							$seconds = 60 * 60;
-						} elseif ( $unit == 2 ) {
-							$seconds = 24 * 60 * 60;
-						}
-
-						$delay = $offset * $seconds;
-					}
-
-					if ( $scheduleable ) {
-						$schedule_mail = wp_schedule_single_event( time() + $delay, 'flexibooking_mail_new_order', array( $order_id, $template_id, $process_id ), true );
-					}
-
-					if ( ! $scheduleable && $non_existing ) {
-						$schedule_mail = wp_schedule_single_event( time(), 'flexibooking_mail_new_order', array( $order_id, 0, 0 ), true );
+					if ( $result['scheduleable'] ) {
+						wp_schedule_single_event( $result['fire_at'], 'flexibooking_mail_new_order', array( $order_id, $template_id, $process_id ), true );
+					} elseif ( $result['non_existing'] ) {
+						wp_schedule_single_event( time(), 'flexibooking_mail_new_order', array( $order_id, 0, 0 ), true );
 					}
 				}
 			} else {
-				$schedule_mail = wp_schedule_single_event( time(), 'flexibooking_mail_new_order', array( $order_id, 0, 0 ), true );
+				wp_schedule_single_event( time(), 'flexibooking_mail_new_order', array( $order_id, 0, 0 ), true );
 			}
 		}
 	}//end bm_flexibooking_set_process_new_order_callback()
@@ -5713,15 +5797,11 @@ class Booking_Management_Public {
 			);
 
 			if ( ! empty( $processes ) && is_array( $processes ) ) {
-				$scheduleable   = false;
-				$non_existing   = true;
-				$service_id     = $dbhandler->get_value( 'SLOTCOUNT', 'service_id', $order_id, 'booking_id' );
-				$category_id    = $bmrequests->bm_fetch_category_id_by_service_id( $service_id );
-				$order_status   = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
-				$payment_status = $dbhandler->get_value( 'TRANSACTIONS', 'payment_status', $order_id, 'booking_id' );
-				$delay          = 0;
-				$seconds        = 1;
-				$module         = '';
+				$service_id        = $dbhandler->get_value( 'SLOTCOUNT', 'service_id', $order_id, 'booking_id' );
+				$category_id       = $bmrequests->bm_fetch_category_id_by_service_id( $service_id );
+				$order_status      = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
+				$payment_status    = $dbhandler->get_value( 'TRANSACTIONS', 'payment_status', $order_id, 'booking_id' );
+				$booking_timestamp = $this->bm_get_booking_timestamp_from_order( $order_id );
 
 				foreach ( $processes as $process ) {
 					$process_id  = isset( $process->id ) ? $process->id : 0;
@@ -5729,77 +5809,16 @@ class Booking_Management_Public {
 					$condition   = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
 					$time_offset = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
 
-					if ( ! empty( $condition ) && is_array( $condition ) ) {
-						$types     = isset( $condition['type'] ) ? $condition['type'] : array();
-						$operators = isset( $condition['operator'] ) ? $condition['operator'] : array();
-						$values    = isset( $condition['values'] ) ? $condition['values'] : array();
+					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp );
 
-						if ( ! empty( $types ) && is_array( $types ) ) {
-							foreach ( $types as $key => $type ) {
-								$operator = isset( $operators[ $key ] ) ? $operators[ $key ] : -1;
-								$value    = isset( $values[ $key ] ) ? $values[ $key ] : array();
-
-								if ( $type == 0 ) {
-									$module = $service_id;
-								} elseif ( $type == 1 ) {
-									$module = $category_id;
-								} elseif ( $type == 2 ) {
-									$module = $order_status;
-								} elseif ( $type == 3 ) {
-									$module = $payment_status;
-								}
-
-								if ( $operator == 1 ) {
-									if ( in_array( $module, $value ) ) {
-										$scheduleable = true;
-									} else {
-										$scheduleable = false;
-									}
-								} elseif ( $operator == 0 ) {
-									if ( ! in_array( $module, $value ) ) {
-										$scheduleable = true;
-									} else {
-										$scheduleable = false;
-									}
-								}
-
-								if ( ! $scheduleable ) {
-									if ( $non_existing && in_array( $module, $value ) ) {
-										$non_existing = false;
-									}
-								}
-							}
-						}
-					} else {
-						$scheduleable = true;
-					}
-
-					if ( ! empty( $time_offset ) && is_array( $time_offset ) ) {
-						$offset   = isset( $time_offset['value'] ) ? $time_offset['value'] : 0;
-						$unit     = isset( $time_offset['unit'] ) ? $time_offset['unit'] : -1;
-						$position = isset( $time_offset['position'] ) ? $time_offset['position'] : -1;
-
-						if ( $unit == 0 ) {
-							$seconds = 60;
-						} elseif ( $unit == 1 ) {
-							$seconds = 60 * 60;
-						} elseif ( $unit == 2 ) {
-							$seconds = 24 * 60 * 60;
-						}
-
-						$delay = $offset * $seconds;
-					}
-
-					if ( $scheduleable ) {
-						$schedule_mail = wp_schedule_single_event( time() + $delay, 'flexibooking_mail_voucher_redeem', array( $order_id, $template_id, $process_id ), true );
-					}
-
-					if ( ! $scheduleable && $non_existing ) {
-						$schedule_mail = wp_schedule_single_event( time(), 'flexibooking_mail_voucher_redeem', array( $order_id, 0, 0 ), true );
+					if ( $result['scheduleable'] ) {
+						wp_schedule_single_event( $result['fire_at'], 'flexibooking_mail_voucher_redeem', array( $order_id, $template_id, $process_id ), true );
+					} elseif ( $result['non_existing'] ) {
+						wp_schedule_single_event( time(), 'flexibooking_mail_voucher_redeem', array( $order_id, 0, 0 ), true );
 					}
 				}
 			} else {
-				$schedule_mail = wp_schedule_single_event( time(), 'flexibooking_mail_voucher_redeem', array( $order_id, 0, 0 ), true );
+				wp_schedule_single_event( time(), 'flexibooking_mail_voucher_redeem', array( $order_id, 0, 0 ), true );
 			}
 		}
 	}//end bm_flexibooking_set_process_voucher_redeem_callback()
@@ -5987,15 +6006,11 @@ class Booking_Management_Public {
 			}
 
 			if ( ! empty( $processes ) && is_array( $processes ) ) {
-				$scheduleable   = false;
-				$non_existing   = true;
-				$service_id     = $dbhandler->get_value( 'SLOTCOUNT', 'service_id', $order_id, 'booking_id' );
-				$category_id    = $bmrequests->bm_fetch_category_id_by_service_id( $service_id );
-				$order_status   = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
-				$payment_status = $dbhandler->get_value( 'TRANSACTIONS', 'payment_status', $order_id, 'booking_id' );
-				$delay          = 0;
-				$seconds        = 1;
-				$module         = '';
+				$service_id        = $dbhandler->get_value( 'SLOTCOUNT', 'service_id', $order_id, 'booking_id' );
+				$category_id       = $bmrequests->bm_fetch_category_id_by_service_id( $service_id );
+				$order_status      = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
+				$payment_status    = $dbhandler->get_value( 'TRANSACTIONS', 'payment_status', $order_id, 'booking_id' );
+				$booking_timestamp = $this->bm_get_booking_timestamp_from_order( $order_id );
 
 				foreach ( $processes as $process ) {
 					$process_id  = isset( $process->id ) ? $process->id : 0;
@@ -6003,77 +6018,16 @@ class Booking_Management_Public {
 					$condition   = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
 					$time_offset = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
 
-					if ( ! empty( $condition ) && is_array( $condition ) ) {
-						$types     = isset( $condition['type'] ) ? $condition['type'] : array();
-						$operators = isset( $condition['operator'] ) ? $condition['operator'] : array();
-						$values    = isset( $condition['values'] ) ? $condition['values'] : array();
+					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp );
 
-						if ( ! empty( $types ) && is_array( $types ) ) {
-							foreach ( $types as $key => $type ) {
-										$operator = isset( $operators[ $key ] ) ? $operators[ $key ] : -1;
-										$value    = isset( $values[ $key ] ) ? $values[ $key ] : array();
-
-								if ( $type == 0 ) {
-									$module = $service_id;
-								} elseif ( $type == 1 ) {
-									$module = $category_id;
-								} elseif ( $type == 2 ) {
-									$module = $order_status;
-								} elseif ( $type == 3 ) {
-									$module = $payment_status;
-								}
-
-								if ( $operator == 1 ) {
-									if ( in_array( $module, $value ) ) {
-										$scheduleable = true;
-									} else {
-										$scheduleable = false;
-									}
-								} elseif ( $operator == 0 ) {
-									if ( ! in_array( $module, $value ) ) {
-											$scheduleable = true;
-									} else {
-										$scheduleable = false;
-									}
-								}
-
-								if ( ! $scheduleable ) {
-									if ( $non_existing && in_array( $module, $value ) ) {
-										$non_existing = false;
-									}
-								}
-							}
-						}
-					} else {
-						$scheduleable = true;
-					}
-
-					if ( ! empty( $time_offset ) && is_array( $time_offset ) ) {
-						$offset   = isset( $time_offset['value'] ) ? $time_offset['value'] : 0;
-						$unit     = isset( $time_offset['unit'] ) ? $time_offset['unit'] : -1;
-						$position = isset( $time_offset['position'] ) ? $time_offset['position'] : -1;
-
-						if ( $unit == 0 ) {
-							$seconds = 60;
-						} elseif ( $unit == 1 ) {
-							$seconds = 60 * 60;
-						} elseif ( $unit == 2 ) {
-							$seconds = 24 * 60 * 60;
-						}
-
-						$delay = $offset * $seconds;
-					}
-
-					if ( $scheduleable ) {
-						$schedule_mail = wp_schedule_single_event( time() + $delay, 'flexibooking_mail_new_request', array( $order_id, $template_id, $process_id ), true );
-					}
-
-					if ( ! $scheduleable && $non_existing ) {
-						$schedule_mail = wp_schedule_single_event( time(), 'flexibooking_mail_new_request', array( $order_id, 0, 0 ), true );
+					if ( $result['scheduleable'] ) {
+						wp_schedule_single_event( $result['fire_at'], 'flexibooking_mail_new_request', array( $order_id, $template_id, $process_id ), true );
+					} elseif ( $result['non_existing'] ) {
+						wp_schedule_single_event( time(), 'flexibooking_mail_new_request', array( $order_id, 0, 0 ), true );
 					}
 				}
 			} else {
-				$schedule_mail = wp_schedule_single_event( time(), 'flexibooking_mail_new_request', array( $order_id, 0, 0 ), true );
+				wp_schedule_single_event( time(), 'flexibooking_mail_new_request', array( $order_id, 0, 0 ), true );
 			}
 		}
 	}//end bm_flexibooking_set_process_new_request_callback()
@@ -6309,15 +6263,11 @@ class Booking_Management_Public {
 			);
 
 			if ( ! empty( $processes ) && is_array( $processes ) ) {
-				$scheduleable   = false;
-				$non_existing   = true;
-				$service_id     = $dbhandler->get_value( 'SLOTCOUNT', 'service_id', $order_id, 'booking_id' );
-				$category_id    = $bmrequests->bm_fetch_category_id_by_service_id( $service_id );
-				$order_status   = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
-				$payment_status = $dbhandler->get_value( 'TRANSACTIONS', 'payment_status', $order_id, 'booking_id' );
-				$delay          = 0;
-				$seconds        = 1;
-				$module         = '';
+				$service_id        = $dbhandler->get_value( 'SLOTCOUNT', 'service_id', $order_id, 'booking_id' );
+				$category_id       = $bmrequests->bm_fetch_category_id_by_service_id( $service_id );
+				$order_status      = $dbhandler->get_value( 'BOOKING', 'order_status', $order_id, 'id' );
+				$payment_status    = $dbhandler->get_value( 'TRANSACTIONS', 'payment_status', $order_id, 'booking_id' );
+				$booking_timestamp = $this->bm_get_booking_timestamp_from_order( $order_id );
 
 				foreach ( $processes as $process ) {
 					$process_id  = isset( $process->id ) ? $process->id : 0;
@@ -6325,77 +6275,16 @@ class Booking_Management_Public {
 					$condition   = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
 					$time_offset = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
 
-					if ( ! empty( $condition ) && is_array( $condition ) ) {
-						$types     = isset( $condition['type'] ) ? $condition['type'] : array();
-						$operators = isset( $condition['operator'] ) ? $condition['operator'] : array();
-						$values    = isset( $condition['values'] ) ? $condition['values'] : array();
+					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, $booking_timestamp );
 
-						if ( ! empty( $types ) && is_array( $types ) ) {
-							foreach ( $types as $key => $type ) {
-								$operator = isset( $operators[ $key ] ) ? $operators[ $key ] : -1;
-								$value    = isset( $values[ $key ] ) ? $values[ $key ] : array();
-
-								if ( $type == 0 ) {
-									$module = $service_id;
-								} elseif ( $type == 1 ) {
-									$module = $category_id;
-								} elseif ( $type == 2 ) {
-									$module = $order_status;
-								} elseif ( $type == 3 ) {
-									$module = $payment_status;
-								}
-
-								if ( $operator == 1 ) {
-									if ( in_array( $module, $value ) ) {
-										$scheduleable = true;
-									} else {
-										$scheduleable = false;
-									}
-								} elseif ( $operator == 0 ) {
-									if ( ! in_array( $module, $value ) ) {
-										$scheduleable = true;
-									} else {
-										$scheduleable = false;
-									}
-								}
-
-								if ( ! $scheduleable ) {
-									if ( $non_existing && in_array( $module, $value ) ) {
-										$non_existing = false;
-									}
-								}
-							}
-						}
-					} else {
-						$scheduleable = true;
-					}
-
-					if ( ! empty( $time_offset ) && is_array( $time_offset ) ) {
-						$offset   = isset( $time_offset['value'] ) ? $time_offset['value'] : 0;
-						$unit     = isset( $time_offset['unit'] ) ? $time_offset['unit'] : -1;
-						$position = isset( $time_offset['position'] ) ? $time_offset['position'] : -1;
-
-						if ( $unit == 0 ) {
-							$seconds = 60;
-						} elseif ( $unit == 1 ) {
-							$seconds = 60 * 60;
-						} elseif ( $unit == 2 ) {
-							$seconds = 24 * 60 * 60;
-						}
-
-						$delay = $offset * $seconds;
-					}
-
-					if ( $scheduleable ) {
-						$schedule_mail = wp_schedule_single_event( time() + $delay, 'flexibooking_voucher_mail_new_order', array( $order_id, $template_id, $process_id ), true );
-					}
-
-					if ( ! $scheduleable && $non_existing ) {
-						$schedule_mail = wp_schedule_single_event( time(), 'flexibooking_voucher_mail_new_order', array( $order_id, 0, 0 ), true );
+					if ( $result['scheduleable'] ) {
+						wp_schedule_single_event( $result['fire_at'], 'flexibooking_voucher_mail_new_order', array( $order_id, $template_id, $process_id ), true );
+					} elseif ( $result['non_existing'] ) {
+						wp_schedule_single_event( time(), 'flexibooking_voucher_mail_new_order', array( $order_id, 0, 0 ), true );
 					}
 				}
 			} else {
-				$schedule_mail = wp_schedule_single_event( time(), 'flexibooking_voucher_mail_new_order', array( $order_id, 0, 0 ), true );
+				wp_schedule_single_event( time(), 'flexibooking_voucher_mail_new_order', array( $order_id, 0, 0 ), true );
 			}
 		}
 	}//end bm_flexibooking_set_process_new_order_voucher_callback()
@@ -6524,17 +6413,12 @@ class Booking_Management_Public {
 			);
 
 			if ( ! empty( $processes ) && is_array( $processes ) ) {
-				$scheduleable   = false;
-				$non_existing   = false;
 				$transaction    = $dbhandler->get_row( 'FAILED_TRANSACTIONS', $order_key, 'booking_key' );
-				$booking_data   = isset( $transaction->booking_data ) ? maybe_serialize( $transaction->booking_data ) : array();
+				$booking_data   = isset( $transaction->booking_data ) ? maybe_unserialize( $transaction->booking_data ) : array();
 				$service_id     = isset( $booking_data['service_id'] ) ? $booking_data['service_id'] : 0;
 				$category_id    = $bmrequests->bm_fetch_category_id_by_service_id( $service_id );
 				$order_status   = isset( $transaction->is_refunded ) && $transaction->is_refunded == 1 ? 'refunded' : '';
 				$payment_status = 'failed';
-				$delay          = 0;
-				$seconds        = 1;
-				$module         = '';
 
 				foreach ( $processes as $process ) {
 					$process_id  = isset( $process->id ) ? $process->id : 0;
@@ -6542,77 +6426,15 @@ class Booking_Management_Public {
 					$condition   = isset( $process->trigger_conditions ) ? maybe_unserialize( $process->trigger_conditions ) : array();
 					$time_offset = isset( $process->time_offset ) ? maybe_unserialize( $process->time_offset ) : array();
 
-					if ( ! empty( $condition ) && is_array( $condition ) ) {
-						$types     = isset( $condition['type'] ) ? $condition['type'] : array();
-						$operators = isset( $condition['operator'] ) ? $condition['operator'] : array();
-						$values    = isset( $condition['values'] ) ? $condition['values'] : array();
+					$result = $this->bm_resolve_notification_schedule( $condition, $time_offset, $service_id, $category_id, $order_status, $payment_status, 0 );
 
-						if ( ! empty( $types ) && is_array( $types ) ) {
-							foreach ( $types as $key => $type ) {
-								$operator = isset( $operators[ $key ] ) ? $operators[ $key ] : -1;
-								$value    = isset( $values[ $key ] ) ? $values[ $key ] : array();
-
-								if ( $type == 0 ) {
-									$module = $service_id;
-								} elseif ( $type == 1 ) {
-									$module = $category_id;
-								} elseif ( $type == 2 ) {
-									$module = $order_status;
-								} elseif ( $type == 3 ) {
-									$module = $payment_status;
-								}
-
-								if ( $operator == 1 ) {
-									if ( in_array( $module, $value ) ) {
-										$scheduleable = true;
-									} else {
-										$scheduleable = false;
-									}
-								} elseif ( $operator == 0 ) {
-									if ( ! in_array( $module, $value ) ) {
-										$scheduleable = true;
-									} else {
-										$scheduleable = false;
-									}
-								}
-
-								if ( ! $scheduleable ) {
-									if ( $non_existing && in_array( $module, $value ) ) {
-										$non_existing = false;
-									}
-								}
-							}
-						}
-					} else {
-						$scheduleable = true;
+					if ( $result['scheduleable'] ) {
+						wp_schedule_single_event( $result['fire_at'], 'flexibooking_mail_failed_order_refund', array( $order_key, $template_id, $process_id ), true );
 					}
-
-					if ( ! empty( $time_offset ) && is_array( $time_offset ) ) {
-						$offset   = isset( $time_offset['value'] ) ? $time_offset['value'] : 0;
-						$unit     = isset( $time_offset['unit'] ) ? $time_offset['unit'] : -1;
-						$position = isset( $time_offset['position'] ) ? $time_offset['position'] : -1;
-
-						if ( $unit == 0 ) {
-							$seconds = 60;
-						} elseif ( $unit == 1 ) {
-							$seconds = 60 * 60;
-						} elseif ( $unit == 2 ) {
-							$seconds = 24 * 60 * 60;
-						}
-
-						$delay = $offset * $seconds;
-					}
-
-					if ( $scheduleable ) {
-						$schedule_mail = wp_schedule_single_event( time() + $delay, 'flexibooking_mail_failed_order_refund', array( $order_key, $template_id, $process_id ), true );
-					}
-
-					if ( ! $scheduleable && $non_existing ) {
-						$schedule_mail = wp_schedule_single_event( time(), 'flexibooking_mail_failed_order_refund', array( $order_key, 0, 0 ), true );
-					}
+					// No fallback for failed-order-refund notifications: only send when an explicit condition matches.
 				}
 			} else {
-				$schedule_mail = wp_schedule_single_event( time(), 'flexibooking_mail_failed_order_refund', array( $order_key, 0, 0 ), true );
+				wp_schedule_single_event( time(), 'flexibooking_mail_failed_order_refund', array( $order_key, 0, 0 ), true );
 			}
 		}
 	}//end bm_flexibooking_set_process_failed_order_refund_callback()

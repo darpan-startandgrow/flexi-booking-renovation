@@ -5059,13 +5059,9 @@ class BM_Request {
 				$variable_svc_prices = isset( $service->variable_svc_prices ) ? maybe_unserialize( $service->variable_svc_prices ) : array();
 				if ( ! empty( $variable_svc_prices ) && isset( $variable_svc_prices['date'] ) && isset( $variable_svc_prices['price'] ) ) {
 					$date_count = count( $variable_svc_prices['date'] );
-					if ( $date_count == count( $variable_svc_prices['price'] ) ) {
-						for ( $i = 1; $i <= $date_count; $i++ ) {
-							if ( in_array( $date, $variable_svc_prices['date'], true ) ) {
-								$index = (int) array_search( $date, $variable_svc_prices['date'] );
-								$price = isset( $variable_svc_prices['price'][ $index ] ) ? $variable_svc_prices['price'][ $index ] : 0;
-							}
-						}
+					if ( $date_count == count( $variable_svc_prices['price'] ) && in_array( $date, $variable_svc_prices['date'], true ) ) {
+						$index = (int) array_search( $date, $variable_svc_prices['date'] );
+						$price = isset( $variable_svc_prices['price'][ $index ] ) ? $variable_svc_prices['price'][ $index ] : 0;
 					}
 				}
 			}
@@ -5104,13 +5100,9 @@ class BM_Request {
 				if ( ! empty( $variable_module ) && isset( $variable_module['date'] ) && isset( $variable_module['module'] ) && is_array( $variable_module['date'] ) && is_array( $variable_module['module'] ) ) {
 					$date_count   = count( $variable_module['date'] );
 					$module_count = count( $variable_module['module'] );
-					if ( $date_count == $module_count ) {
-						for ( $i = 1; $i <= $date_count; $i++ ) {
-							if ( in_array( $date, $variable_module['date'], true ) ) {
-								$index                 = (int) array_search( $date, $variable_module['date'], true );
-								$external_price_module = isset( $variable_module['module'][ $index ] ) ? $variable_module['module'][ $index ] : 0;
-							}
-						}
+					if ( $date_count == $module_count && in_array( $date, $variable_module['date'], true ) ) {
+						$index                 = (int) array_search( $date, $variable_module['date'], true );
+						$external_price_module = isset( $variable_module['module'][ $index ] ) ? $variable_module['module'][ $index ] : 0;
 					}
 				}
 			}
@@ -5948,7 +5940,7 @@ class BM_Request {
 									$new_price[ $age_wise_index ]          = $this->bm_fetch_total_price( $age_wise_price, $age_group_total_data );
 									$age_group_discount[ $age_wise_index ] = $age_wise_discount;
 
-									if ( $base_price > $age_wise_price || $base_price == $age_wise_price ) {
+									if ( $base_price >= $age_wise_price ) {
 										$dbhandler->update_global_option_value( 'negative_discount_age_group_' . $age_wise_index . '_' . $booking_key, 0 );
 									} else {
 										$dbhandler->update_global_option_value( 'negative_discount_age_group_' . $age_wise_index . '_' . $booking_key, 1 );
@@ -6005,7 +5997,7 @@ class BM_Request {
 
 								$age_group_discount['group_discount'] = ( $total_actual_price > $group_total_price ) ? floatval( $total_actual_price ) - floatval( $group_total_price ) : floatval( $group_total_price ) - floatval( $total_actual_price );
 
-								if ( $total_actual_price > $group_total_price || $total_actual_price == $group_total_price ) {
+								if ( $total_actual_price >= $group_total_price ) {
 									$dbhandler->update_global_option_value( 'negative_group_discount_' . $booking_key, 0 );
 								} else {
 									$dbhandler->update_global_option_value( 'negative_group_discount_' . $booking_key, 1 );
@@ -6015,7 +6007,7 @@ class BM_Request {
 							$discounted_price = array_sum( $new_price ) + $additional_price;
 							$final_discount   = ( $total_cost > $discounted_price ) ? floatval( $total_cost ) - floatval( $discounted_price ) : floatval( $discounted_price ) - floatval( $total_cost );
 
-							if ( $total_cost > $discounted_price || $total_cost == $discounted_price ) {
+							if ( $total_cost >= $discounted_price ) {
 								$dbhandler->update_global_option_value( 'negative_discount_' . $booking_key, 0 );
 							} else {
 								$dbhandler->update_global_option_value( 'negative_discount_' . $booking_key, 1 );
@@ -10635,13 +10627,9 @@ class BM_Request {
 
 			if ( ! empty( $variable_svc_prices ) && isset( $variable_svc_prices['date'] ) && isset( $variable_svc_prices['price'] ) ) {
 				$date_count = count( $variable_svc_prices['date'] );
-				if ( $date_count == count( $variable_svc_prices['price'] ) ) {
-					for ( $i = 1; $i <= $date_count; $i++ ) {
-						if ( in_array( $date, $variable_svc_prices['date'], true ) ) {
-							$index = (int) array_search( $date, $variable_svc_prices['date'] );
-							$price = $variable_svc_prices['price'][ $index ];
-						}
-					}
+				if ( $date_count == count( $variable_svc_prices['price'] ) && in_array( $date, $variable_svc_prices['date'], true ) ) {
+					$index = (int) array_search( $date, $variable_svc_prices['date'] );
+					$price = $variable_svc_prices['price'][ $index ];
 				}
 			}
 		}
@@ -12379,18 +12367,22 @@ class BM_Request {
 				$price_module_data['adult']['age']['from']         = isset( $adults_age_group['from'] ) ? esc_html( $adults_age_group['from'] ) : 0;
 				$price_module_data['adult']['age']['to']           = isset( $adults_age_group['to'] ) ? esc_html( $adults_age_group['to'] ) : 0;
 				$price_module_data['adult']['discount_per_person'] = isset( $age_wise_discount[2] ) ? floatval( $age_wise_discount[2] ) : 0;
-				$price_module_data['adult']['total_cost']          = ( $svc_base_price > $price_module_data['adult']['discount_per_person'] ) ? $this->bm_fetch_total_price( ( $svc_base_price - $price_module_data['adult']['discount_per_person'] ), $total_discounted_adults ) : $this->bm_fetch_total_price( ( $price_module_data['adult']['discount_per_person'] - $svc_base_price ), $total_discounted_adults );
+				// When group pricing fires, age_wise_total_price[2] = group_total_price (adults+seniors combined).
+				// When individual pricing applies, it = adult_price * adults_count. Consistent with infant/children.
+				$price_module_data['adult']['total_cost']          = isset( $age_wise_total_price[2] ) ? floatval( $age_wise_total_price[2] ) : 0;
 				$price_module_data['adult']['discount_type']       = $negative_adult_discount == 1 ? 'negative' : 'positive';
 				$price_module_data['adult']['total_discount']      = $this->bm_fetch_total_price( $price_module_data['adult']['discount_per_person'], $total_discounted_adults );
 			}
 
 			if ( ! empty( $total_discounted_seniors ) && ! empty( $seniors_age_group ) ) {
-				$negative_senior_discount                           = $dbhandler->get_global_option_value( 'negative_discount_age_group_2_' . $booking_key, 0 );
+				$negative_senior_discount                           = $dbhandler->get_global_option_value( 'negative_discount_age_group_3_' . $booking_key, 0 );
 				$price_module_data['senior']['total']               = $total_discounted_seniors;
 				$price_module_data['senior']['age']['from']         = isset( $seniors_age_group['from'] ) ? esc_html( $seniors_age_group['from'] ) : 0;
 				$price_module_data['senior']['age']['to']           = isset( $seniors_age_group['to'] ) ? esc_html( $seniors_age_group['to'] ) : 0;
 				$price_module_data['senior']['discount_per_person'] = isset( $age_wise_discount[3] ) ? floatval( $age_wise_discount[3] ) : 0;
-				$price_module_data['senior']['total_cost']          = ( $svc_base_price > $price_module_data['senior']['discount_per_person'] ) ? $this->bm_fetch_total_price( ( $svc_base_price - $price_module_data['senior']['discount_per_person'] ), $total_discounted_seniors ) : $this->bm_fetch_total_price( ( $price_module_data['senior']['discount_per_person'] - $svc_base_price ), $total_discounted_seniors );
+				// When group pricing fires, seniors are folded into the adult group total; age_wise_total_price[3] = 0.
+				// When individual pricing applies, it = senior_price * seniors_count. Consistent with infant/children.
+				$price_module_data['senior']['total_cost']          = isset( $age_wise_total_price[3] ) ? floatval( $age_wise_total_price[3] ) : 0;
 				$price_module_data['senior']['discount_type']       = $negative_senior_discount == 1 ? 'negative' : 'positive';
 				$price_module_data['senior']['total_discount']      = $this->bm_fetch_total_price( $price_module_data['senior']['discount_per_person'], $total_discounted_seniors );
 			}
@@ -13996,7 +13988,12 @@ class BM_Request {
 				'total_cost' => 0,
 				'is_active'  => 1,
 			),
-			'results'
+			'results',
+			0,
+			false,
+			'id',
+			'DESC',
+			"AND order_status NOT IN ('completed', 'cancelled', 'refunded', 'failed')"
 		);
 
 		return $bookings;
