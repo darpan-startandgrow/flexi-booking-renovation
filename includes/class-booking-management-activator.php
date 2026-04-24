@@ -400,6 +400,7 @@ class Booking_Management_Activator {
 		`name` varchar(255) DEFAULT NULL,
         `type` int(11) DEFAULT NULL,
 		`trigger_conditions` longtext DEFAULT NULL,
+		`conditions_logic` varchar(3) NOT NULL DEFAULT 'AND',
 		`time_offset` longtext DEFAULT NULL,
 		`template_id` int(11) DEFAULT NULL,
 		`status` int(11) NOT NULL DEFAULT 1,
@@ -1658,6 +1659,9 @@ class Booking_Management_Activator {
 				$format = '%d';
 				break;
 			case 'trigger_conditions':
+				$format = '%s';
+				break;
+			case 'conditions_logic':
 				$format = '%s';
 				break;
 			case 'time_offset':
