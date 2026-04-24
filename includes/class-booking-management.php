@@ -150,6 +150,7 @@ class Booking_Management {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-react-shortcodes.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-validation.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-checkin.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-checkin-rest.php';
 		BM_Checkin::init();
 		$this->loader = new Booking_Management_Loader();
 	}
@@ -631,6 +632,7 @@ class Booking_Management {
 		new Booking_API( $this->get_plugin_name(), $this->get_version() );
 		new Booking_Stripe_Webhook();
 		new Booking_Planner_REST();
+		new Booking_Checkin_REST();
 	}
 
 

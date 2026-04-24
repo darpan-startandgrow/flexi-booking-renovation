@@ -499,3 +499,17 @@ table.manual_checkin_records_table thead td {
         box-sizing: border-box;
     }
 }
+
+/* Late / Early / Checked-Out badge + counter additions (v2.1.0) */
+.bm-ci-badge--late        { background: #fff0d0; color: #7a4e00; }
+.bm-ci-badge--early       { background: #d4f0ff; color: #003a5c; }
+.bm-ci-badge--checked_out { background: #e8f5e9; color: #1b5e20; }
+
+.bm-ci-counter-item--checked_out { border-color: #2e7d32; }
+.bm-ci-counter-item--checked_out .bm-ci-counter-value { color: #2e7d32; }
+
+.bm-ci-counter-item--late  { border-color: #f57f17; }
+.bm-ci-counter-item--late  .bm-ci-counter-value { color: #f57f17; }
+
+.bm-ci-counter-item--early { border-color: #0288d1; }
+.bm-ci-counter-item--early .bm-ci-counter-value { color: #0288d1; }

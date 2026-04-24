@@ -631,9 +631,13 @@ class Booking_Management_Admin {
 			$normal['status_checked_in'] = __( 'Checked In', 'service-booking' );
 			$normal['status_expired']    = __( 'Expired', 'service-booking' );
 			$normal['status_no_show']    = __( 'No Show', 'service-booking' );
-			$normal['undo_checkin']      = __( 'Undo Check-in', 'service-booking' );
-			$normal['mark_no_show']      = __( 'Mark as No Show', 'service-booking' );
-			$normal['view_details']      = __( 'View Details', 'service-booking' );
+			$normal['status_late']        = __( 'Late', 'service-booking' );
+			$normal['status_early']       = __( 'Early', 'service-booking' );
+			$normal['status_checked_out'] = __( 'Checked Out', 'service-booking' );
+			$normal['undo_checkin']       = __( 'Undo Check-in', 'service-booking' );
+			$normal['mark_no_show']       = __( 'Mark as No Show', 'service-booking' );
+			$normal['do_checkout']        = __( 'Check Out', 'service-booking' );
+			$normal['view_details']       = __( 'View Details', 'service-booking' );
 
 			wp_localize_script( $this->plugin_name, 'bm_error_object', $error );
 			wp_localize_script( $this->plugin_name, 'bm_success_object', $success );

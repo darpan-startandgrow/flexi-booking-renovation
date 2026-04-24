@@ -167,6 +167,14 @@ do_action( 'bm_checkin_page_loaded' );
                 <span class="bm-ci-counter-label"><?php esc_html_e( 'No Show', 'service-booking' ); ?></span>
                 <span class="bm-ci-counter-value" id="bm-ci-count-no_show"><?php echo absint( $ci_counts['no_show'] ); ?></span>
             </span>
+            <span class="bm-ci-counter-item bm-ci-counter-item--checked_out">
+                <span class="bm-ci-counter-label"><?php esc_html_e( 'Checked Out', 'service-booking' ); ?></span>
+                <span class="bm-ci-counter-value" id="bm-ci-count-checked_out"><?php echo absint( $ci_counts['checked_out'] ); ?></span>
+            </span>
+            <span class="bm-ci-counter-item bm-ci-counter-item--late">
+                <span class="bm-ci-counter-label"><?php esc_html_e( 'Late', 'service-booking' ); ?></span>
+                <span class="bm-ci-counter-value" id="bm-ci-count-late"><?php echo absint( $ci_counts['late'] ); ?></span>
+            </span>
         </div>
 
         <!-- Bulk Actions Bar -->
@@ -182,6 +190,9 @@ do_action( 'bm_checkin_page_loaded' );
                     <option value="checked_in"><?php esc_html_e( 'Checked In', 'service-booking' ); ?></option>
                     <option value="expired"><?php esc_html_e( 'Expired', 'service-booking' ); ?></option>
                     <option value="no_show"><?php esc_html_e( 'No Show', 'service-booking' ); ?></option>
+                    <option value="late"><?php esc_html_e( 'Late', 'service-booking' ); ?></option>
+                    <option value="early"><?php esc_html_e( 'Early', 'service-booking' ); ?></option>
+                    <option value="checked_out"><?php esc_html_e( 'Checked Out', 'service-booking' ); ?></option>
                 </select>
             </span>
             <button type="button" class="button button-primary bm-bulk-apply" data-table="checkin" disabled><?php esc_html_e( 'Apply', 'service-booking' ); ?></button>
