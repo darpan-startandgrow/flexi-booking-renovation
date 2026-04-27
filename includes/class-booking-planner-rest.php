@@ -896,7 +896,7 @@ class Booking_Planner_REST {
 			}
 
 			// Update slot capacity (decrement).
-			$dbhandler->execute_query(
+			$dbhandler->execute_ddl(
 				$dbhandler->prepare_sql(
 					"UPDATE {$slot_table} SET slot_cap_left = GREATEST(0, slot_cap_left - 1) WHERE service_id = %d AND booking_date = %s AND slot_id = %s",
 					$service_id,
@@ -1118,7 +1118,7 @@ class Booking_Planner_REST {
 
 			if ( $slot_from ) {
 				$slot_table = $dbhandler->get_table_name( 'SLOTCOUNT' );
-				$dbhandler->execute_query(
+				$dbhandler->execute_ddl(
 					$dbhandler->prepare_sql(
 						"UPDATE {$slot_table} SET slot_cap_left = slot_cap_left + 1 WHERE service_id = %d AND booking_date = %s AND slot_id = %s",
 						(int) $booking->service_id,

@@ -1459,39 +1459,6 @@ class BM_DBhandler {
 
 
 	/**
-	 * Get the current value of a specific field for a row.
-	 *
-	 * @since 1.0.0
-	 * @param string $identifier  Table identifier.
-	 * @param string $field       The column to retrieve.
-	 * @param mixed  $id_value    The value of the primary key or unique field.
-	 * @param string $id_field    The column to match against (default: 'id').
-	 * @return string|null The field value or null.
-	 */
-	public function get_current_state( string $identifier, string $field, $id_value, string $id_field = 'id' ): ?string {
-		global $wpdb;
-		$bm_activator = $this->get_activator();
-		$table        = $bm_activator->get_db_table_name( $identifier );
-
-		if ( ! $table ) {
-			return null;
-		}
-
-		$field    = preg_replace( '/[^a-zA-Z0-9_]/', '', $field );
-		$id_field = preg_replace( '/[^a-zA-Z0-9_]/', '', $id_field );
-
-		if ( empty( $field ) || empty( $id_field ) ) {
-			return null;
-		}
-
-		$format = is_numeric( $id_value ) ? '%d' : '%s';
-		$sql    = $wpdb->prepare( "SELECT `$field` FROM `$table` WHERE `$id_field` = $format LIMIT 1", $id_value );
-		$val    = $wpdb->get_var( $sql );
-		return $val !== null ? (string) $val : null;
-	}
-
-
-	/**
 	 * Get the peak pooled usage of a global extra on any single date from a given start date onward.
 	 *
 	 * Returns the maximum SUM(slots_booked) across all future dates for this global extra.
@@ -1597,23 +1564,6 @@ class BM_DBhandler {
 
 
 	/**
-	 * Execute a pre-prepared SQL statement that does not return rows
-	 * (UPDATE, DELETE, raw INSERT, etc.).
-	 *
-	 * The SQL MUST have already been prepared via prepare_sql() — never
-	 * pass raw user input here.
-	 *
-	 * @since 3.0.0
-	 * @param string $sql Fully-prepared SQL string.
-	 * @return int|false Number of rows affected, or false on error.
-	 */
-	public function execute_query( string $sql ) {
-		global $wpdb;
-		return $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
-	}
-
-
-	/**
 	 * Execute a pre-prepared SQL query and return a single row object.
 	 *
 	 * Use only for complex queries that cannot be expressed through the
@@ -1677,14 +1627,19 @@ class BM_DBhandler {
 
 
 	/**
-	 * Execute a raw DDL statement (CREATE TABLE, ALTER TABLE, DROP INDEX, …).
+	 * Execute a raw DDL or pre-prepared DML statement that does not return rows.
 	 *
-	 * DDL cannot use parameterized placeholders — the SQL must be constructed
-	 * entirely from trusted, internally-generated strings (never from user
-	 * input). This method intentionally does NOT accept user-supplied values.
+	 * Use this method for:
+	 *   - DDL statements (CREATE TABLE, ALTER TABLE, DROP INDEX, …) built
+	 *     entirely from trusted, internally-generated strings.
+	 *   - Pre-prepared DML statements (UPDATE, DELETE, raw INSERT) where the
+	 *     SQL has already been prepared via prepare_sql() before being passed here.
+	 *
+	 * Never pass raw user input directly — always use prepare_sql() first for
+	 * any statement that contains user-supplied values.
 	 *
 	 * @since 2.0.0
-	 * @param string $sql Fully-formed DDL statement (no placeholders).
+	 * @param string $sql Fully-formed SQL statement (no unescaped placeholders).
 	 * @return bool True if the statement executed without a database error.
 	 */
 	public function execute_ddl( string $sql ): bool {
