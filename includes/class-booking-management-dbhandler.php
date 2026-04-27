@@ -1459,39 +1459,6 @@ class BM_DBhandler {
 
 
 	/**
-	 * Get the current value of a specific field for a row.
-	 *
-	 * @since 1.0.0
-	 * @param string $identifier  Table identifier.
-	 * @param string $field       The column to retrieve.
-	 * @param mixed  $id_value    The value of the primary key or unique field.
-	 * @param string $id_field    The column to match against (default: 'id').
-	 * @return string|null The field value or null.
-	 */
-	public function get_current_state( string $identifier, string $field, $id_value, string $id_field = 'id' ): ?string {
-		global $wpdb;
-		$bm_activator = $this->get_activator();
-		$table        = $bm_activator->get_db_table_name( $identifier );
-
-		if ( ! $table ) {
-			return null;
-		}
-
-		$field    = preg_replace( '/[^a-zA-Z0-9_]/', '', $field );
-		$id_field = preg_replace( '/[^a-zA-Z0-9_]/', '', $id_field );
-
-		if ( empty( $field ) || empty( $id_field ) ) {
-			return null;
-		}
-
-		$format = is_numeric( $id_value ) ? '%d' : '%s';
-		$sql    = $wpdb->prepare( "SELECT `$field` FROM `$table` WHERE `$id_field` = $format LIMIT 1", $id_value );
-		$val    = $wpdb->get_var( $sql );
-		return $val !== null ? (string) $val : null;
-	}
-
-
-	/**
 	 * Get the peak pooled usage of a global extra on any single date from a given start date onward.
 	 *
 	 * Returns the maximum SUM(slots_booked) across all future dates for this global extra.
@@ -1576,15 +1543,103 @@ class BM_DBhandler {
 		return is_array( $columns ) && in_array( $column, $columns, true );
 	}
 
+	// -------------------------------------------------------------------------
+	// Convenience wrappers added in v3.0 — keep $wpdb zero outside this class
+	// -------------------------------------------------------------------------
+
 	/**
-	 * Execute a raw DDL statement (CREATE TABLE, ALTER TABLE, DROP INDEX, …).
+	 * Return the physical table name for a given identifier.
 	 *
-	 * DDL cannot use parameterized placeholders — the SQL must be constructed
-	 * entirely from trusted, internally-generated strings (never from user
-	 * input). This method intentionally does NOT accept user-supplied values.
+	 * Expose the activator look-up so callers can build raw SQL via
+	 * prepare_sql() → get_results_raw() / get_var_raw() without ever
+	 * importing $wpdb directly.
+	 *
+	 * @since 3.0.0
+	 * @param string $identifier Table identifier (e.g. 'BOOKING', 'SLOTCOUNT').
+	 * @return string|false Physical table name, or false if unknown.
+	 */
+	public function get_table_name( string $identifier ) {
+		return $this->get_activator()->get_db_table_name( $identifier );
+	}
+
+
+	/**
+	 * Execute a pre-prepared SQL query and return a single row object.
+	 *
+	 * Use only for complex queries that cannot be expressed through the
+	 * structured helpers. The query MUST be pre-prepared via prepare_sql().
+	 *
+	 * @since 3.0.0
+	 * @param string $sql    A fully-prepared SQL string.
+	 * @param string $output Output format: OBJECT, ARRAY_A, or ARRAY_N.
+	 * @return object|array|null Single row, or null when no result.
+	 */
+	public function get_row_raw( string $sql, string $output = OBJECT ) {
+		global $wpdb;
+		return $wpdb->get_row( $sql, $output ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+
+	/**
+	 * Delete rows matching an arbitrary WHERE clause.
+	 *
+	 * Thin wrapper around $wpdb->delete() that resolves the physical table
+	 * name from the identifier so callers never need $wpdb.
+	 *
+	 * @since 3.0.0
+	 * @param string     $identifier   Table identifier.
+	 * @param array      $where        Column => value conditions (ANDed).
+	 * @param array|null $where_format Format specifiers for each WHERE value.
+	 * @return bool True on success, false on failure.
+	 */
+	public function delete_where( string $identifier, array $where, ?array $where_format = null ): bool {
+		global $wpdb;
+		$table = $this->get_activator()->get_db_table_name( $identifier );
+		if ( ! $table || empty( $where ) ) {
+			return false;
+		}
+		return false !== $wpdb->delete( $table, $where, $where_format );
+	}
+
+
+	/**
+	 * Update rows matching an arbitrary WHERE clause.
+	 *
+	 * Thin wrapper around $wpdb->update() that resolves the physical table
+	 * name so callers never need $wpdb.
+	 *
+	 * @since 3.0.0
+	 * @param string     $identifier   Table identifier.
+	 * @param array      $data         Column => value pairs to SET.
+	 * @param array      $where        Column => value conditions (ANDed).
+	 * @param array|null $data_format  Format specifiers for $data values.
+	 * @param array|null $where_format Format specifiers for $where values.
+	 * @return int|false Rows affected, or false on error.
+	 */
+	public function update_where( string $identifier, array $data, array $where, ?array $data_format = null, ?array $where_format = null ) {
+		global $wpdb;
+		$table = $this->get_activator()->get_db_table_name( $identifier );
+		if ( ! $table || empty( $data ) || empty( $where ) ) {
+			return false;
+		}
+		return $wpdb->update( $table, $data, $where, $data_format, $where_format );
+	}
+
+
+	/**
+	 * Execute a raw DDL or pre-prepared DML statement that does not return rows.
+	 *
+	 * Use this method for:
+	 *   - DDL statements (CREATE TABLE, ALTER TABLE, DROP INDEX, …) built
+	 *     entirely from trusted, internally-generated strings.
+	 *   - Pre-prepared DML statements (UPDATE, DELETE, raw INSERT) where the
+	 *     SQL has already been prepared via prepare_sql() before being passed here.
+	 *
+	 * Never pass raw user input directly — always use prepare_sql() first for
+	 * any statement that contains user-supplied values.
 	 *
 	 * @since 2.0.0
-	 * @param string $sql Fully-formed DDL statement (no placeholders).
+	 * @param string $sql Fully-formed SQL statement (no unescaped placeholders).
 	 * @return bool True if the statement executed without a database error.
 	 */
 	public function execute_ddl( string $sql ): bool {

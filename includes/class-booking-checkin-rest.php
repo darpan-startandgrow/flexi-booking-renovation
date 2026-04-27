@@ -1383,6 +1383,7 @@ class Booking_Checkin_REST {
 		$ci_to       = sanitize_text_field( $request->get_param( 'checkin_to' ) ?? '' );
 		$service_ids = array_map( 'absint', (array) ( $request->get_param( 'service_ids' ) ?? array() ) );
 		$service_ids = array_values( array_filter( $service_ids ) );
+		$status      = sanitize_text_field( $request->get_param( 'status' ) ?? '' );
 		$save_search = (bool) $request->get_param( 'save_search' );
 		$base        = esc_url_raw( $request->get_param( 'base' ) ?? '' );
 		$user_id     = get_current_user_id();
@@ -1391,6 +1392,16 @@ class Booking_Checkin_REST {
 		// Fetch all and apply PHP-side filters (preserves existing filter semantics).
 		$all_checkins = $bmrequests->bm_fetch_all_order_checkins();
 		$filtered     = $all_checkins;
+
+		// Status filter.
+		if ( '' !== $status ) {
+			$filtered = array_filter(
+				$filtered,
+				function ( $c ) use ( $status ) {
+					return $c['checkin_status'] === $status;
+				}
+			);
+		}
 
 		// Global text search.
 		if ( '' !== $search ) {
@@ -1476,6 +1487,7 @@ class Booking_Checkin_REST {
 				'checkin_to'    => $ci_to,
 				'global_search' => $search,
 				'service_ids'   => $service_ids,
+				'status'        => $status,
 			);
 			$sanitised   = $bmrequests->sanitize_request(
 				array(

@@ -229,7 +229,7 @@ if ( 0 === $affected ) {
  * – already checked_in → bail (no duplicate check-in)
  * – other status (expired, etc.) → force the transition
  */
-$current = $db->get_current_state( 'CHECKIN', 'status', $existing_id );
+$current = $db->get_value( 'CHECKIN', 'status', $existing_id );
 if ( BM_CHECKIN_STATUS_CHECKED_IN === $current ) {
 return false;
 }

@@ -179,10 +179,20 @@ jQuery(document).ready(function($) {
     });
     
     $(document).on('change', '.checkin-status-dropdown', function() {
-        const checkinId = $(this).data('checkin-id');
-        const newStatus = $(this).val();
-        
+        const $select    = $(this);
+        const checkinId  = $select.data('checkin-id');
+        const newStatus  = $select.val();
+        const statusColorClasses = [
+            'bm-ci-badge--pending', 'bm-ci-badge--checked_in', 'bm-ci-badge--expired',
+            'bm-ci-badge--no_show', 'bm-ci-badge--late', 'bm-ci-badge--early', 'bm-ci-badge--checked_out'
+        ];
+
         if (newStatus) {
+            // Update color class immediately for visual feedback.
+            $select.removeClass( statusColorClasses.join(' ') );
+            if (newStatus) {
+                $select.addClass( 'bm-ci-badge--' + newStatus );
+            }
             $.ajax({
                 url: checkinRest.url + 'checkins/' + checkinId + '/status',
                 method: 'PATCH',

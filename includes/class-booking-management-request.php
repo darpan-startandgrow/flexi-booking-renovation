@@ -9092,6 +9092,30 @@ class BM_Request {
 			}
 		}
 
+		// ── §1.5 Service Chaining: check mutual exclusion ─────────────────
+		if ( class_exists( 'BM_ServiceChain' ) ) {
+			$chain_checker = new BM_ServiceChain();
+			if ( $chain_checker->is_service_blocked_by_chain( (int) $service_id, $date ) ) {
+				return false;
+			}
+		}
+
+		// ── §1.6 Shared Availability: check resource pool capacity ────────
+		if ( class_exists( 'BM_ResourcePool' ) ) {
+			$pool_checker = new BM_ResourcePool();
+			if ( ! $pool_checker->is_service_bookable_via_pools( (int) $service_id, $date ) ) {
+				return false;
+			}
+		}
+
+		// ── §1.8 Virtual Services: block real component if virtual is sold ─
+		if ( class_exists( 'BM_VirtualService' ) ) {
+			$vs_checker = new BM_VirtualService();
+			if ( $vs_checker->is_real_service_blocked_by_virtual( (int) $service_id, $date ) ) {
+				return false;
+			}
+		}
+
 		return true;
 	}
 

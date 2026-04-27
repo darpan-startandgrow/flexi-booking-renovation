@@ -127,6 +127,18 @@ do_action( 'bm_checkin_page_loaded' );
                             ?>
                         </select>
                     </span>
+                    <span class="checkin_status_filter_span">
+                        <select id="checkin_status_filter" name="checkin_status_filter" style="height:32px;min-width:140px;">
+                            <option value=""><?php esc_html_e( 'All Statuses', 'service-booking' ); ?></option>
+                            <option value="pending"><?php esc_html_e( 'Pending', 'service-booking' ); ?></option>
+                            <option value="checked_in"><?php esc_html_e( 'Checked In', 'service-booking' ); ?></option>
+                            <option value="expired"><?php esc_html_e( 'Expired', 'service-booking' ); ?></option>
+                            <option value="no_show"><?php esc_html_e( 'No Show', 'service-booking' ); ?></option>
+                            <option value="late"><?php esc_html_e( 'Late', 'service-booking' ); ?></option>
+                            <option value="early"><?php esc_html_e( 'Early', 'service-booking' ); ?></option>
+                            <option value="checked_out"><?php esc_html_e( 'Checked Out', 'service-booking' ); ?></option>
+                        </select>
+                    </span>
                     <button type="button" class="button button-primary" id="checkin_date_search_button" title="<?php esc_html_e( 'Search', 'service-booking' ); ?>">
                         <i class="fa fa-search"></i>
                     </button>

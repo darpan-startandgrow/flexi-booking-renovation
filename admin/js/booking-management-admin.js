@@ -9587,6 +9587,7 @@ jQuery(document).on('click', '#reset_date_search', function (e) {
     jQuery('#checkin_from').val('');
     jQuery('#checkin_to').val('');
     jQuery('#checkin_global_search').val('');
+    jQuery('#checkin_status_filter').val('');
 
 	jQuery('#checkin_service_advanced_filter').val([]).multiselect('reload');
     jQuery('#order_source_filter').val('');
@@ -10274,6 +10275,7 @@ function bm_search_checkin_data(type = '') {
 	var pagenum     = parseInt(jQuery.trim(jQuery('#pagenum').val())) || 1;
 	var limit       = parseInt(jQuery.trim(jQuery('#limit_count').val())) || 10;
 	var serviceIds  = jQuery('#checkin_service_advanced_filter').val();
+	var statusFilter = jQuery('#checkin_status_filter').val();
 	var params = {
 		page:         pagenum,
 		per_page:     limit,
@@ -10287,6 +10289,9 @@ function bm_search_checkin_data(type = '') {
 	};
 	if (serviceIds && serviceIds.length) {
 		params.service_ids = (Array.isArray(serviceIds) ? serviceIds : serviceIds.split(',')).map(function(v) { return parseInt(v, 10); });
+	}
+	if (statusFilter) {
+		params.status = statusFilter;
 	}
 
 	jQuery.ajax({
@@ -10323,6 +10328,9 @@ function bm_search_checkin_data(type = '') {
 					jQuery('#checkin_service_to').val(typeof (saved_search.service_to) != "undefined" ? saved_search.service_to : '');
 					jQuery('#checkin_from').val(typeof (saved_search.checkin_from) != "undefined" ? saved_search.checkin_from : '');
 					jQuery('#checkin_to').val(typeof (saved_search.checkin_to) != "undefined" ? saved_search.checkin_to : '');
+					if (saved_search.status) {
+						jQuery('#checkin_status_filter').val(saved_search.status);
+					}
 					if (Array.isArray(saved_search.service_ids) && saved_search.service_ids.length > 0) {
 						var serviceIdsArray = saved_search.service_ids.join(',');
 						jQuery('#checkin_service_advanced_filter').val(serviceIdsArray);
@@ -10334,6 +10342,7 @@ function bm_search_checkin_data(type = '') {
 						saved_search.service_to ||
 						saved_search.checkin_from ||
 						saved_search.checkin_to ||
+						saved_search.status ||
 						(Array.isArray(saved_search.service_ids) && saved_search.service_ids.length > 0)
 					) {
 						jQuery("#checkin_advanced_search_box").slideDown("slow");
@@ -10394,24 +10403,30 @@ function bm_search_checkin_data(type = '') {
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'checkin_status') {
 								const status = checkins[i].checkin_status;
-								const badgeClass = 'bm-ci-badge bm-ci-badge--' + bmEscAttr(status);
-								// Show a coloured status badge. Clicking the edit icon next to it
-								// reveals the inline dropdown for changing the status on the same row.
+								const statusColorClasses = {
+									pending:     'bm-ci-badge--pending',
+									checked_in:  'bm-ci-badge--checked_in',
+									expired:     'bm-ci-badge--expired',
+									no_show:     'bm-ci-badge--no_show',
+									late:        'bm-ci-badge--late',
+									early:       'bm-ci-badge--early',
+									checked_out: 'bm-ci-badge--checked_out',
+								};
+								const colorClass = statusColorClasses[status] || '';
 								checkinListing += `<td style='text-align: center;'>`;
-								checkinListing += `<span class="${badgeClass}">${bmEscHtml(status.replace(/_/g, ' '))}</span>`;
-								checkinListing += `<select class="checkin-status-dropdown bm-ci-status-select"
+								checkinListing += `<select class="checkin-status-dropdown bm-ci-status-select ${colorClass}"
 												title="${bmEscAttr(bm_normal_object.change_status || 'Change status')}"
 												aria-label="${bmEscAttr(bm_normal_object.change_status || 'Change status')}"
 												data-checkin-id="${checkins[i].checkin_id}"
-												data-booking-id="${checkins[i].booking_id}">
-									<option value="" disabled selected>${bmEscHtml(bm_normal_object.change_status || '-- Change Status --')}</option>
-									<option value="pending">${bmEscHtml(bm_normal_object.status_pending || 'Pending')}</option>
-									<option value="checked_in">${bmEscHtml(bm_normal_object.status_checked_in || 'Checked In')}</option>
-									<option value="expired">${bmEscHtml(bm_normal_object.status_expired || 'Expired')}</option>
-									<option value="no_show">${bmEscHtml(bm_normal_object.status_no_show || 'No Show')}</option>
-									<option value="late">${bmEscHtml(bm_normal_object.status_late || 'Late')}</option>
-									<option value="early">${bmEscHtml(bm_normal_object.status_early || 'Early')}</option>
-									<option value="checked_out">${bmEscHtml(bm_normal_object.status_checked_out || 'Checked Out')}</option>
+												data-booking-id="${checkins[i].booking_id}"
+												data-current-status="${bmEscAttr(status)}">
+									<option value="pending"${status === 'pending' ? ' selected' : ''}>${bmEscHtml(bm_normal_object.status_pending || 'Pending')}</option>
+									<option value="checked_in"${status === 'checked_in' ? ' selected' : ''}>${bmEscHtml(bm_normal_object.status_checked_in || 'Checked In')}</option>
+									<option value="expired"${status === 'expired' ? ' selected' : ''}>${bmEscHtml(bm_normal_object.status_expired || 'Expired')}</option>
+									<option value="no_show"${status === 'no_show' ? ' selected' : ''}>${bmEscHtml(bm_normal_object.status_no_show || 'No Show')}</option>
+									<option value="late"${status === 'late' ? ' selected' : ''}>${bmEscHtml(bm_normal_object.status_late || 'Late')}</option>
+									<option value="early"${status === 'early' ? ' selected' : ''}>${bmEscHtml(bm_normal_object.status_early || 'Early')}</option>
+									<option value="checked_out"${status === 'checked_out' ? ' selected' : ''}>${bmEscHtml(bm_normal_object.status_checked_out || 'Checked Out')}</option>
 								</select>`;
 								checkinListing += "</td>";
 							}

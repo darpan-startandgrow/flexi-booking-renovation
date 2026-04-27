@@ -539,6 +539,149 @@ class Booking_Management_Activator {
 		)$charset_collate;";
 		dbDelta( $sql );
 
+		// ── 1.6 / Part-2 §2.6 ResourcePool: shared capacity pools ──────────
+		$table_name = $this->get_db_table_name( 'RESOURCE_POOL' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`name` varchar(255) NOT NULL,
+			`description` longtext DEFAULT NULL,
+			`total_capacity` int(11) NOT NULL DEFAULT 1,
+			`allocation_rule` varchar(50) NOT NULL DEFAULT 'shared',
+			`status` int(11) NOT NULL DEFAULT 1,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		// Links a service to a resource pool with its per-booking consumption
+		$table_name = $this->get_db_table_name( 'SERVICE_RESOURCE_POOL' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`service_id` int(11) NOT NULL,
+			`resource_pool_id` int(11) NOT NULL,
+			`consumption_per_booking` int(11) NOT NULL DEFAULT 1,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (`id`),
+			UNIQUE KEY `unique_svc_pool` (`service_id`, `resource_pool_id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		// ── 1.5 Service Chaining: mutual exclusion between services ─────────
+		$table_name = $this->get_db_table_name( 'SERVICE_CHAIN' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`service_a_id` int(11) NOT NULL,
+			`service_b_id` int(11) NOT NULL,
+			`chain_type` varchar(50) NOT NULL DEFAULT 'exclusive',
+			`status` int(11) NOT NULL DEFAULT 1,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (`id`),
+			UNIQUE KEY `unique_chain` (`service_a_id`, `service_b_id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		// ── 1.7 Service Options: mutually exclusive variants ─────────────────
+		$table_name = $this->get_db_table_name( 'OPTION_SET' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`service_id` int(11) NOT NULL,
+			`name` varchar(255) NOT NULL,
+			`description` longtext DEFAULT NULL,
+			`is_required` int(11) NOT NULL DEFAULT 1,
+			`status` int(11) NOT NULL DEFAULT 1,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		$table_name = $this->get_db_table_name( 'OPTION_VALUE' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`option_set_id` int(11) NOT NULL,
+			`name` varchar(255) NOT NULL,
+			`description` longtext DEFAULT NULL,
+			`price_modifier` float(50) DEFAULT 0,
+			`price_override` float(50) DEFAULT NULL,
+			`is_default` int(11) NOT NULL DEFAULT 0,
+			`status` int(11) NOT NULL DEFAULT 1,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		// ── 1.9 Bundles and Combos ────────────────────────────────────────────
+		$table_name = $this->get_db_table_name( 'BUNDLE' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`name` varchar(255) NOT NULL,
+			`description` longtext DEFAULT NULL,
+			`discount_type` varchar(50) DEFAULT NULL,
+			`discount_value` float(50) DEFAULT 0,
+			`status` int(11) NOT NULL DEFAULT 1,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		$table_name = $this->get_db_table_name( 'BUNDLE_ITEM' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`bundle_id` int(11) NOT NULL,
+			`service_id` int(11) NOT NULL,
+			`quantity` int(11) NOT NULL DEFAULT 1,
+			`is_optional` int(11) NOT NULL DEFAULT 0,
+			`item_position` int(11) NOT NULL DEFAULT 0,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (`id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		// ── 1.8 Virtual Services: derived offers ─────────────────────────────
+		$table_name = $this->get_db_table_name( 'VIRTUAL_SERVICE' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`service_id` int(11) NOT NULL,
+			`name` varchar(255) NOT NULL,
+			`description` longtext DEFAULT NULL,
+			`status` int(11) NOT NULL DEFAULT 1,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`id`),
+			UNIQUE KEY `unique_svc` (`service_id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		$table_name = $this->get_db_table_name( 'VIRTUAL_SERVICE_COMPONENT' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`virtual_service_id` int(11) NOT NULL,
+			`component_service_id` int(11) NOT NULL,
+			`component_position` int(11) NOT NULL DEFAULT 0,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (`id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		// ── 1.4 Product as Extra: service as add-on to another service ───────
+		$table_name = $this->get_db_table_name( 'SERVICE_AS_EXTRA' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`parent_service_id` int(11) NOT NULL,
+			`addon_service_id` int(11) NOT NULL,
+			`price_override` float(50) DEFAULT NULL,
+			`is_visible_frontend` int(11) NOT NULL DEFAULT 1,
+			`status` int(11) NOT NULL DEFAULT 1,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			`updated_at` datetime DEFAULT NULL,
+			PRIMARY KEY (`id`),
+			UNIQUE KEY `unique_addon` (`parent_service_id`, `addon_service_id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
 		$this->add_extra_types_booked_column_to_booking();
 		$this->add_extra_type_column_to_extraslotcount();
 		$this->add_extras_indexes();
@@ -639,6 +782,36 @@ class Booking_Management_Activator {
 			case 'SERVICEGLOBALEXTRA':
 				$table_name = $plugin_prefix . 'service_global_extras';
 				break;
+			case 'RESOURCE_POOL':
+				$table_name = $plugin_prefix . 'resource_pools';
+				break;
+			case 'SERVICE_RESOURCE_POOL':
+				$table_name = $plugin_prefix . 'service_resource_pools';
+				break;
+			case 'SERVICE_CHAIN':
+				$table_name = $plugin_prefix . 'service_chains';
+				break;
+			case 'OPTION_SET':
+				$table_name = $plugin_prefix . 'option_sets';
+				break;
+			case 'OPTION_VALUE':
+				$table_name = $plugin_prefix . 'option_values';
+				break;
+			case 'BUNDLE':
+				$table_name = $plugin_prefix . 'bundles';
+				break;
+			case 'BUNDLE_ITEM':
+				$table_name = $plugin_prefix . 'bundle_items';
+				break;
+			case 'VIRTUAL_SERVICE':
+				$table_name = $plugin_prefix . 'virtual_services';
+				break;
+			case 'VIRTUAL_SERVICE_COMPONENT':
+				$table_name = $plugin_prefix . 'virtual_service_components';
+				break;
+			case 'SERVICE_AS_EXTRA':
+				$table_name = $plugin_prefix . 'service_as_extra';
+				break;
 			default:
 				$classname = "BM_Helper_$identifier";
 				if ( class_exists( $classname ) ) {
@@ -734,6 +907,18 @@ class Booking_Management_Activator {
 				$unique_field_name = 'id';
 				break;
 			case 'SERVICEGLOBALEXTRA':
+				$unique_field_name = 'id';
+				break;
+			case 'RESOURCE_POOL':
+			case 'SERVICE_RESOURCE_POOL':
+			case 'SERVICE_CHAIN':
+			case 'OPTION_SET':
+			case 'OPTION_VALUE':
+			case 'BUNDLE':
+			case 'BUNDLE_ITEM':
+			case 'VIRTUAL_SERVICE':
+			case 'VIRTUAL_SERVICE_COMPONENT':
+			case 'SERVICE_AS_EXTRA':
 				$unique_field_name = 'id';
 				break;
 			default:
