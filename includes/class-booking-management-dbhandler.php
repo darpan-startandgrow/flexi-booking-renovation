@@ -1576,6 +1576,106 @@ class BM_DBhandler {
 		return is_array( $columns ) && in_array( $column, $columns, true );
 	}
 
+	// -------------------------------------------------------------------------
+	// Convenience wrappers added in v3.0 — keep $wpdb zero outside this class
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Return the physical table name for a given identifier.
+	 *
+	 * Expose the activator look-up so callers can build raw SQL via
+	 * prepare_sql() → get_results_raw() / get_var_raw() without ever
+	 * importing $wpdb directly.
+	 *
+	 * @since 3.0.0
+	 * @param string $identifier Table identifier (e.g. 'BOOKING', 'SLOTCOUNT').
+	 * @return string|false Physical table name, or false if unknown.
+	 */
+	public function get_table_name( string $identifier ) {
+		return $this->get_activator()->get_db_table_name( $identifier );
+	}
+
+
+	/**
+	 * Execute a pre-prepared SQL statement that does not return rows
+	 * (UPDATE, DELETE, raw INSERT, etc.).
+	 *
+	 * The SQL MUST have already been prepared via prepare_sql() — never
+	 * pass raw user input here.
+	 *
+	 * @since 3.0.0
+	 * @param string $sql Fully-prepared SQL string.
+	 * @return int|false Number of rows affected, or false on error.
+	 */
+	public function execute_query( string $sql ) {
+		global $wpdb;
+		return $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+
+	/**
+	 * Execute a pre-prepared SQL query and return a single row object.
+	 *
+	 * Use only for complex queries that cannot be expressed through the
+	 * structured helpers. The query MUST be pre-prepared via prepare_sql().
+	 *
+	 * @since 3.0.0
+	 * @param string $sql    A fully-prepared SQL string.
+	 * @param string $output Output format: OBJECT, ARRAY_A, or ARRAY_N.
+	 * @return object|array|null Single row, or null when no result.
+	 */
+	public function get_row_raw( string $sql, string $output = OBJECT ) {
+		global $wpdb;
+		return $wpdb->get_row( $sql, $output ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+
+	/**
+	 * Delete rows matching an arbitrary WHERE clause.
+	 *
+	 * Thin wrapper around $wpdb->delete() that resolves the physical table
+	 * name from the identifier so callers never need $wpdb.
+	 *
+	 * @since 3.0.0
+	 * @param string     $identifier   Table identifier.
+	 * @param array      $where        Column => value conditions (ANDed).
+	 * @param array|null $where_format Format specifiers for each WHERE value.
+	 * @return bool True on success, false on failure.
+	 */
+	public function delete_where( string $identifier, array $where, ?array $where_format = null ): bool {
+		global $wpdb;
+		$table = $this->get_activator()->get_db_table_name( $identifier );
+		if ( ! $table || empty( $where ) ) {
+			return false;
+		}
+		return false !== $wpdb->delete( $table, $where, $where_format );
+	}
+
+
+	/**
+	 * Update rows matching an arbitrary WHERE clause.
+	 *
+	 * Thin wrapper around $wpdb->update() that resolves the physical table
+	 * name so callers never need $wpdb.
+	 *
+	 * @since 3.0.0
+	 * @param string     $identifier   Table identifier.
+	 * @param array      $data         Column => value pairs to SET.
+	 * @param array      $where        Column => value conditions (ANDed).
+	 * @param array|null $data_format  Format specifiers for $data values.
+	 * @param array|null $where_format Format specifiers for $where values.
+	 * @return int|false Rows affected, or false on error.
+	 */
+	public function update_where( string $identifier, array $data, array $where, ?array $data_format = null, ?array $where_format = null ) {
+		global $wpdb;
+		$table = $this->get_activator()->get_db_table_name( $identifier );
+		if ( ! $table || empty( $data ) || empty( $where ) ) {
+			return false;
+		}
+		return $wpdb->update( $table, $data, $where, $data_format, $where_format );
+	}
+
+
 	/**
 	 * Execute a raw DDL statement (CREATE TABLE, ALTER TABLE, DROP INDEX, …).
 	 *

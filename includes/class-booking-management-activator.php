@@ -909,6 +909,18 @@ class Booking_Management_Activator {
 			case 'SERVICEGLOBALEXTRA':
 				$unique_field_name = 'id';
 				break;
+			case 'RESOURCE_POOL':
+			case 'SERVICE_RESOURCE_POOL':
+			case 'SERVICE_CHAIN':
+			case 'OPTION_SET':
+			case 'OPTION_VALUE':
+			case 'BUNDLE':
+			case 'BUNDLE_ITEM':
+			case 'VIRTUAL_SERVICE':
+			case 'VIRTUAL_SERVICE_COMPONENT':
+			case 'SERVICE_AS_EXTRA':
+				$unique_field_name = 'id';
+				break;
 			default:
 				$classname = "BM_Helper_$identifier";
 				if ( class_exists( $classname ) ) {

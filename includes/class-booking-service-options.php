@@ -236,7 +236,7 @@ $value = $this->get_option_value( $value_id );
 if ( ! $value ) {
 return $base_price;
 }
-if ( null !== $value->price_override && '' !== $value->price_override ) {
+if ( null !== $value->price_override ) {
 return (float) $value->price_override;
 }
 return $base_price + (float) $value->price_modifier;
