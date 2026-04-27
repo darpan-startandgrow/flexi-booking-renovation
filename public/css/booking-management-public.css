@@ -6319,3 +6319,58 @@ h3.sub-heading-billing-details{
 
 
 
+
+/* ── §1.7 Service Options (rendered in extras step) ── */
+.bm-service-options-wrap {
+    margin-bottom: 18px;
+}
+
+.bm-option-set {
+    margin-bottom: 12px;
+}
+
+.bm-option-set-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.bm-option-set-desc {
+    font-size: 0.875em;
+    color: #666;
+    margin: 0 0 6px;
+}
+
+.bm-option-value-select {
+    width: 100%;
+    max-width: 360px;
+    padding: 7px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+
+.bm-required-star {
+    color: #d63638;
+    margin-left: 2px;
+}
+
+/* ── §1.9 Bundles (rendered in extras step) ── */
+.bm-bundle-selector-wrap {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8f9fa;
+    border: 1px solid #e2e4e7;
+    border-radius: 4px;
+}
+
+.bm-bundle-select {
+    width: 100%;
+    max-width: 360px;
+    padding: 7px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.95em;
+    margin-top: 6px;
+}

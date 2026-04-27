@@ -4031,6 +4031,30 @@ class BM_Request {
 						}
 					}
 
+					// ── §1.9 Bundles: show available bundle promotions for this service ──
+					if ( class_exists( 'BM_Bundle' ) ) {
+						$bundle_handler = new BM_Bundle();
+						$bundles        = $bundle_handler->get_bundles_for_service( (int) $service_id );
+						if ( ! empty( $bundles ) ) {
+							$resp .= '<div class="bm-bundle-selector-wrap">';
+							$resp .= '<label class="bm-option-set-label">' . esc_html__( 'Bundle Promotion', 'service-booking' ) . '</label>';
+							$resp .= '<select id="bm_selected_bundle_id" name="bm_selected_bundle_id" class="bm-bundle-select">';
+							$resp .= '<option value="">' . esc_html__( '-- No bundle --', 'service-booking' ) . '</option>';
+							foreach ( $bundles as $bundle ) {
+								$disc = '';
+								if ( $bundle->discount_type === 'percent' && (float) $bundle->discount_value > 0 ) {
+									$disc = ' (' . (float) $bundle->discount_value . '% ' . esc_html__( 'off', 'service-booking' ) . ')';
+								} elseif ( $bundle->discount_type === 'fixed' && (float) $bundle->discount_value > 0 ) {
+									$disc = ' (' . $this->bm_fetch_price_in_global_settings_format( (float) $bundle->discount_value, true ) . ' ' . esc_html__( 'off', 'service-booking' ) . ')';
+								}
+								$resp .= '<option value="' . (int) $bundle->id . '">' . esc_html( $bundle->name ) . $disc . '</option>';
+							}
+							$resp .= '</select>';
+							$resp .= '<p class="bm-option-set-desc">' . esc_html__( 'Select a bundle to receive a discount on this booking.', 'service-booking' ) . '</p>';
+							$resp .= '</div><!-- .bm-bundle-selector-wrap -->';
+						}
+					}
+
 					$resp .= '<h4 class="heading_choose_extra">' . $extra_label . '</h4>';
 					if ( isset( $total_extra_rows ) && ! empty( $total_extra_rows ) ) {
 						foreach ( $total_extra_rows as $key => $extra_service ) {
@@ -4040,6 +4064,11 @@ class BM_Request {
 							$extra_type = isset( $extra_service->extra_type ) ? $extra_service->extra_type : 'local';
 							if ( $extra_type === 'global' && isset( $extra_service->global_extra_id ) ) {
 								$cap_left = $this->bm_get_global_extra_capacity_left( $extra_service->global_extra_id, $date, 0 );
+							} elseif ( $extra_type === 'service_extra' ) {
+								// §1.4 Service-as-Extra: capacity is the addon service's remaining slot capacity.
+								$cap_left = $this->bm_get_service_as_extra_capacity_left( (int) $extra_service->addon_service_id, $date, 0 );
+								// Clamp to a sane display maximum.
+								$cap_left = min( $cap_left, 99 );
 							} else {
 								$cap_left = $this->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date( $extra_service->id, $extra_service->extra_max_cap, 0, $date );
 							}
@@ -5024,6 +5053,33 @@ class BM_Request {
 					}
 					if ( ! empty( $selected_option_data ) ) {
 						$booking_fields['booking_features_data'] = maybe_serialize( array( 'selected_options' => $selected_option_data ) );
+					}
+				}
+
+				// ── §1.9 Bundle: apply bundle discount if selected ─────────────
+				$selected_bundle_id = isset( $data['selected_bundle_id'] ) ? (int) $data['selected_bundle_id'] : 0;
+				if ( $selected_bundle_id > 0 && class_exists( 'BM_Bundle' ) ) {
+					$bundle_handler = new BM_Bundle();
+					$bundle         = $bundle_handler->get_bundle( $selected_bundle_id );
+					if ( $bundle ) {
+						$current_total   = (float) $booking_fields['total_cost'];
+						$bundled_total   = $bundle_handler->calculate_bundle_total(
+							$selected_bundle_id,
+							array( (int) $service_id => (float) $booking_fields['service_cost'] )
+						);
+						if ( $bundled_total < $current_total ) {
+							$booking_fields['total_cost'] = $bundled_total;
+							$booking_fields['subtotal']   = $bundled_total;
+						}
+						// Merge bundle info into features data.
+						$existing_features = isset( $booking_fields['booking_features_data'] )
+							? maybe_unserialize( $booking_fields['booking_features_data'] )
+							: array();
+						$existing_features['selected_bundle'] = array(
+							'bundle_id'   => (int) $bundle->id,
+							'bundle_name' => $bundle->name,
+						);
+						$booking_fields['booking_features_data'] = maybe_serialize( $existing_features );
 					}
 				}
 			} //end if
@@ -12256,6 +12312,14 @@ class BM_Request {
                         $slot_info = $this->bm_fetch_slot_details( $service_id, $from, $date, $svc_total_time_slots, $total_service_booked, $is_variable_slot );
                     }
 
+                    // ── §1.6 Resource Pool: atomic capacity check (with lock) ──────────
+                    if ( ! $is_gift_booking && class_exists( 'BM_ResourcePool' ) ) {
+                        $pool_checker = new BM_ResourcePool();
+                        if ( ! $pool_checker->verify_pool_capacity_for_booking( (int) $service_id, $date, (int) $total_service_booked ) ) {
+                            return false;
+                        }
+                    }
+
                     if ( ( isset( $slot_info['slot_capacity_left_after_booking'] ) && isset( $slot_info['slot_min_cap'] ) && ( $slot_info['slot_capacity_left_after_booking'] >= 0 ) && ( $total_service_booked % $slot_info['slot_min_cap'] == 0 ) ) || ( isset( $checkout_data['checkout']['is_gift'] ) && $checkout_data['checkout']['is_gift'] == 1 ) ) {
                         if ( isset( $order_data['total_service_booking'] ) ) {
                             unset( $order_data['total_service_booking'] );
@@ -17757,9 +17821,9 @@ class BM_Request {
 					$svc_cap = (int) $time_slots['max_cap'][0];
 				}
 			}
-			// If still 0 assume unlimited (large number) so it doesn't block.
+			// If still 0 assume unlimited — return remaining as if fully available.
 			if ( $svc_cap === 0 ) {
-				return (int) $requested_slots > 0 ? 0 : 0;
+				return max( 0, (int) $requested_slots );
 			}
 		}
 

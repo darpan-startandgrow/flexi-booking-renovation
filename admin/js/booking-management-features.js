@@ -522,7 +522,7 @@ var svcId  = $form.find( '.bm-pool-svc-id' ).val();
 var cap    = parseInt( $form.find( '.bm-pool-svc-cap' ).val(), 10 ) || 1;
 if ( ! svcId ) { alert( 'Service ID is required.' ); return; }
 var $btn = $( this ).prop( 'disabled', true ).text( 'Saving\u2026' );
-bmRestPost( 'resource-pools/' + poolId + '/services', { service_id: parseInt( svcId, 10 ), capacity_used: cap } )
+bmRestPost( 'resource-pools/' + poolId + '/services', { service_id: parseInt( svcId, 10 ), consumption_per_booking: cap } )
 .done( function () {
 $form.find( '.bm-pool-svc-id' ).val( '' );
 $form.find( '.bm-pool-svc-cap' ).val( '1' );
@@ -550,7 +550,7 @@ var rows = Array.isArray( data ) ? data : ( data.data || [] );
 if ( ! rows.length ) { $wrap.html( '<p>No service chains yet.</p>' ); return; }
 var html = '<table class="bm-features-table"><thead><tr><th>ID</th><th>Service A</th><th>Service B</th><th>Type</th><th>Actions</th></tr></thead><tbody>';
 $.each( rows, function ( i, c ) {
-html += '<tr><td>' + c.id + '</td><td>Svc #' + c.service_id_a + '</td><td>Svc #' + c.service_id_b + '</td>';
+html += '<tr><td>' + c.id + '</td><td>Svc #' + ( c.service_a_id || c.service_id_a ) + '</td><td>Svc #' + ( c.service_b_id || c.service_id_b ) + '</td>';
 html += '<td>' + $( '<span>' ).text( c.chain_type || 'mutual_exclusion' ).html() + '</td>';
 html += '<td><button class="button button-small button-link-delete bm-chain-delete" data-id="' + c.id + '">Delete</button></td></tr>';
 });
@@ -566,7 +566,7 @@ var svcA = $( '#bm-chain-svc-a' ).val();
 var svcB = $( '#bm-chain-svc-b' ).val();
 if ( ! svcA || ! svcB ) { alert( 'Both service IDs are required.' ); return; }
 var $btn = $( this ).prop( 'disabled', true ).text( 'Saving\u2026' );
-bmRestPost( 'chains', { service_id_a: parseInt( svcA, 10 ), service_id_b: parseInt( svcB, 10 ), chain_type: $( '#bm-chain-type' ).val() } )
+bmRestPost( 'chains', { service_a_id: parseInt( svcA, 10 ), service_b_id: parseInt( svcB, 10 ), chain_type: $( '#bm-chain-type' ).val() } )
 .done( function () {
 $( '#bm-chain-svc-a, #bm-chain-svc-b' ).val( '' );
 bmLoadServiceChains();

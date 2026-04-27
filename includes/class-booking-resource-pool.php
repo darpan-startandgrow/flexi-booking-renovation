@@ -209,7 +209,7 @@ public function get_services_in_pool( int $pool_id ): array {
 $link_table = $this->db->get_table_name( 'SERVICE_RESOURCE_POOL' );
 return $this->db->get_results_raw(
 $this->db->prepare_sql(
-"SELECT service_id, consumption_per_booking FROM {$link_table} WHERE resource_pool_id = %d",
+"SELECT id, service_id, consumption_per_booking FROM {$link_table} WHERE resource_pool_id = %d",
 $pool_id
 )
 ) ?: [];
@@ -279,6 +279,77 @@ return false;
 }
 } else {
 // Shared pool: check enough seats remain.
+if ( $remaining < $needed ) {
+return false;
+}
+}
+}
+return true;
+}
+
+/**
+ * Atomically verify pool capacity and return true if all pools for a
+ * service can accommodate the booking.
+ *
+ * Uses SELECT … FOR UPDATE inside a transaction so concurrent requests
+ * serialise on the SLOTCOUNT rows and cannot double-book the same seats.
+ *
+ * Called from the booking-create path (after SLOTCOUNT lock is acquired).
+ *
+ * @param int    $service_id
+ * @param string $date
+ * @param int    $seats_requested
+ * @return bool  True if seats are available.
+ */
+public function verify_pool_capacity_for_booking( int $service_id, string $date, int $seats_requested = 1 ): bool {
+$pools = $this->get_pools_for_service( $service_id );
+if ( empty( $pools ) ) {
+return true; // Service not in any pool — no constraint.
+}
+
+$link_table = $this->db->get_table_name( 'SERVICE_RESOURCE_POOL' );
+$slot_table = $this->db->get_table_name( 'SLOTCOUNT' );
+
+foreach ( $pools as $pool_row ) {
+$pool = $this->get_pool( (int) $pool_row->id );
+if ( ! $pool ) {
+continue;
+}
+$needed = $seats_requested * (int) $pool_row->consumption_per_booking;
+
+// Lock all SLOTCOUNT rows for services in this pool to prevent race conditions.
+$this->db->execute_ddl(
+$this->db->prepare_sql(
+"SELECT sc.id FROM {$slot_table} sc
+ INNER JOIN {$link_table} srp ON srp.service_id = sc.service_id
+ WHERE srp.resource_pool_id = %d AND sc.booking_date = %s AND sc.is_active = 1
+ FOR UPDATE",
+(int) $pool->id,
+$date
+)
+);
+
+// Re-read capacity after acquiring lock.
+$consumed = (int) $this->db->get_var_raw(
+$this->db->prepare_sql(
+"SELECT COALESCE(SUM(sc.current_slots_booked * srp.consumption_per_booking), 0)
+ FROM {$slot_table} sc
+ INNER JOIN {$link_table} srp ON srp.service_id = sc.service_id
+ WHERE srp.resource_pool_id = %d
+   AND sc.booking_date = %s
+   AND sc.is_active = 1",
+(int) $pool->id,
+$date
+)
+);
+
+$remaining = max( 0, (int) $pool->total_capacity - $consumed );
+
+if ( 'private' === $pool->allocation_rule ) {
+if ( $remaining < $pool->total_capacity ) {
+return false;
+}
+} else {
 if ( $remaining < $needed ) {
 return false;
 }

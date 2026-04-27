@@ -17,6 +17,16 @@ function bmCollectOptionValueIds() {
 	return ids.join(',');
 }
 
+/**
+ * Return the selected bundle ID (or empty string).
+ *
+ * @returns {string}
+ */
+function bmCollectBundleId() {
+	var $sel = jQuery('#bm_selected_bundle_id');
+	return $sel.length ? ( $sel.val() || '' ) : '';
+}
+
 jQuery(document).ready(function ($) {
 	// $.datepicker.setDefaults($.datepicker.regional[bm_normal_object.current_language]);
 
@@ -743,6 +753,7 @@ jQuery(document).on('click', '.get_checkout_form', function (e) {
 		'no_of_persons': no_of_persons.length != 0 ? no_of_persons.join(',') : jQuery('#no_of_persons').val(),
 		'checkout_option': jQuery('#flexi_checkout_options').length > 0 ? jQuery('#flexi_checkout_options').val() : '',
 		'option_value_ids': bmCollectOptionValueIds(),
+		'selected_bundle_id': bmCollectBundleId(),
 		'type': 'home_page',
 	}
 
@@ -810,6 +821,7 @@ jQuery(document).on('click', '.get_svc_by_cat_checkout_form', function (e) {
 		'no_of_persons': no_of_persons.length != 0 ? no_of_persons.join(',') : jQuery('#no_of_persons').val(),
 		'checkout_option': jQuery('#flexi_checkout_options').length > 0 ? jQuery('#flexi_checkout_options').val() : '',
 		'option_value_ids': bmCollectOptionValueIds(),
+		'selected_bundle_id': bmCollectBundleId(),
 		'type': 'service_by_category',
 	}
 
