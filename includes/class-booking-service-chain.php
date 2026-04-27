@@ -209,6 +209,10 @@ return false;
 /**
  * Determine whether a service has any active confirmed booking on a given date/slot.
  *
+ * Uses SUM(current_slots_booked) > 0 instead of COUNT(*) so that
+ * zero-capacity SLOTCOUNT rows (e.g. gift bookings with
+ * current_slots_booked = 0) never falsely indicate the service is occupied.
+ *
  * @param int    $service_id
  * @param string $date
  * @param int    $slot_id   0 = date-level check (any slot).
@@ -218,9 +222,9 @@ public function service_is_booked_on_date( int $service_id, string $date, int $s
 $slot_table = $this->db->get_table_name( 'SLOTCOUNT' );
 
 if ( $slot_id > 0 ) {
-$count = (int) $this->db->get_var_raw(
+$total = (int) $this->db->get_var_raw(
 $this->db->prepare_sql(
-"SELECT COUNT(*) FROM {$slot_table}
+"SELECT COALESCE(SUM(current_slots_booked), 0) FROM {$slot_table}
  WHERE service_id = %d AND booking_date = %s AND slot_id = %d AND is_active = 1",
 $service_id,
 $date,
@@ -228,9 +232,9 @@ $slot_id
 )
 );
 } else {
-$count = (int) $this->db->get_var_raw(
+$total = (int) $this->db->get_var_raw(
 $this->db->prepare_sql(
-"SELECT COUNT(*) FROM {$slot_table}
+"SELECT COALESCE(SUM(current_slots_booked), 0) FROM {$slot_table}
  WHERE service_id = %d AND booking_date = %s AND is_active = 1",
 $service_id,
 $date
@@ -238,6 +242,6 @@ $date
 );
 }
 
-return $count > 0;
+return $total > 0;
 }
 }

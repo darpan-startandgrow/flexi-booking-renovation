@@ -5054,6 +5054,26 @@ class BM_Request {
 					}
 				}
 
+				// ── §1.7 Mandatory option validation ──────────────────────────
+				if ( class_exists( 'BM_ServiceOptions' ) ) {
+					$options_handler_v = new BM_ServiceOptions();
+					$required_sets     = $options_handler_v->get_required_option_sets_for_service( (int) $id );
+					if ( ! empty( $required_sets ) ) {
+						$raw_ids = isset( $data['option_value_ids'] ) ? $data['option_value_ids'] : '';
+						$chosen_ids = is_array( $raw_ids )
+							? array_filter( array_map( 'intval', $raw_ids ) )
+							: array_filter( array_map( 'intval', explode( ',', (string) $raw_ids ) ) );
+						foreach ( $required_sets as $req_set ) {
+							$set_values    = $options_handler_v->get_values_for_option_set( (int) $req_set->id );
+							$set_value_ids = array_map( 'intval', array_column( (array) $set_values, 'id' ) );
+							if ( empty( array_intersect( $chosen_ids, $set_value_ids ) ) ) {
+								$booking_fields['required_options_missing'] = true;
+								break;
+							}
+						}
+					}
+				}
+
 				// ── §1.9 Bundle: apply bundle discount if selected ─────────────
 				$selected_bundle_id = isset( $data['selected_bundle_id'] ) ? (int) $data['selected_bundle_id'] : 0;
 				if ( $selected_bundle_id > 0 && class_exists( 'BM_Bundle' ) ) {
@@ -12374,6 +12394,19 @@ class BM_Request {
 							if ( $booking_id ) {
                                                                 do_action( 'bm_order_data_after_save_booking_data', $booking_id, $finaldata, $booking_key, $checkout_key );
 
+								// ── §1.9 Bundle: record fulfilment lines ─────────────────────
+								if ( class_exists( 'BM_Bundle' ) && ! empty( $finaldata['booking_features_data'] ) ) {
+									$_features = maybe_unserialize( $finaldata['booking_features_data'] );
+									if ( isset( $_features['selected_bundle']['bundle_id'] ) ) {
+										$_bundle_handler    = new BM_Bundle();
+										$_bundle_id         = (int) $_features['selected_bundle']['bundle_id'];
+										$_original_total    = isset( $order_data['service_cost'] ) ? (float) $order_data['service_cost'] : 0.0;
+										$_bundled_total     = isset( $order_data['total_cost'] ) ? (float) $order_data['total_cost'] : $_original_total;
+										$_discount_applied  = max( 0.0, $_original_total - $_bundled_total );
+										$_bundle_handler->record_bundle_booking( (int) $booking_id, $_bundle_id, $_discount_applied );
+									}
+								}
+
 								$order_number    = $booking_id;
 								$slot_count_data = array(
 									'service_id'           => $service_id,
@@ -13942,6 +13975,9 @@ class BM_Request {
 		}
 
 		if ( $booking_id > 0 ) {
+			if ( class_exists( 'BM_Bundle' ) ) {
+				( new BM_Bundle() )->delete_fulfilment_for_booking( (int) $booking_id );
+			}
 			$dbhandler->remove_row( 'BOOKING', 'id', $booking_id, '%d' );
 			$dbhandler->remove_row( 'SLOTCOUNT', 'booking_id', $booking_id, '%d' );
 			$dbhandler->remove_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, '%d' );
@@ -13969,6 +14005,9 @@ class BM_Request {
 				}
 			}
 
+			if ( class_exists( 'BM_Bundle' ) ) {
+				( new BM_Bundle() )->delete_fulfilment_for_booking( (int) $booking_id );
+			}
 			$dbhandler->remove_row( 'BOOKING', 'id', $booking_id, '%d' );
 			$dbhandler->remove_row( 'SLOTCOUNT', 'booking_id', $booking_id, '%d' );
 			$dbhandler->remove_row( 'EXTRASLOTCOUNT', 'booking_id', $booking_id, '%d' );

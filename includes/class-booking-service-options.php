@@ -243,6 +243,22 @@ return $base_price + (float) $value->price_modifier;
 }
 
 /**
+ * Get all active REQUIRED option sets for a service (is_required = 1).
+ *
+ * @param int $service_id
+ * @return array
+ */
+public function get_required_option_sets_for_service( int $service_id ): array {
+$table = $this->db->get_table_name( 'OPTION_SET' );
+return $this->db->get_results_raw(
+$this->db->prepare_sql(
+"SELECT * FROM {$table} WHERE service_id = %d AND status = 1 AND is_required = 1 ORDER BY id ASC",
+$service_id
+)
+) ?: [];
+}
+
+/**
  * Get the full option tree for a service (sets + their values).
  *
  * @param int $service_id
