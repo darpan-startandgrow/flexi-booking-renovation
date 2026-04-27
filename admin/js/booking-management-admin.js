@@ -10286,8 +10286,7 @@ function bm_search_checkin_data(type = '') {
 		base:         jQuery(location).attr("href"),
 	};
 	if (serviceIds && serviceIds.length) {
-		var ids = Array.isArray(serviceIds) ? serviceIds : serviceIds.split(',');
-		jQuery.each(ids, function(i, v) { params['service_ids[' + i + ']'] = parseInt(v, 10); });
+		params.service_ids = (Array.isArray(serviceIds) ? serviceIds : serviceIds.split(',')).map(function(v) { return parseInt(v, 10); });
 	}
 
 	jQuery.ajax({
@@ -10872,8 +10871,7 @@ function fetchAndExportData(moduleType, type, startPage = 0, endPage = 0) {
             order_dir:    post.order_dir,
         };
         if (serviceIds && serviceIds.length) {
-            var ids = Array.isArray(serviceIds) ? serviceIds : serviceIds.split(',');
-            jQuery.each(ids, function(i, v) { restParams['services[' + i + ']'] = parseInt(v, 10); });
+            restParams.services = (Array.isArray(serviceIds) ? serviceIds : serviceIds.split(',')).map(function(v) { return parseInt(v, 10); });
         }
         jQuery.ajax({
             url: checkinRest.url + 'checkins/export',
