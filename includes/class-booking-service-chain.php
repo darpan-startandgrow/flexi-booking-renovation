@@ -14,238 +14,230 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-	exit;
+exit;
 }
 
 class BM_ServiceChain {
 
-	/** @var Booking_Management_Activator */
-	private $activator;
+/** @var BM_DBhandler */
+private $db;
 
-	public function __construct() {
-		$this->activator = new Booking_Management_Activator();
-	}
+public function __construct() {
+$this->db = new BM_DBhandler();
+}
 
-	// ───────────────────────────── CHAIN CRUD ────────────────────────────────
+// ───────────────────────────── CHAIN CRUD ────────────────────────────────
 
-	/**
-	 * Create a chain rule between two services.
-	 *
-	 * @param int    $service_a_id
-	 * @param int    $service_b_id
-	 * @param string $chain_type  'exclusive'|'unidirectional'
-	 * @return int|false
-	 */
-	public function create_chain( int $service_a_id, int $service_b_id, string $chain_type = 'exclusive' ) {
-		global $wpdb;
-		$table      = $this->activator->get_db_table_name( 'SERVICE_CHAIN' );
-		$chain_type = in_array( $chain_type, [ 'exclusive', 'unidirectional' ], true ) ? $chain_type : 'exclusive';
+/**
+ * Create a chain rule between two services.
+ *
+ * @param int    $service_a_id
+ * @param int    $service_b_id
+ * @param string $chain_type  'exclusive'|'unidirectional'
+ * @return int|false
+ */
+public function create_chain( int $service_a_id, int $service_b_id, string $chain_type = 'exclusive' ) {
+$chain_type = in_array( $chain_type, [ 'exclusive', 'unidirectional' ], true ) ? $chain_type : 'exclusive';
+$table      = $this->db->get_table_name( 'SERVICE_CHAIN' );
 
-		// Check for existing chain to avoid resetting created_at
-		$existing = $wpdb->get_var( $wpdb->prepare(
-			"SELECT id FROM $table WHERE service_a_id = %d AND service_b_id = %d",
-			$service_a_id,
-			$service_b_id
-		) );
+// Check for existing chain to avoid resetting created_at.
+$existing = $this->db->get_var_raw(
+$this->db->prepare_sql(
+"SELECT id FROM {$table} WHERE service_a_id = %d AND service_b_id = %d",
+$service_a_id,
+$service_b_id
+)
+);
 
-		if ( $existing ) {
-			$wpdb->update(
-				$table,
-				[ 'chain_type' => $chain_type, 'status' => 1 ],
-				[ 'id' => (int) $existing ],
-				[ '%s', '%d' ],
-				[ '%d' ]
-			);
-			return (int) $existing;
-		}
+if ( $existing ) {
+$this->db->update_where(
+'SERVICE_CHAIN',
+[ 'chain_type' => $chain_type, 'status' => 1 ],
+[ 'id' => (int) $existing ],
+[ '%s', '%d' ],
+[ '%d' ]
+);
+return (int) $existing;
+}
 
-		$result = $wpdb->insert(
-			$table,
-			[
-				'service_a_id' => $service_a_id,
-				'service_b_id' => $service_b_id,
-				'chain_type'   => $chain_type,
-				'status'       => 1,
-			],
-			[ '%d', '%d', '%s', '%d' ]
-		);
-		return $result ? $wpdb->insert_id : false;
-	}
+return $this->db->insert_row(
+'SERVICE_CHAIN',
+[
+'service_a_id' => $service_a_id,
+'service_b_id' => $service_b_id,
+'chain_type'   => $chain_type,
+'status'       => 1,
+],
+[ '%d', '%d', '%s', '%d' ]
+);
+}
 
-	/**
-	 * Update chain status or type.
-	 *
-	 * @param int   $chain_id
-	 * @param array $data  Keys: chain_type, status
-	 * @return bool
-	 */
-	public function update_chain( int $chain_id, array $data ): bool {
-		global $wpdb;
-		$table   = $this->activator->get_db_table_name( 'SERVICE_CHAIN' );
-		$allowed = [ 'chain_type', 'status' ];
-		$set     = [];
-		$formats = [];
-		foreach ( $allowed as $key ) {
-			if ( array_key_exists( $key, $data ) ) {
-				$set[ $key ] = $data[ $key ];
-				$formats[]   = 'status' === $key ? '%d' : '%s';
-			}
-		}
-		if ( empty( $set ) ) {
-			return false;
-		}
-		return (bool) $wpdb->update( $table, $set, [ 'id' => $chain_id ], $formats, [ '%d' ] );
-	}
+/**
+ * Update chain status or type.
+ *
+ * @param int   $chain_id
+ * @param array $data  Keys: chain_type, status
+ * @return bool
+ */
+public function update_chain( int $chain_id, array $data ): bool {
+$allowed = [ 'chain_type', 'status' ];
+$set     = [];
+$formats = [];
+foreach ( $allowed as $key ) {
+if ( array_key_exists( $key, $data ) ) {
+$set[ $key ] = $data[ $key ];
+$formats[]   = 'status' === $key ? '%d' : '%s';
+}
+}
+if ( empty( $set ) ) {
+return false;
+}
+return (bool) $this->db->update_row( 'SERVICE_CHAIN', 'id', $chain_id, $set, $formats, [ '%d' ] );
+}
 
-	/**
-	 * Delete a chain rule.
-	 *
-	 * @param int $chain_id
-	 * @return bool
-	 */
-	public function delete_chain( int $chain_id ): bool {
-		global $wpdb;
-		return (bool) $wpdb->delete(
-			$this->activator->get_db_table_name( 'SERVICE_CHAIN' ),
-			[ 'id' => $chain_id ],
-			[ '%d' ]
-		);
-	}
+/**
+ * Delete a chain rule.
+ *
+ * @param int $chain_id
+ * @return bool
+ */
+public function delete_chain( int $chain_id ): bool {
+return $this->db->remove_row( 'SERVICE_CHAIN', 'id', $chain_id, [ '%d' ] );
+}
 
-	/**
-	 * Get a single chain rule.
-	 *
-	 * @param int $chain_id
-	 * @return object|null
-	 */
-	public function get_chain( int $chain_id ) {
-		global $wpdb;
-		$table = $this->activator->get_db_table_name( 'SERVICE_CHAIN' );
-		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id = %d", $chain_id ) );
-	}
+/**
+ * Get a single chain rule.
+ *
+ * @param int $chain_id
+ * @return object|null
+ */
+public function get_chain( int $chain_id ) {
+return $this->db->get_row( 'SERVICE_CHAIN', $chain_id );
+}
 
-	/**
-	 * Get all active chains involving a specific service (either as A or B).
-	 *
-	 * @param int $service_id
-	 * @return array
-	 */
-	public function get_chains_for_service( int $service_id ): array {
-		global $wpdb;
-		$table = $this->activator->get_db_table_name( 'SERVICE_CHAIN' );
-		return $wpdb->get_results( $wpdb->prepare(
-			"SELECT * FROM $table
-			 WHERE (service_a_id = %d OR service_b_id = %d) AND status = 1",
-			$service_id,
-			$service_id
-		) ) ?: [];
-	}
+/**
+ * Get all active chains involving a specific service (either as A or B).
+ *
+ * @param int $service_id
+ * @return array
+ */
+public function get_chains_for_service( int $service_id ): array {
+$table = $this->db->get_table_name( 'SERVICE_CHAIN' );
+return $this->db->get_results_raw(
+$this->db->prepare_sql(
+"SELECT * FROM {$table}
+ WHERE (service_a_id = %d OR service_b_id = %d) AND status = 1",
+$service_id,
+$service_id
+)
+) ?: [];
+}
 
-	/**
-	 * Get all chain rules.
-	 *
-	 * @param int|null $status  1=active, 0=inactive, null=all
-	 * @return array
-	 */
-	public function get_all_chains( $status = 1 ): array {
-		global $wpdb;
-		$table = $this->activator->get_db_table_name( 'SERVICE_CHAIN' );
-		if ( null === $status ) {
-			return $wpdb->get_results( "SELECT * FROM $table ORDER BY id ASC" ) ?: [];
-		}
-		return $wpdb->get_results(
-			$wpdb->prepare( "SELECT * FROM $table WHERE status = %d ORDER BY id ASC", $status )
-		) ?: [];
-	}
+/**
+ * Get all chain rules.
+ *
+ * @param int|null $status  1=active, 0=inactive, null=all
+ * @return array
+ */
+public function get_all_chains( $status = 1 ): array {
+$table = $this->db->get_table_name( 'SERVICE_CHAIN' );
+if ( null === $status ) {
+return $this->db->get_results_raw( "SELECT * FROM {$table} ORDER BY id ASC" ) ?: [];
+}
+return $this->db->get_results_raw(
+$this->db->prepare_sql( "SELECT * FROM {$table} WHERE status = %d ORDER BY id ASC", $status )
+) ?: [];
+}
 
-	// ─────────────────────── AVAILABILITY / EXCLUSION ────────────────────────
+// ─────────────────────── AVAILABILITY / EXCLUSION ────────────────────────
 
-	/**
-	 * Given a service and a date/slot, return IDs of services that are closed
-	 * because of an existing booking.
-	 *
-	 * @param int    $service_id  Service that has just been booked.
-	 * @param string $date        YYYY-MM-DD
-	 * @param int    $slot_id     0 if date-only logic.
-	 * @return int[]  Array of service IDs that should be closed.
-	 */
-	public function get_excluded_services( int $service_id, string $date, int $slot_id = 0 ): array {
-		$chains   = $this->get_chains_for_service( $service_id );
-		$excluded = [];
+/**
+ * Given a service and a date/slot, return IDs of services that are closed
+ * because of an existing booking.
+ *
+ * @param int    $service_id  Service that has just been booked.
+ * @param string $date        YYYY-MM-DD
+ * @param int    $slot_id     0 if date-only logic.
+ * @return int[]  Array of service IDs that should be closed.
+ */
+public function get_excluded_services( int $service_id, string $date, int $slot_id = 0 ): array {
+$chains   = $this->get_chains_for_service( $service_id );
+$excluded = [];
 
-		foreach ( $chains as $chain ) {
-			$other_id = (int) $chain->service_a_id === $service_id
-				? (int) $chain->service_b_id
-				: (int) $chain->service_a_id;
+foreach ( $chains as $chain ) {
+$other_id = (int) $chain->service_a_id === $service_id
+? (int) $chain->service_b_id
+: (int) $chain->service_a_id;
 
-			// For unidirectional chains only close when booking A (not B)
-			if ( 'unidirectional' === $chain->chain_type && (int) $chain->service_b_id === $service_id ) {
-				continue;
-			}
+// For unidirectional chains only close when booking A (not B).
+if ( 'unidirectional' === $chain->chain_type && (int) $chain->service_b_id === $service_id ) {
+continue;
+}
 
-			if ( $this->service_is_booked_on_date( $service_id, $date, $slot_id ) ) {
-				$excluded[] = $other_id;
-			}
-		}
+if ( $this->service_is_booked_on_date( $service_id, $date, $slot_id ) ) {
+$excluded[] = $other_id;
+}
+}
 
-		return array_unique( $excluded );
-	}
+return array_unique( $excluded );
+}
 
-	/**
-	 * Check whether a service is blocked on a date/slot by any of its chains.
-	 *
-	 * @param int    $service_id
-	 * @param string $date
-	 * @param int    $slot_id
-	 * @return bool  true if the service is blocked.
-	 */
-	public function is_service_blocked_by_chain( int $service_id, string $date, int $slot_id = 0 ): bool {
-		$chains = $this->get_chains_for_service( $service_id );
+/**
+ * Check whether a service is blocked on a date/slot by any of its chains.
+ *
+ * @param int    $service_id
+ * @param string $date
+ * @param int    $slot_id
+ * @return bool  true if the service is blocked.
+ */
+public function is_service_blocked_by_chain( int $service_id, string $date, int $slot_id = 0 ): bool {
+$chains = $this->get_chains_for_service( $service_id );
 
-		foreach ( $chains as $chain ) {
-			$peer_id = (int) $chain->service_a_id === $service_id
-				? (int) $chain->service_b_id
-				: (int) $chain->service_a_id;
+foreach ( $chains as $chain ) {
+$peer_id = (int) $chain->service_a_id === $service_id
+? (int) $chain->service_b_id
+: (int) $chain->service_a_id;
 
-			// Unidirectional: only A blocks B, so if checking B, peer is A which blocks B
-			// For exclusive: any booking of the peer blocks this service
-			if ( $this->service_is_booked_on_date( $peer_id, $date, $slot_id ) ) {
-				return true;
-			}
-		}
+if ( $this->service_is_booked_on_date( $peer_id, $date, $slot_id ) ) {
+return true;
+}
+}
 
-		return false;
-	}
+return false;
+}
 
-	/**
-	 * Determine whether a service has any active confirmed booking on a given date/slot.
-	 *
-	 * @param int    $service_id
-	 * @param string $date
-	 * @param int    $slot_id   0 = date-level check (any slot).
-	 * @return bool
-	 */
-	public function service_is_booked_on_date( int $service_id, string $date, int $slot_id = 0 ): bool {
-		global $wpdb;
-		$slot_table = ( new Booking_Management_Activator() )->get_db_table_name( 'SLOTCOUNT' );
+/**
+ * Determine whether a service has any active confirmed booking on a given date/slot.
+ *
+ * @param int    $service_id
+ * @param string $date
+ * @param int    $slot_id   0 = date-level check (any slot).
+ * @return bool
+ */
+public function service_is_booked_on_date( int $service_id, string $date, int $slot_id = 0 ): bool {
+$slot_table = $this->db->get_table_name( 'SLOTCOUNT' );
 
-		if ( $slot_id > 0 ) {
-			$count = (int) $wpdb->get_var( $wpdb->prepare(
-				"SELECT COUNT(*) FROM $slot_table
-				 WHERE service_id = %d AND booking_date = %s AND slot_id = %d AND is_active = 1",
-				$service_id,
-				$date,
-				$slot_id
-			) );
-		} else {
-			$count = (int) $wpdb->get_var( $wpdb->prepare(
-				"SELECT COUNT(*) FROM $slot_table
-				 WHERE service_id = %d AND booking_date = %s AND is_active = 1",
-				$service_id,
-				$date
-			) );
-		}
+if ( $slot_id > 0 ) {
+$count = (int) $this->db->get_var_raw(
+$this->db->prepare_sql(
+"SELECT COUNT(*) FROM {$slot_table}
+ WHERE service_id = %d AND booking_date = %s AND slot_id = %d AND is_active = 1",
+$service_id,
+$date,
+$slot_id
+)
+);
+} else {
+$count = (int) $this->db->get_var_raw(
+$this->db->prepare_sql(
+"SELECT COUNT(*) FROM {$slot_table}
+ WHERE service_id = %d AND booking_date = %s AND is_active = 1",
+$service_id,
+$date
+)
+);
+}
 
-		return $count > 0;
-	}
+return $count > 0;
+}
 }
