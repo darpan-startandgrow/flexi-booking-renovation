@@ -45,8 +45,31 @@ class BM_VirtualService {
 	 */
 	public function create_virtual_service( int $service_id, string $name, string $description = '' ) {
 		global $wpdb;
-		$table  = $this->activator->get_db_table_name( 'VIRTUAL_SERVICE' );
-		$result = $wpdb->replace(
+		$table = $this->activator->get_db_table_name( 'VIRTUAL_SERVICE' );
+
+		// Check for existing record to avoid resetting created_at
+		$existing = $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM $table WHERE service_id = %d",
+			$service_id
+		) );
+
+		if ( $existing ) {
+			$wpdb->update(
+				$table,
+				[
+					'name'       => sanitize_text_field( $name ),
+					'description' => sanitize_textarea_field( $description ),
+					'status'     => 1,
+					'updated_at' => current_time( 'mysql' ),
+				],
+				[ 'id' => (int) $existing ],
+				[ '%s', '%s', '%d', '%s' ],
+				[ '%d' ]
+			);
+			return (int) $existing;
+		}
+
+		$result = $wpdb->insert(
 			$table,
 			[
 				'service_id'  => $service_id,

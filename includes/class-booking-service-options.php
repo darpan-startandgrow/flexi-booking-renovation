@@ -166,7 +166,8 @@ class BM_ServiceOptions {
 				'is_default'     => $is_default ? 1 : 0,
 				'status'         => 1,
 			],
-			[ '%d', '%s', '%s', '%f', null !== $price_override ? '%f' : 'NULL', '%d', '%d' ]
+			// null values use '%s' so wpdb serialises them as NULL
+			[ '%d', '%s', '%s', '%f', null !== $price_override ? '%f' : '%s', '%d', '%d' ]
 		);
 		return $result ? $wpdb->insert_id : false;
 	}
@@ -190,7 +191,8 @@ class BM_ServiceOptions {
 				if ( in_array( $key, [ 'is_default', 'status' ], true ) ) {
 					$formats[] = '%d';
 				} elseif ( in_array( $key, [ 'price_modifier', 'price_override' ], true ) ) {
-					$formats[] = null !== $data[ $key ] ? '%f' : 'NULL';
+					// null values use '%s' so wpdb serialises them as NULL
+					$formats[] = null !== $data[ $key ] ? '%f' : '%s';
 				} else {
 					$formats[] = '%s';
 				}

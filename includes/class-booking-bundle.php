@@ -53,7 +53,7 @@ class BM_Bundle {
 				'discount_value' => (float) $discount_value,
 				'status'         => 1,
 			],
-			[ '%s', '%s', null !== $discount_type ? '%s' : 'NULL', '%f', '%d' ]
+			[ '%s', '%s', null !== $discount_type ? '%s' : '%s', '%f', '%d' ]
 		);
 		return $result ? $wpdb->insert_id : false;
 	}

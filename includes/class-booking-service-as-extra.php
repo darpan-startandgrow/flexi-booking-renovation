@@ -45,18 +45,52 @@ class BM_ServiceAsExtra {
 	 */
 	public function create_service_as_extra( int $parent_service_id, int $addon_service_id, $price_override = null, bool $is_visible_frontend = true ) {
 		global $wpdb;
-		$table  = $this->activator->get_db_table_name( 'SERVICE_AS_EXTRA' );
-		$result = $wpdb->replace(
-			$table,
-			[
-				'parent_service_id'   => $parent_service_id,
-				'addon_service_id'    => $addon_service_id,
-				'price_override'      => null !== $price_override ? (float) $price_override : null,
-				'is_visible_frontend' => $is_visible_frontend ? 1 : 0,
-				'status'              => 1,
-			],
-			[ '%d', '%d', null !== $price_override ? '%f' : 'NULL', '%d', '%d' ]
-		);
+		$table = $this->activator->get_db_table_name( 'SERVICE_AS_EXTRA' );
+
+		// Check for existing row to avoid resetting created_at
+		$existing = $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM $table WHERE parent_service_id = %d AND addon_service_id = %d",
+			$parent_service_id,
+			$addon_service_id
+		) );
+
+		$data    = [
+			'is_visible_frontend' => $is_visible_frontend ? 1 : 0,
+			'status'              => 1,
+		];
+		$formats = [ '%d', '%d' ];
+
+		if ( null !== $price_override ) {
+			$data['price_override'] = (float) $price_override;
+			$formats[]              = '%f';
+		} else {
+			$data['price_override'] = null;
+			$formats[]              = '%s';
+		}
+
+		if ( $existing ) {
+			$data['updated_at'] = current_time( 'mysql' );
+			$formats[]          = '%s';
+			$wpdb->update( $table, $data, [ 'id' => (int) $existing ], $formats, [ '%d' ] );
+			return (int) $existing;
+		}
+
+		$insert_data    = [
+			'parent_service_id'   => $parent_service_id,
+			'addon_service_id'    => $addon_service_id,
+			'is_visible_frontend' => $is_visible_frontend ? 1 : 0,
+			'status'              => 1,
+		];
+		$insert_formats = [ '%d', '%d', '%d', '%d' ];
+		if ( null !== $price_override ) {
+			$insert_data['price_override'] = (float) $price_override;
+			$insert_formats[]              = '%f';
+		} else {
+			$insert_data['price_override'] = null;
+			$insert_formats[]              = '%s';
+		}
+
+		$result = $wpdb->insert( $table, $insert_data, $insert_formats );
 		return $result ? $wpdb->insert_id : false;
 	}
 
@@ -77,7 +111,8 @@ class BM_ServiceAsExtra {
 			if ( array_key_exists( $key, $data ) ) {
 				$set[ $key ] = $data[ $key ];
 				if ( 'price_override' === $key ) {
-					$formats[] = null !== $data[ $key ] ? '%f' : 'NULL';
+					// NULL is a valid value — pass null with '%s' so wpdb serialises as NULL
+					$formats[] = null !== $data[ $key ] ? '%f' : '%s';
 				} else {
 					$formats[] = '%d';
 				}

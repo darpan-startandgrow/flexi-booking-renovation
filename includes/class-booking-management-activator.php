@@ -545,7 +545,7 @@ class Booking_Management_Activator {
 			`id` int(11) NOT NULL AUTO_INCREMENT,
 			`name` varchar(255) NOT NULL,
 			`description` longtext DEFAULT NULL,
-			`total_capacity` int(100) NOT NULL DEFAULT 1,
+			`total_capacity` int(11) NOT NULL DEFAULT 1,
 			`allocation_rule` varchar(50) NOT NULL DEFAULT 'shared',
 			`status` int(11) NOT NULL DEFAULT 1,
 			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,

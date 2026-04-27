@@ -38,13 +38,33 @@ class BM_ServiceChain {
 	 */
 	public function create_chain( int $service_a_id, int $service_b_id, string $chain_type = 'exclusive' ) {
 		global $wpdb;
-		$table  = $this->activator->get_db_table_name( 'SERVICE_CHAIN' );
-		$result = $wpdb->replace(
+		$table      = $this->activator->get_db_table_name( 'SERVICE_CHAIN' );
+		$chain_type = in_array( $chain_type, [ 'exclusive', 'unidirectional' ], true ) ? $chain_type : 'exclusive';
+
+		// Check for existing chain to avoid resetting created_at
+		$existing = $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM $table WHERE service_a_id = %d AND service_b_id = %d",
+			$service_a_id,
+			$service_b_id
+		) );
+
+		if ( $existing ) {
+			$wpdb->update(
+				$table,
+				[ 'chain_type' => $chain_type, 'status' => 1 ],
+				[ 'id' => (int) $existing ],
+				[ '%s', '%d' ],
+				[ '%d' ]
+			);
+			return (int) $existing;
+		}
+
+		$result = $wpdb->insert(
 			$table,
 			[
 				'service_a_id' => $service_a_id,
 				'service_b_id' => $service_b_id,
-				'chain_type'   => in_array( $chain_type, [ 'exclusive', 'unidirectional' ], true ) ? $chain_type : 'exclusive',
+				'chain_type'   => $chain_type,
 				'status'       => 1,
 			],
 			[ '%d', '%d', '%s', '%d' ]

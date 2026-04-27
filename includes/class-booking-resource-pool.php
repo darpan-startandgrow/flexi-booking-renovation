@@ -138,8 +138,27 @@ class BM_ResourcePool {
 	 */
 	public function link_service_to_pool( int $service_id, int $pool_id, int $consumption_per_booking = 1 ) {
 		global $wpdb;
-		$table  = $this->activator->get_db_table_name( 'SERVICE_RESOURCE_POOL' );
-		$result = $wpdb->replace(
+		$table = $this->activator->get_db_table_name( 'SERVICE_RESOURCE_POOL' );
+
+		// Check for existing link so we don't reset created_at
+		$existing = $wpdb->get_var( $wpdb->prepare(
+			"SELECT id FROM $table WHERE service_id = %d AND resource_pool_id = %d",
+			$service_id,
+			$pool_id
+		) );
+
+		if ( $existing ) {
+			$wpdb->update(
+				$table,
+				[ 'consumption_per_booking' => max( 1, $consumption_per_booking ) ],
+				[ 'id' => (int) $existing ],
+				[ '%d' ],
+				[ '%d' ]
+			);
+			return (int) $existing;
+		}
+
+		$result = $wpdb->insert(
 			$table,
 			[
 				'service_id'              => $service_id,
