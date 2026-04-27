@@ -640,6 +640,33 @@ class Booking_Management_Activator {
 		)$charset_collate;";
 		dbDelta( $sql );
 
+		// ── 1.9 Bundle fulfilment: records bundle sale and per-item allocation ─
+		$table_name = $this->get_db_table_name( 'BUNDLE_BOOKING' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`booking_id` int(11) NOT NULL,
+			`bundle_id` int(11) NOT NULL,
+			`bundle_name` varchar(255) NOT NULL DEFAULT '',
+			`discount_applied` float(50) NOT NULL DEFAULT 0,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (`id`),
+			KEY `idx_booking_id` (`booking_id`),
+			KEY `idx_bundle_id` (`bundle_id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
+		$table_name = $this->get_db_table_name( 'BUNDLE_FULFILMENT_LINE' );
+		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
+			`id` int(11) NOT NULL AUTO_INCREMENT,
+			`bundle_booking_id` int(11) NOT NULL,
+			`service_id` int(11) NOT NULL,
+			`quantity` int(11) NOT NULL DEFAULT 1,
+			`created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (`id`),
+			KEY `idx_bundle_booking_id` (`bundle_booking_id`)
+		)$charset_collate;";
+		dbDelta( $sql );
+
 		// ── 1.8 Virtual Services: derived offers ─────────────────────────────
 		$table_name = $this->get_db_table_name( 'VIRTUAL_SERVICE' );
 		$sql        = "CREATE TABLE IF NOT EXISTS $table_name (
@@ -803,6 +830,12 @@ class Booking_Management_Activator {
 				break;
 			case 'BUNDLE_ITEM':
 				$table_name = $plugin_prefix . 'bundle_items';
+				break;
+			case 'BUNDLE_BOOKING':
+				$table_name = $plugin_prefix . 'bundle_bookings';
+				break;
+			case 'BUNDLE_FULFILMENT_LINE':
+				$table_name = $plugin_prefix . 'bundle_fulfilment_lines';
 				break;
 			case 'VIRTUAL_SERVICE':
 				$table_name = $plugin_prefix . 'virtual_services';

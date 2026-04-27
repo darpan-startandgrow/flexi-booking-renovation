@@ -265,4 +265,81 @@ return null;
 $bundle->items = $this->get_bundle_items( $bundle_id );
 return $bundle;
 }
+
+// ─────────────────────────── FULFILMENT ──────────────────────────────────
+
+/**
+ * Record a bundle sale and insert one fulfilment line per bundle item.
+ *
+ * Called from the booking creation path after a booking row has been
+ * saved so that every bundle purchase has a traceable audit trail.
+ *
+ * @param int   $booking_id       ID of the freshly created BOOKING row.
+ * @param int   $bundle_id        Bundle that was purchased.
+ * @param float $discount_applied Discount amount that was applied.
+ * @return int|false  BUNDLE_BOOKING row ID on success, false on failure.
+ */
+public function record_bundle_booking( int $booking_id, int $bundle_id, float $discount_applied = 0.0 ) {
+$bundle = $this->get_bundle( $bundle_id );
+if ( ! $bundle || ! $booking_id ) {
+return false;
+}
+
+$bundle_booking_id = $this->db->insert_row(
+'BUNDLE_BOOKING',
+[
+'booking_id'       => $booking_id,
+'bundle_id'        => $bundle_id,
+'bundle_name'      => (string) $bundle->name,
+'discount_applied' => $discount_applied,
+],
+[ '%d', '%d', '%s', '%f' ]
+);
+
+if ( ! $bundle_booking_id ) {
+return false;
+}
+
+$items = $this->get_bundle_items( $bundle_id );
+foreach ( $items as $item ) {
+$this->db->insert_row(
+'BUNDLE_FULFILMENT_LINE',
+[
+'bundle_booking_id' => (int) $bundle_booking_id,
+'service_id'        => (int) $item->service_id,
+'quantity'          => (int) $item->quantity,
+],
+[ '%d', '%d', '%d' ]
+);
+}
+
+return $bundle_booking_id;
+}
+
+/**
+ * Delete all fulfilment records for a booking (called on booking cancellation).
+ *
+ * @param int $booking_id
+ * @return bool
+ */
+public function delete_fulfilment_for_booking( int $booking_id ): bool {
+$bb_table  = $this->db->get_table_name( 'BUNDLE_BOOKING' );
+$bfl_table = $this->db->get_table_name( 'BUNDLE_FULFILMENT_LINE' );
+
+// Find bundle booking IDs for this booking.
+$bb_ids = $this->db->get_results_raw(
+$this->db->prepare_sql(
+"SELECT id FROM {$bb_table} WHERE booking_id = %d",
+$booking_id
+)
+);
+
+if ( ! empty( $bb_ids ) ) {
+foreach ( $bb_ids as $bb ) {
+$this->db->delete_where( 'BUNDLE_FULFILMENT_LINE', [ 'bundle_booking_id' => (int) $bb->id ], [ '%d' ] );
+}
+}
+
+return $this->db->delete_where( 'BUNDLE_BOOKING', [ 'booking_id' => $booking_id ], [ '%d' ] );
+}
 }

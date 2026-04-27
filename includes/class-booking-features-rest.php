@@ -26,6 +26,9 @@ class Booking_Features_REST {
 
 	const NAMESPACE = 'bm-features/v1';
 
+	/** @var BM_SharedExtra */
+	private $shared_extra;
+
 	/** @var BM_ResourcePool */
 	private $resource_pool;
 
@@ -45,6 +48,7 @@ class Booking_Features_REST {
 	private $service_as_extra;
 
 	public function __construct() {
+		$this->shared_extra     = new BM_SharedExtra();
 		$this->resource_pool    = new BM_ResourcePool();
 		$this->service_chain    = new BM_ServiceChain();
 		$this->service_options  = new BM_ServiceOptions();
@@ -59,6 +63,68 @@ class Booking_Features_REST {
 
 	public function register_routes(): void {
 		$ns = self::NAMESPACE;
+
+		// ── §1.3 Shared Inventory Extras ──────────────────────────────────────
+		register_rest_route( $ns, '/shared-extras', [
+			[
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'list_shared_extras' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+			[
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'create_shared_extra' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+		] );
+		register_rest_route( $ns, '/shared-extras/(?P<id>\d+)', [
+			[
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'get_shared_extra' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+			[
+				'methods'             => WP_REST_Server::EDITABLE,
+				'callback'            => [ $this, 'update_shared_extra' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+			[
+				'methods'             => WP_REST_Server::DELETABLE,
+				'callback'            => [ $this, 'delete_shared_extra' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+		] );
+		register_rest_route( $ns, '/shared-extras/(?P<id>\d+)/services', [
+			[
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'get_shared_extra_services' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+			[
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => [ $this, 'link_service_to_shared_extra' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+			[
+				'methods'             => WP_REST_Server::DELETABLE,
+				'callback'            => [ $this, 'unlink_service_from_shared_extra' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+		] );
+		register_rest_route( $ns, '/shared-extras/(?P<id>\d+)/consumption', [
+			[
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'get_shared_extra_consumption' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+		] );
+		register_rest_route( $ns, '/shared-extras/service/(?P<service_id>\d+)', [
+			[
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'get_extras_for_service' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+		] );
 
 		// ── Resource Pools ────────────────────────────────────────────────────
 		register_rest_route( $ns, '/resource-pools', [
@@ -376,6 +442,90 @@ class Booking_Features_REST {
 
 	public function admin_permission(): bool {
 		return current_user_can( 'manage_options' );
+	}
+
+	// ──────────────────── §1.3 SHARED EXTRA HANDLERS ─────────────────────────
+
+	public function list_shared_extras( WP_REST_Request $request ): WP_REST_Response {
+		$data = $this->shared_extra->get_all_shared_extras();
+		return new WP_REST_Response( [ 'success' => true, 'data' => $data ] );
+	}
+
+	public function get_shared_extra( WP_REST_Request $request ): WP_REST_Response {
+		$extra = $this->shared_extra->get_shared_extra( (int) $request['id'] );
+		if ( ! $extra ) {
+			return new WP_REST_Response( [ 'success' => false, 'message' => 'Not found' ], 404 );
+		}
+		$extra->services = $this->shared_extra->get_services_for_extra( (int) $extra->id );
+		return new WP_REST_Response( [ 'success' => true, 'data' => $extra ] );
+	}
+
+	public function create_shared_extra( WP_REST_Request $request ): WP_REST_Response {
+		$params = $request->get_json_params() ?: $request->get_body_params();
+		$id     = $this->shared_extra->create_shared_extra(
+			(string) ( $params['name'] ?? '' ),
+			(float)  ( $params['price'] ?? 0.0 ),
+			(int)    ( $params['max_capacity'] ?? 1 ),
+			(string) ( $params['description'] ?? '' ),
+			(bool)   ( $params['is_visible_frontend'] ?? true )
+		);
+		if ( ! $id ) {
+			return new WP_REST_Response( [ 'success' => false, 'message' => 'Failed to create shared extra' ], 500 );
+		}
+		return new WP_REST_Response( [ 'success' => true, 'data' => [ 'id' => $id ] ], 201 );
+	}
+
+	public function update_shared_extra( WP_REST_Request $request ): WP_REST_Response {
+		$params  = $request->get_json_params() ?: $request->get_body_params();
+		$updated = $this->shared_extra->update_shared_extra( (int) $request['id'], $params );
+		return new WP_REST_Response( [ 'success' => $updated ] );
+	}
+
+	public function delete_shared_extra( WP_REST_Request $request ): WP_REST_Response {
+		$deleted = $this->shared_extra->delete_shared_extra( (int) $request['id'] );
+		return new WP_REST_Response( [ 'success' => $deleted ] );
+	}
+
+	public function get_shared_extra_services( WP_REST_Request $request ): WP_REST_Response {
+		$data = $this->shared_extra->get_services_for_extra( (int) $request['id'] );
+		return new WP_REST_Response( [ 'success' => true, 'data' => $data ] );
+	}
+
+	public function link_service_to_shared_extra( WP_REST_Request $request ): WP_REST_Response {
+		$params = $request->get_json_params() ?: $request->get_body_params();
+		$id     = $this->shared_extra->link_service(
+			(int) ( $params['service_id'] ?? 0 ),
+			(int) $request['id']
+		);
+		if ( ! $id ) {
+			return new WP_REST_Response( [ 'success' => false, 'message' => 'Failed to link service' ], 500 );
+		}
+		return new WP_REST_Response( [ 'success' => true, 'data' => [ 'id' => $id ] ], 201 );
+	}
+
+	public function unlink_service_from_shared_extra( WP_REST_Request $request ): WP_REST_Response {
+		$params  = $request->get_json_params() ?: $request->get_body_params();
+		$deleted = $this->shared_extra->unlink_service(
+			(int) ( $params['service_id'] ?? 0 ),
+			(int) $request['id']
+		);
+		return new WP_REST_Response( [ 'success' => $deleted ] );
+	}
+
+	public function get_shared_extra_consumption( WP_REST_Request $request ): WP_REST_Response {
+		$from = $request->get_param( 'from' );
+		$to   = $request->get_param( 'to' );
+		$data = $this->shared_extra->get_consumption_by_service(
+			(int) $request['id'],
+			$from ?: null,
+			$to ?: null
+		);
+		return new WP_REST_Response( [ 'success' => true, 'data' => $data ] );
+	}
+
+	public function get_extras_for_service( WP_REST_Request $request ): WP_REST_Response {
+		$data = $this->shared_extra->get_extras_for_service( (int) $request['service_id'] );
+		return new WP_REST_Response( [ 'success' => true, 'data' => $data ] );
 	}
 
 	// ──────────────────────── RESOURCE POOL HANDLERS ─────────────────────────

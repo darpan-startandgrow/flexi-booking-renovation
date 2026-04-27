@@ -2728,6 +2728,8 @@ return ob_get_clean();
 							$data['data'] = '<div class="textcenter">' . esc_html__( 'Can not book on the selected slot', 'service-booking' ) . '</div>';
 						} elseif ( isset( $slot_info['slot_capacity_left_after_booking'] ) && ( $slot_info['slot_capacity_left_after_booking'] < 0 ) ) {
 							$data['data'] = '<div class="textcenter">' . esc_html__( 'Not enough capacity left, try booking another slot or service !!', 'service-booking' ) . '</div>';
+						} elseif ( ! empty( $booking_fields['required_options_missing'] ) ) {
+							$data['data'] = '<div class="textcenter">' . esc_html__( 'Please select all required options before proceeding !!', 'service-booking' ) . '</div>';
 						} elseif ( ( $bookable_extra == false ) ) {
 							$data['data'] = '<div class="textcenter">' . esc_html__( 'One or more extra services does not have enough capacity, choose another !!', 'service-booking' ) . '</div>';
 						} elseif ( $checkout_option == 'woocommerce_checkout' && $wc_id <= 0 ) {
