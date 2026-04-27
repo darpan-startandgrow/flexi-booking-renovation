@@ -175,6 +175,10 @@ do_action( 'bm_checkin_page_loaded' );
                 <span class="bm-ci-counter-label"><?php esc_html_e( 'Late', 'service-booking' ); ?></span>
                 <span class="bm-ci-counter-value" id="bm-ci-count-late"><?php echo absint( $ci_counts['late'] ); ?></span>
             </span>
+            <span class="bm-ci-counter-item bm-ci-counter-item--early">
+                <span class="bm-ci-counter-label"><?php esc_html_e( 'Early', 'service-booking' ); ?></span>
+                <span class="bm-ci-counter-value" id="bm-ci-count-early"><?php echo absint( $ci_counts['early'] ); ?></span>
+            </span>
         </div>
 
         <!-- Bulk Actions Bar -->

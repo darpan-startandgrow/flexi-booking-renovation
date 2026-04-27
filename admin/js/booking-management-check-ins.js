@@ -421,6 +421,11 @@ jQuery(document).ready(function($) {
     const $cropperImg = $("#cropper-image");
     const $confirmBtn = $("#crop-confirm");
 
+    // Configure pdf.js worker source so PDF rendering works on the admin page.
+    if (typeof pdfjsLib !== 'undefined' && typeof bm_pdf_settings !== 'undefined' && bm_pdf_settings.workerSrc) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = bm_pdf_settings.workerSrc;
+    }
+
     let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
 
     $modalHeader.on("mousedown", function(e) {
@@ -520,6 +525,14 @@ jQuery(document).ready(function($) {
         if (!file) return;
 
         if (file.type === "application/pdf") {
+            if (typeof pdfjsLib === 'undefined') {
+                $("#scanner-result").html("<p class='error'>" + $('<span>').text(
+                    (typeof bm_pdf_settings !== 'undefined' && bm_pdf_settings.pdfjs_missing)
+                        ? bm_pdf_settings.pdfjs_missing
+                        : 'PDF library not loaded. Please refresh the page.'
+                ).html() + "</p>");
+                return;
+            }
             let fileReader = new FileReader();
             fileReader.onload = function() {
                 let typedarray = new Uint8Array(this.result);
@@ -535,6 +548,8 @@ jQuery(document).ready(function($) {
                             openCropperModal(canvas.toDataURL("image/png"));
                         });
                     });
+                }).catch(function(err) {
+                    $("#scanner-result").html("<p class='error'>" + $('<span>').text('Failed to read PDF: ' + (err.message || '')).html() + "</p>");
                 });
             };
             fileReader.readAsArrayBuffer(file);
@@ -652,6 +667,9 @@ function bm_refresh_checkin_counter() {
             jQuery('#bm-ci-count-pending').text(counts.pending || 0);
             jQuery('#bm-ci-count-expired').text(counts.expired || 0);
             jQuery('#bm-ci-count-no_show').text(counts.no_show || 0);
+            jQuery('#bm-ci-count-late').text(counts.late || 0);
+            jQuery('#bm-ci-count-early').text(counts.early || 0);
+            jQuery('#bm-ci-count-checked_out').text(counts.checked_out || 0);
         }
     });
 }

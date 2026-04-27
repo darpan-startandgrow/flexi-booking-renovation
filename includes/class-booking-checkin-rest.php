@@ -512,11 +512,11 @@ class Booking_Checkin_REST {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_checkins( WP_REST_Request $request ) {
-		$db        = new BM_DBhandler();
-		$activator = new Booking_Management_Activator();
-		$cht_table = $activator->get_db_table_name( 'CHECKIN' );
-		$bkt_table = $activator->get_db_table_name( 'BOOKING' );
-		$svc_table = $activator->get_db_table_name( 'SERVICE' );
+		$db         = new BM_DBhandler();
+		$activator  = new Booking_Management_Activator();
+		$cht_table  = $activator->get_db_table_name( 'CHECKIN' );
+		$bkt_table  = $activator->get_db_table_name( 'BOOKING' );
+		$cust_table = $activator->get_db_table_name( 'CUSTOMERS' );
 
 		$page     = max( 1, (int) $request->get_param( 'page' ) );
 		$per_page = min( 100, max( 1, (int) $request->get_param( 'per_page' ) ) );
@@ -564,9 +564,10 @@ class Booking_Checkin_REST {
 		}
 
 		if ( $search ) {
-			$like = '%' . $db->esc_like( $search ) . '%';
-			$where_parts[] = '(b.booking_key LIKE %s OR b.first_name LIKE %s OR b.last_name LIKE %s OR b.email_address LIKE %s)';
-			$where_vals[]  = $like;
+			// Search by booking key, customer name, or customer email.
+			// BOOKING table does not store first/last name — use CUSTOMERS table.
+			$like          = '%' . $db->esc_like( $search ) . '%';
+			$where_parts[] = '(b.booking_key LIKE %s OR cust.customer_name LIKE %s OR cust.customer_email LIKE %s)';
 			$where_vals[]  = $like;
 			$where_vals[]  = $like;
 			$where_vals[]  = $like;
@@ -575,31 +576,62 @@ class Booking_Checkin_REST {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$where_sql = implode( ' AND ', $where_parts );
 
-		$base_sql = "SELECT ch.*, b.booking_key, b.booking_date, b.first_name, b.last_name,
-		                    b.email_address, b.contact_no, b.service_id, b.service_name
+		$base_sql = "SELECT ch.*, b.booking_key, b.booking_date, b.service_id, b.service_name,
+		                    cust.customer_name, cust.customer_email, cust.billing_details
 		             FROM `{$cht_table}` ch
 		             INNER JOIN `{$bkt_table}` b ON b.id = ch.booking_id
+		             LEFT JOIN `{$cust_table}` cust ON cust.id = b.customer_id
 		             WHERE {$where_sql}";
 
 		// Total count for pagination.
 		$count_sql = $db->prepare_sql(
-			"SELECT COUNT(*) FROM `{$cht_table}` ch INNER JOIN `{$bkt_table}` b ON b.id = ch.booking_id WHERE {$where_sql}",
+			"SELECT COUNT(*) FROM `{$cht_table}` ch
+			 INNER JOIN `{$bkt_table}` b ON b.id = ch.booking_id
+			 LEFT JOIN `{$cust_table}` cust ON cust.id = b.customer_id
+			 WHERE {$where_sql}",
 			...$where_vals
 		);
 		$total = (int) $db->get_var_raw( $count_sql );
 		// phpcs:enable
 
 		// Main data query.
-		$data_vals   = array_merge( $where_vals, array( $per_page, $offset ) );
+		$data_vals = array_merge( $where_vals, array( $per_page, $offset ) );
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$data_sql    = $db->prepare_sql(
+		$data_sql  = $db->prepare_sql(
 			$base_sql . " ORDER BY ch.`{$orderby}` {$order} LIMIT %d OFFSET %d",
 			...$data_vals
 		);
 		// phpcs:enable
 		$rows = $db->get_results_raw( $data_sql ) ?? array();
 
-		$data = array_map( array( $this, 'format_checkin_row' ), $rows );
+		$data = array_map( function ( $row ) {
+			// Parse billing_details to extract first/last name and contact.
+			$billing    = ! empty( $row->billing_details )
+				? maybe_unserialize( $row->billing_details )
+				: array();
+			$first_name = isset( $billing['billing_first_name'] ) ? $billing['billing_first_name'] : '';
+			$last_name  = isset( $billing['billing_last_name'] )  ? $billing['billing_last_name']  : '';
+			$contact    = isset( $billing['billing_contact'] )    ? $billing['billing_contact']    : '';
+			$email      = isset( $billing['billing_email'] )
+				? $billing['billing_email']
+				: ( isset( $row->customer_email ) ? $row->customer_email : '' );
+
+			$status = sanitize_key( $row->status ?? '' );
+
+			return array_merge(
+				$this->format_checkin_row( $row ),
+				array(
+					'booking_key'   => sanitize_text_field( $row->booking_key ?? '' ),
+					'booking_date'  => sanitize_text_field( $row->booking_date ?? '' ),
+					'service_id'    => (int) ( $row->service_id ?? 0 ),
+					'service_name'  => sanitize_text_field( $row->service_name ?? '' ),
+					'first_name'    => sanitize_text_field( $first_name ),
+					'last_name'     => sanitize_text_field( $last_name ),
+					'email_address' => sanitize_email( $email ),
+					'contact_no'    => sanitize_text_field( $contact ),
+				)
+			);
+		}, $rows );
 
 		return rest_ensure_response(
 			array(
@@ -972,15 +1004,19 @@ class Booking_Checkin_REST {
 		$token = wp_generate_password( 32, false );
 		set_transient( 'bm_ci_confirm_' . $token, $booking_id, 10 * MINUTE_IN_SECONDS );
 
+		// Retrieve customer billing data from CUSTOMERS table.
+		// BOOKING table does not store first_name / last_name / email_address.
+		$customer = $this->extract_customer_data( $booking, $db );
+
 		return new WP_REST_Response(
 			array(
 				'success'       => true,
 				'booking_id'    => $booking_id,
 				'booking_key'   => sanitize_text_field( $booking->booking_key ?? '' ),
-				'attendee'      => trim( sanitize_text_field( ( $booking->first_name ?? '' ) . ' ' . ( $booking->last_name ?? '' ) ) ),
-				'first_name'    => sanitize_text_field( $booking->first_name ?? '' ),
-				'last_name'     => sanitize_text_field( $booking->last_name ?? '' ),
-				'email'         => sanitize_email( $booking->email_address ?? '' ),
+				'attendee'      => trim( sanitize_text_field( $customer['first_name'] . ' ' . $customer['last_name'] ) ),
+				'first_name'    => sanitize_text_field( $customer['first_name'] ),
+				'last_name'     => sanitize_text_field( $customer['last_name'] ),
+				'email'         => sanitize_email( $customer['email'] ),
 				'service'       => sanitize_text_field( $booking->service_name ?? '' ),
 				'booking_date'  => sanitize_text_field( $booking->booking_date ?? '' ),
 				'message'       => __( 'Checked in successfully.', 'service-booking' ),
@@ -1076,12 +1112,15 @@ class Booking_Checkin_REST {
 			);
 		}
 
-		$db        = new BM_DBhandler();
-		$activator = new Booking_Management_Activator();
-		$bkt_table = $activator->get_db_table_name( 'BOOKING' );
-		$cht_table = $activator->get_db_table_name( 'CHECKIN' );
+		$db         = new BM_DBhandler();
+		$activator  = new Booking_Management_Activator();
+		$bkt_table  = $activator->get_db_table_name( 'BOOKING' );
+		$cht_table  = $activator->get_db_table_name( 'CHECKIN' );
+		$cust_table = $activator->get_db_table_name( 'CUSTOMERS' );
 
 		// Build WHERE clause per search type.
+		// BOOKING table does not store first_name / last_name / email_address.
+		// These live in CUSTOMERS table via customer_email and billing_details.
 		$where_parts = array( 'b.is_active = 1' );
 		$where_vals  = array();
 
@@ -1092,13 +1131,16 @@ class Booking_Checkin_REST {
 				break;
 
 			case 'email':
-				$where_parts[] = 'b.email_address = %s';
+				// Match against CUSTOMERS.customer_email (direct column).
+				$where_parts[] = 'cust.customer_email = %s';
 				$where_vals[]  = $search_value;
 				break;
 
 			case 'last_name':
+				// billing_details is serialized; search within the serialised string for the last name value.
 				$like          = '%' . $db->esc_like( $search_value ) . '%';
-				$where_parts[] = 'b.last_name LIKE %s';
+				$where_parts[] = '(cust.billing_details LIKE %s OR cust.customer_name LIKE %s)';
+				$where_vals[]  = $like;
 				$where_vals[]  = $like;
 				break;
 
@@ -1123,11 +1165,12 @@ class Booking_Checkin_REST {
 		$where_sql = implode( ' AND ', $where_parts );
 		$sql       = $db->prepare_sql(
 			"SELECT b.id, b.booking_key, b.service_id, b.service_name,
-			        b.first_name, b.last_name, b.email_address,
 			        b.total_svc_slots AS svc_participants,
 			        b.total_ext_svc_slots AS ex_svc_participants,
+			        cust.customer_name, cust.customer_email, cust.billing_details,
 			        ch.status AS checkin_status, ch.checkin_time, ch.id AS checkin_id
 			 FROM `{$bkt_table}` b
+			 LEFT JOIN `{$cust_table}` cust ON cust.id = b.customer_id
 			 LEFT JOIN `{$cht_table}` ch ON ch.booking_id = b.id
 			 WHERE {$where_sql}
 			 ORDER BY b.id DESC
@@ -1139,15 +1182,24 @@ class Booking_Checkin_REST {
 		$rows = $db->get_results_raw( $sql ) ?? array();
 
 		$results = array_map( function ( $row ) {
-			$status = sanitize_key( $row->checkin_status ?? '' );
+			$status  = sanitize_key( $row->checkin_status ?? '' );
+			$billing = ! empty( $row->billing_details )
+				? maybe_unserialize( $row->billing_details )
+				: array();
+			$first   = isset( $billing['billing_first_name'] ) ? $billing['billing_first_name'] : '';
+			$last    = isset( $billing['billing_last_name'] )  ? $billing['billing_last_name']  : '';
+			$email   = isset( $billing['billing_email'] )
+				? $billing['billing_email']
+				: ( isset( $row->customer_email ) ? $row->customer_email : '' );
+
 			return array(
 				'id'               => (int) $row->id,
 				'booking_key'      => sanitize_text_field( $row->booking_key ?? '' ),
 				'service_id'       => (int) $row->service_id,
 				'service_name'     => sanitize_text_field( $row->service_name ?? '' ),
-				'first_name'       => sanitize_text_field( $row->first_name ?? '' ),
-				'last_name'        => sanitize_text_field( $row->last_name ?? '' ),
-				'email_address'    => sanitize_email( $row->email_address ?? '' ),
+				'first_name'       => sanitize_text_field( $first ),
+				'last_name'        => sanitize_text_field( $last ),
+				'email_address'    => sanitize_email( $email ),
 				'svc_participants' => (int) ( $row->svc_participants ?? 0 ),
 				'ex_participants'  => (int) ( $row->ex_svc_participants ?? 0 ),
 				'checkin_status'   => $status,
@@ -1193,18 +1245,19 @@ class Booking_Checkin_REST {
 
 		$checkin = $db->get_row( 'CHECKIN', $booking_id, 'booking_id' );
 
-		// Retrieve billing address if available.
-		$customer_name = trim( sanitize_text_field( ( $booking->first_name ?? '' ) . ' ' . ( $booking->last_name ?? '' ) ) );
+		// Retrieve customer billing data from CUSTOMERS table.
+		// BOOKING table does not store first_name / last_name / email_address / contact_no.
+		$customer = $this->extract_customer_data( $booking, $db );
 
 		return rest_ensure_response(
 			array(
 				'booking_id'    => $booking_id,
 				'booking_key'   => sanitize_text_field( $booking->booking_key ?? '' ),
-				'attendee'      => $customer_name,
-				'first_name'    => sanitize_text_field( $booking->first_name ?? '' ),
-				'last_name'     => sanitize_text_field( $booking->last_name ?? '' ),
-				'email'         => sanitize_email( $booking->email_address ?? '' ),
-				'contact_no'    => sanitize_text_field( $booking->contact_no ?? '' ),
+				'attendee'      => trim( sanitize_text_field( $customer['first_name'] . ' ' . $customer['last_name'] ) ),
+				'first_name'    => sanitize_text_field( $customer['first_name'] ),
+				'last_name'     => sanitize_text_field( $customer['last_name'] ),
+				'email'         => sanitize_email( $customer['email'] ),
+				'contact_no'    => sanitize_text_field( $customer['contact'] ),
 				'service_name'  => sanitize_text_field( $booking->service_name ?? '' ),
 				'booking_date'  => sanitize_text_field( $booking->booking_date ?? '' ),
 				'order_status'  => sanitize_text_field( $booking->order_status ?? '' ),
@@ -1216,15 +1269,55 @@ class Booking_Checkin_REST {
 	}
 
 	// -------------------------------------------------------------------------
+	// Customer data helper
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Extract customer billing data from the CUSTOMERS table for a given booking row.
+	 *
+	 * BOOKING table does not store first_name / last_name / email_address / contact_no
+	 * directly. These live in CUSTOMERS.billing_details (serialized array) and
+	 * CUSTOMERS.customer_email.
+	 *
+	 * @param  object|null $booking BOOKING row (must have customer_id).
+	 * @param  BM_DBhandler $db     DB handler instance.
+	 * @return array { first_name, last_name, email, contact }
+	 */
+	private function extract_customer_data( $booking, BM_DBhandler $db ) {
+		$first_name = '';
+		$last_name  = '';
+		$email      = '';
+		$contact    = '';
+
+		if ( $booking && ! empty( $booking->customer_id ) ) {
+			$customer = $db->get_row( 'CUSTOMERS', (int) $booking->customer_id, 'id' );
+			if ( $customer ) {
+				$billing    = ! empty( $customer->billing_details )
+					? maybe_unserialize( $customer->billing_details )
+					: array();
+				$first_name = isset( $billing['billing_first_name'] ) ? $billing['billing_first_name'] : '';
+				$last_name  = isset( $billing['billing_last_name'] )  ? $billing['billing_last_name']  : '';
+				$email      = isset( $billing['billing_email'] )
+					? $billing['billing_email']
+					: ( isset( $customer->customer_email ) ? $customer->customer_email : '' );
+				$contact    = isset( $billing['billing_contact'] ) ? $billing['billing_contact'] : '';
+			}
+		}
+
+		return compact( 'first_name', 'last_name', 'email', 'contact' );
+	}
+
+	// -------------------------------------------------------------------------
 	// Response formatter
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Normalise a CHECKIN DB row for REST output.
+	 * Normalise a raw CHECKIN DB row for REST output.
 	 *
-	 * Strips raw DB objects down to a clean, consistently typed array.
+	 * Only references columns that actually exist in the CHECKIN table.
+	 * Customer / booking fields must be enriched separately (e.g. from a JOIN).
 	 *
-	 * @param object $row Raw row from DB.
+	 * @param object $row Raw row from DB (CHECKIN table only).
 	 * @return array
 	 */
 	private function format_checkin_row( $row ) {
@@ -1237,17 +1330,11 @@ class Booking_Checkin_REST {
 		return array(
 			'id'            => (int) ( $row->id ?? 0 ),
 			'booking_id'    => (int) ( $row->booking_id ?? 0 ),
-			'booking_key'   => sanitize_text_field( $row->booking_key ?? '' ),
-			'booking_date'  => sanitize_text_field( $row->booking_date ?? '' ),
-			'first_name'    => sanitize_text_field( $row->first_name ?? '' ),
-			'last_name'     => sanitize_text_field( $row->last_name ?? '' ),
-			'email_address' => sanitize_email( $row->email_address ?? '' ),
-			'contact_no'    => sanitize_text_field( $row->contact_no ?? '' ),
-			'service_id'    => (int) ( $row->service_id ?? 0 ),
-			'service_name'  => sanitize_text_field( $row->service_name ?? '' ),
+			'qr_token'      => sanitize_text_field( $row->qr_token ?? '' ),
 			'status'        => $status,
 			'status_label'  => BM_Checkin::get_status_label( $status ),
 			'qr_scanned'    => (bool) ( $row->qr_scanned ?? false ),
+			'service_expired' => (bool) ( $row->service_expired ?? false ),
 			'checkin_time'  => sanitize_text_field( $row->checkin_time ?? '' ),
 			'checked_in_by' => (int) ( $row->checked_in_by ?? 0 ),
 			'notes'         => sanitize_textarea_field( $row->notes ?? '' ),

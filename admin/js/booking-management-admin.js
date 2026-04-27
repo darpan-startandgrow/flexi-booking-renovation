@@ -10394,19 +10394,24 @@ function bm_search_checkin_data(type = '') {
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'checkin_status') {
 								const status = checkins[i].checkin_status;
-								// Inline badge alongside the dropdown for quick visual scan.
 								const badgeClass = 'bm-ci-badge bm-ci-badge--' + bmEscAttr(status);
+								// Show a coloured status badge. Clicking the edit icon next to it
+								// reveals the inline dropdown for changing the status on the same row.
 								checkinListing += `<td style='text-align: center;'>`;
-								// Badge: visible text is sufficient for screen readers; no redundant aria-label.
-								checkinListing += `<span class="${badgeClass}">${bmEscHtml(status.replace('_', ' '))}</span>`;
-								checkinListing += `<select class="checkin-status-dropdown"
-												aria-label="Change check-in status"
+								checkinListing += `<span class="${badgeClass}">${bmEscHtml(status.replace(/_/g, ' '))}</span>`;
+								checkinListing += `<select class="checkin-status-dropdown bm-ci-status-select"
+												title="${bmEscAttr(bm_normal_object.change_status || 'Change status')}"
+												aria-label="${bmEscAttr(bm_normal_object.change_status || 'Change status')}"
 												data-checkin-id="${checkins[i].checkin_id}"
 												data-booking-id="${checkins[i].booking_id}">
-									<option value="pending" ${status == 'pending' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_pending || 'Pending')}</option>
-									<option value="checked_in" ${status == 'checked_in' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_checked_in || 'Checked In')}</option>
-									<option value="expired" ${status == 'expired' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_expired || 'Expired')}</option>
-									<option value="no_show" ${status == 'no_show' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_no_show || 'No Show')}</option>
+									<option value="" disabled selected>${bmEscHtml(bm_normal_object.change_status || '— Change Status —')}</option>
+									<option value="pending">${bmEscHtml(bm_normal_object.status_pending || 'Pending')}</option>
+									<option value="checked_in">${bmEscHtml(bm_normal_object.status_checked_in || 'Checked In')}</option>
+									<option value="expired">${bmEscHtml(bm_normal_object.status_expired || 'Expired')}</option>
+									<option value="no_show">${bmEscHtml(bm_normal_object.status_no_show || 'No Show')}</option>
+									<option value="late">${bmEscHtml(bm_normal_object.status_late || 'Late')}</option>
+									<option value="early">${bmEscHtml(bm_normal_object.status_early || 'Early')}</option>
+									<option value="checked_out">${bmEscHtml(bm_normal_object.status_checked_out || 'Checked Out')}</option>
 								</select>`;
 								checkinListing += "</td>";
 							}
@@ -10445,6 +10450,9 @@ function bm_search_checkin_data(type = '') {
 						jQuery('#bm-ci-count-pending').text(sc.pending || 0);
 						jQuery('#bm-ci-count-expired').text(sc.expired || 0);
 						jQuery('#bm-ci-count-no_show').text(sc.no_show || 0);
+						jQuery('#bm-ci-count-late').text(sc.late || 0);
+						jQuery('#bm-ci-count-early').text(sc.early || 0);
+						jQuery('#bm-ci-count-checked_out').text(sc.checked_out || 0);
 					}
 				} else {
 					jQuery(".checkin_records").append('<div class="no_records_class">' + bm_normal_object.no_records + '</div>');

@@ -517,3 +517,14 @@ table.manual_checkin_records_table thead td {
 
 .bm-ci-counter-item--early { border-color: #0288d1; }
 .bm-ci-counter-item--early .bm-ci-counter-value { color: #0288d1; }
+
+/* Inline status-change select — compact appearance beside the badge (v2.1.0) */
+.bm-ci-status-select {
+    margin-left: 4px;
+    font-size: 11px;
+    padding: 1px 2px;
+    height: auto;
+    vertical-align: middle;
+    max-width: 130px;
+    cursor: pointer;
+}
