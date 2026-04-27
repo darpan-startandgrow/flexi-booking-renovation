@@ -5065,7 +5065,7 @@ class BM_Request {
 							: array_filter( array_map( 'intval', explode( ',', (string) $raw_ids ) ) );
 						foreach ( $required_sets as $req_set ) {
 							$set_values    = $options_handler_v->get_values_for_option_set( (int) $req_set->id );
-							$set_value_ids = array_map( function ( $v ) { return (int) $v->id; }, $set_values );
+							$set_value_ids = array_map( 'intval', array_column( (array) $set_values, 'id' ) );
 							if ( empty( array_intersect( $chosen_ids, $set_value_ids ) ) ) {
 								$booking_fields['required_options_missing'] = true;
 								break;

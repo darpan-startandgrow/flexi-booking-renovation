@@ -51,14 +51,16 @@ class BM_SharedExtra {
 		return $this->db->insert_row(
 			'GLOBALEXTRA',
 			[
-				'name'                 => sanitize_text_field( $name ),
-				'description'          => sanitize_textarea_field( $description ),
-				'price'                => $price,
-				'max_capacity'         => max( 1, $max_capacity ),
-				'is_visible_frontend'  => $is_visible_frontend ? 1 : 0,
-				'duration_hours'       => 0,
+				'name'                  => sanitize_text_field( $name ),
+				'description'           => sanitize_textarea_field( $description ),
+				'price'                 => $price,
+				'max_capacity'          => max( 1, $max_capacity ),
+				'is_visible_frontend'   => $is_visible_frontend ? 1 : 0,
+				// duration_hours / total_operation_hours are legacy scheduling fields
+				// not required by §1.3; defaulted to 0 and editable via update_shared_extra().
+				'duration_hours'        => 0,
 				'total_operation_hours' => 0,
-				'link_woocommerce'     => 0,
+				'link_woocommerce'      => 0,
 			],
 			[ '%s', '%s', '%f', '%d', '%d', '%f', '%f', '%d' ]
 		);
