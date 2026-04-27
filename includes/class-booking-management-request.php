@@ -5021,13 +5021,11 @@ class BM_Request {
 				$booking_fields['subtotal']       = $total_cost;
 
 				// ── §1.7 Service Options: apply selected option pricing ────────
-				$option_value_ids = isset( $data['option_value_ids'] ) ? $data['option_value_ids'] : array();
-				if ( ! empty( $option_value_ids ) && class_exists( 'BM_ServiceOptions' ) ) {
-					if ( ! is_array( $option_value_ids ) ) {
-						$option_value_ids = array_filter( array_map( 'intval', explode( ',', $option_value_ids ) ) );
-					} else {
-						$option_value_ids = array_filter( array_map( 'intval', $option_value_ids ) );
-					}
+				$raw_option_value_ids = isset( $data['option_value_ids'] ) ? $data['option_value_ids'] : '';
+				if ( ! empty( $raw_option_value_ids ) && class_exists( 'BM_ServiceOptions' ) ) {
+					$option_value_ids = is_array( $raw_option_value_ids )
+						? array_filter( array_map( 'intval', $raw_option_value_ids ) )
+						: array_filter( array_map( 'intval', explode( ',', (string) $raw_option_value_ids ) ) );
 					$options_handler     = new BM_ServiceOptions();
 					$base_price_numeric  = (float) str_replace( $booking_currency, '', $base_svc_price );
 					$adjusted_price      = $base_price_numeric;
@@ -17811,8 +17809,10 @@ class BM_Request {
 			)
 		);
 
-		// If there's no capacity record yet for this date, treat the service as available
-		// up to its first slot's max_cap from the TIME table.
+		// If there's no capacity record yet for this date, use the first TIME row as an
+		// upper-bound estimate. When multiple time slots exist they typically share the
+		// same max_cap value; if not, this is a conservative estimate only (the real
+		// per-slot SLOTCOUNT gate enforces exact capacity at booking time).
 		if ( $svc_cap === 0 ) {
 			$time_row = $dbhandler->get_row( 'TIME', $addon_service_id, 'service_id' );
 			if ( ! empty( $time_row ) ) {
@@ -17821,9 +17821,9 @@ class BM_Request {
 					$svc_cap = (int) $time_slots['max_cap'][0];
 				}
 			}
-			// If still 0 assume unlimited — return remaining as if fully available.
+			// If still 0 assume unlimited — return a large positive number so the service is never blocked.
 			if ( $svc_cap === 0 ) {
-				return max( 0, (int) $requested_slots );
+				return PHP_INT_MAX;
 			}
 		}
 

@@ -317,7 +317,11 @@ continue;
 }
 $needed = $seats_requested * (int) $pool_row->consumption_per_booking;
 
-// Lock all SLOTCOUNT rows for services in this pool to prevent race conditions.
+// Lock all SLOTCOUNT rows for every service in this pool.
+// This is intentional: to compute pool consumption accurately we must
+// read all service rows atomically. Locking only the current service
+// would leave open a race window where another service in the pool
+// is booked concurrently, causing over-subscription.
 $this->db->execute_ddl(
 $this->db->prepare_sql(
 "SELECT sc.id FROM {$slot_table} sc

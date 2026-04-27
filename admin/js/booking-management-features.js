@@ -550,7 +550,7 @@ var rows = Array.isArray( data ) ? data : ( data.data || [] );
 if ( ! rows.length ) { $wrap.html( '<p>No service chains yet.</p>' ); return; }
 var html = '<table class="bm-features-table"><thead><tr><th>ID</th><th>Service A</th><th>Service B</th><th>Type</th><th>Actions</th></tr></thead><tbody>';
 $.each( rows, function ( i, c ) {
-html += '<tr><td>' + c.id + '</td><td>Svc #' + ( c.service_a_id || c.service_id_a ) + '</td><td>Svc #' + ( c.service_b_id || c.service_id_b ) + '</td>';
+html += '<tr><td>' + c.id + '</td><td>Svc #' + c.service_a_id + '</td><td>Svc #' + c.service_b_id + '</td>';
 html += '<td>' + $( '<span>' ).text( c.chain_type || 'mutual_exclusion' ).html() + '</td>';
 html += '<td><button class="button button-small button-link-delete bm-chain-delete" data-id="' + c.id + '">Delete</button></td></tr>';
 });
