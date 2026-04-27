@@ -17782,7 +17782,7 @@ class BM_Request {
 	 * @param int    $requested_slots   Slots the customer wants to book now.
 	 * @return int  Remaining capacity after the request (negative = not available).
 	 */
-	public function bm_get_service_as_extra_capacity_left( $addon_service_id, $date, $requested_slots = 0 ) {
+	public function bm_get_service_as_extra_capacity_left( int $addon_service_id, string $date, int $requested_slots = 0 ): int {
 		if ( empty( $addon_service_id ) || empty( $date ) ) {
 			return 0;
 		}

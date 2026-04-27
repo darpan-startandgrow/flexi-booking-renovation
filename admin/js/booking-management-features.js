@@ -82,7 +82,7 @@ html += '<tr data-set-id="' + set.id + '">';
 html += '<td>' + set.id + '</td>';
 html += '<td>' + $( '<span>' ).text( set.name ).html() + '</td>';
 html += '<td>' + ( set.is_required ? 'Yes' : 'No' ) + '</td>';
-html += '<td><button class="button button-small bm-options-show-values" data-set-id="' + set.id + '" data-set-name="' + $('<span>').text(set.name).html() + '">Values</button></td>';
+html += '<td><button class="button button-small bm-options-show-values" data-set-id="' + set.id + '">Values</button></td>';
 html += '<td><button class="button button-small button-link-delete bm-options-delete-set" data-set-id="' + set.id + '">Delete</button></td>';
 html += '</tr>';
 html += '<tr class="bm-child-rows" id="bm-option-values-' + set.id + '" style="display:none"><td colspan="5">';
@@ -107,6 +107,8 @@ $( document ).on( 'click', '#bm-options-load', function () { bmLoadOptionSets();
 
 $( document ).on( 'click', '#bm-add-option-set', function () {
 var svcId = $( '#bm-option-set-service-id-ref' ).val();
+// Sync the filter dropdown to match the new set's service before loading.
+$( '#bm-options-service-id' ).val( svcId );
 var name  = $( '#bm-option-set-name' ).val().trim();
 if ( ! svcId || ! name ) { alert( 'Service and name are required.' ); return; }
 var payload = {

@@ -339,6 +339,8 @@ class BM_Sanitizer {
 				$value = $value;
 				break;
 			case 'booking_features_data':
+				// Serialized PHP data (maybe_serialize output) — do not sanitize further
+				// as sanitization would corrupt the serialized format.
 				$value = $value;
 				break;
 			case 'is_active':

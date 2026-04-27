@@ -80,11 +80,7 @@ if ( empty( $services ) ) {
 				<label><?php esc_html_e( 'Required', 'service-booking' ); ?></label>
 				<input type="checkbox" id="bm-option-set-required" checked />
 			</div>
-			<button id="bm-add-option-set" class="button button-primary"
-				onclick="
-					var sel = document.getElementById('bm-option-set-service-id-ref');
-					document.getElementById('bm-options-service-id').value = sel.value;
-				">
+			<button id="bm-add-option-set" class="button button-primary">
 				<?php esc_html_e( 'Add Option Set', 'service-booking' ); ?>
 			</button>
 		</div>

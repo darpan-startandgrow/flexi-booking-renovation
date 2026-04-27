@@ -322,6 +322,9 @@ $needed = $seats_requested * (int) $pool_row->consumption_per_booking;
 // read all service rows atomically. Locking only the current service
 // would leave open a race window where another service in the pool
 // is booked concurrently, causing over-subscription.
+// Note: execute_ddl() is used here as it executes any raw SQL statement
+// without expecting a return value. A SELECT FOR UPDATE returns rows but
+// its primary purpose here is the row lock, not the result set.
 $this->db->execute_ddl(
 $this->db->prepare_sql(
 "SELECT sc.id FROM {$slot_table} sc
