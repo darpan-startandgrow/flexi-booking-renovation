@@ -151,6 +151,14 @@ class Booking_Management {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-validation.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-checkin.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-checkin-rest.php';
+		// ── Spec Part 1 feature classes ──────────────────────────────────────
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-resource-pool.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-service-chain.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-service-options.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-bundle.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-virtual-service.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-service-as-extra.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-booking-features-rest.php';
 		BM_Checkin::init();
 		$this->loader = new Booking_Management_Loader();
 	}
@@ -640,6 +648,7 @@ class Booking_Management {
 		new Booking_Stripe_Webhook();
 		new Booking_Planner_REST();
 		new Booking_Checkin_REST();
+		new Booking_Features_REST();
 	}
 
 
