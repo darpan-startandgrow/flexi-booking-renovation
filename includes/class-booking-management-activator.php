@@ -684,6 +684,7 @@ class Booking_Management_Activator {
 
 		$this->add_extra_types_booked_column_to_booking();
 		$this->add_extra_type_column_to_extraslotcount();
+		$this->add_booking_features_data_column_to_booking();
 		$this->add_extras_indexes();
 		$this->migrate_legacy_global_extras();
 		$this->add_error_column_to_emails();
@@ -2081,6 +2082,17 @@ class Booking_Management_Activator {
 		if ( empty( $row ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
 			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `extra_types_booked` longtext DEFAULT NULL AFTER `extra_svc_booked`" );
+		}
+	}
+
+	private function add_booking_features_data_column_to_booking() {
+		global $wpdb;
+		$table_name = esc_sql( $this->get_db_table_name( 'BOOKING' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$row = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'booking_features_data' ) );
+		if ( empty( $row ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `booking_features_data` longtext DEFAULT NULL AFTER `price_module_data`" );
 		}
 	}
 

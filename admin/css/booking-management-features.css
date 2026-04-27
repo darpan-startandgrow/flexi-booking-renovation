@@ -1,0 +1,164 @@
+/* FlexiBooking — Booking Features admin page styles */
+
+.bm-features-wrap {
+	max-width: 1100px;
+}
+
+.bm-features-tabs {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 0;
+	border-bottom: 2px solid #2271b1;
+	padding: 0;
+	list-style: none;
+}
+
+.bm-features-tabs li a {
+	display: block;
+	padding: 8px 16px;
+	text-decoration: none;
+	font-weight: 600;
+	color: #555;
+	background: #f0f0f1;
+	border: 1px solid #c3c4c7;
+	border-bottom: none;
+	border-radius: 4px 4px 0 0;
+}
+
+.bm-features-tabs li.bm-tab-active a {
+	background: #fff;
+	color: #2271b1;
+	border-color: #2271b1;
+}
+
+.bm-tab-panel {
+	display: none;
+	padding: 20px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-top: none;
+}
+
+.bm-tab-panel.bm-tab-panel-active {
+	display: block;
+}
+
+.bm-features-section-title {
+	font-size: 1.1em;
+	font-weight: 600;
+	margin-bottom: 12px;
+}
+
+.bm-features-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.bm-features-table th,
+.bm-features-table td {
+	text-align: left;
+	padding: 8px 10px;
+	border-bottom: 1px solid #f0f0f1;
+	vertical-align: middle;
+}
+
+.bm-features-table th {
+	background: #f6f7f7;
+	font-weight: 600;
+}
+
+.bm-features-table tr:hover td {
+	background: #f9f9f9;
+}
+
+.bm-features-form {
+	background: #f9f9f9;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	padding: 16px;
+	margin-top: 16px;
+}
+
+.bm-features-form .bm-form-row {
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+	margin-bottom: 10px;
+	flex-wrap: wrap;
+}
+
+.bm-features-form label {
+	font-weight: 600;
+	min-width: 140px;
+	padding-top: 4px;
+}
+
+.bm-features-form input[type="text"],
+.bm-features-form input[type="number"],
+.bm-features-form select,
+.bm-features-form textarea {
+	flex: 1;
+	min-width: 180px;
+	max-width: 400px;
+	padding: 5px 8px;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
+}
+
+.bm-features-form textarea {
+	height: 64px;
+}
+
+.bm-features-notice {
+	padding: 10px 14px;
+	border-left: 4px solid #72aee6;
+	background: #f0f6fc;
+	margin-bottom: 12px;
+}
+
+.bm-features-notice.success {
+	border-color: #00a32a;
+	background: #f0fff4;
+}
+
+.bm-features-notice.error {
+	border-color: #d63638;
+	background: #fcf0f1;
+}
+
+.bm-badge-status-1 {
+	color: #00a32a;
+	font-weight: 600;
+}
+
+.bm-badge-status-0 {
+	color: #d63638;
+	font-weight: 600;
+}
+
+.bm-child-rows {
+	padding: 8px 0 8px 24px;
+	background: #fafafa;
+}
+
+.bm-child-rows h4 {
+	margin: 0 0 6px;
+	font-size: 0.9em;
+	color: #50575e;
+}
+
+.bm-spinner {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	border: 2px solid #ccc;
+	border-top-color: #2271b1;
+	border-radius: 50%;
+	animation: bm-spin 0.6s linear infinite;
+	vertical-align: middle;
+	margin-right: 6px;
+}
+
+@keyframes bm-spin {
+	to { transform: rotate(360deg); }
+}

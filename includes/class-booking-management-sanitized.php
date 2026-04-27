@@ -338,6 +338,9 @@ class BM_Sanitizer {
 			case 'price_module_data':
 				$value = $value;
 				break;
+			case 'booking_features_data':
+				$value = $value;
+				break;
 			case 'is_active':
 				$value = sanitize_text_field( $value );
 				break;
