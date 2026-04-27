@@ -12,13 +12,21 @@
  * Endpoints
  * ---------
  * GET    /checkins              — paginated list with optional filters
+ * GET    /checkins/listing      — admin listing with search/filter, column config, pagination HTML, saved search
  * GET    /checkins/stats        — aggregated status counts
+ * GET    /checkins/saved-search — last saved checkin search criteria for current admin user
+ * GET    /checkins/search       — attendee lookup returning JSON rows
+ * GET    /checkins/export-options — export options HTML fragment
+ * GET    /checkins/export       — CSV-ready rows for current filter set
  * GET    /checkins/{id}         — single check-in record
+ * POST   /checkins/scan         — perform check-in by booking_key (QR payload)
+ * POST   /checkins/bulk         — batch check-in by booking ID array
  * POST   /checkins/{booking_id}/checkin  — perform check-in
  * POST   /checkins/{booking_id}/undo     — undo check-in → pending
  * POST   /checkins/{booking_id}/no-show  — mark as no-show
  * POST   /checkins/{booking_id}/checkout — mark as checked-out
  * PATCH  /checkins/{id}/status  — set an arbitrary status
+ * GET    /checkins/{booking_id}/details  — booking detail card for admin dashboard
  *
  * @package    Booking_Management
  * @subpackage Booking_Management/includes
@@ -307,6 +315,78 @@ class Booking_Checkin_REST {
 				),
 			)
 		);
+
+		// GET /checkins/listing — admin listing with search, filters, pagination HTML, column config, saved search.
+		// Must be registered before /checkins (GET) so it doesn't shadow the existing list endpoint.
+		register_rest_route(
+			self::NAMESPACE,
+			'/checkins/listing',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_checkins_listing' ),
+				'permission_callback' => array( $this, 'admin_permission_check' ),
+				'args'                => array(
+					'page'         => array( 'required' => false, 'default' => 1, 'sanitize_callback' => 'absint' ),
+					'per_page'     => array( 'required' => false, 'default' => 10, 'sanitize_callback' => 'absint' ),
+					'search'       => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+					'service_from' => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+					'service_to'   => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+					'checkin_from' => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+					'checkin_to'   => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+					'service_ids'  => array( 'required' => false, 'type' => 'array', 'items' => array( 'type' => 'integer' ) ),
+					'save_search'  => array( 'required' => false, 'default' => false, 'sanitize_callback' => 'rest_sanitize_boolean' ),
+					'base'         => array( 'required' => false, 'sanitize_callback' => 'esc_url_raw' ),
+				),
+			)
+		);
+
+		// GET /checkins/saved-search — return the last saved checkin search criteria for this admin user.
+		register_rest_route(
+			self::NAMESPACE,
+			'/checkins/saved-search',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_saved_search' ),
+				'permission_callback' => array( $this, 'admin_permission_check' ),
+			)
+		);
+
+		// GET /checkins/export-options — return the export options HTML fragment.
+		register_rest_route(
+			self::NAMESPACE,
+			'/checkins/export-options',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_export_options' ),
+				'permission_callback' => array( $this, 'admin_permission_check' ),
+			)
+		);
+
+		// GET /checkins/export — return CSV-ready rows for the current filter set.
+		register_rest_route(
+			self::NAMESPACE,
+			'/checkins/export',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_export_data' ),
+				'permission_callback' => array( $this, 'admin_permission_check' ),
+				'args'                => array(
+					'type'         => array( 'required' => false, 'default' => 'all', 'sanitize_callback' => 'sanitize_text_field' ),
+					'start_page'   => array( 'required' => false, 'default' => 0, 'sanitize_callback' => 'absint' ),
+					'end_page'     => array( 'required' => false, 'default' => 0, 'sanitize_callback' => 'absint' ),
+					'limit'        => array( 'required' => false, 'default' => 0, 'sanitize_callback' => 'absint' ),
+					'total_pages'  => array( 'required' => false, 'default' => 0, 'sanitize_callback' => 'absint' ),
+					'search'       => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+					'service_from' => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+					'service_to'   => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+					'checkin_from' => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+					'checkin_to'   => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+					'services'     => array( 'required' => false, 'type' => 'array', 'items' => array( 'type' => 'integer' ) ),
+					'order_column' => array( 'required' => false, 'default' => 'id', 'sanitize_callback' => 'sanitize_key' ),
+					'order_dir'    => array( 'required' => false, 'default' => 'DESC', 'sanitize_callback' => 'sanitize_text_field' ),
+				),
+			)
+		);
 	}
 
 	// -------------------------------------------------------------------------
@@ -432,11 +512,11 @@ class Booking_Checkin_REST {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_checkins( WP_REST_Request $request ) {
-		$db        = new BM_DBhandler();
-		$activator = new Booking_Management_Activator();
-		$cht_table = $activator->get_db_table_name( 'CHECKIN' );
-		$bkt_table = $activator->get_db_table_name( 'BOOKING' );
-		$svc_table = $activator->get_db_table_name( 'SERVICE' );
+		$db         = new BM_DBhandler();
+		$activator  = new Booking_Management_Activator();
+		$cht_table  = $activator->get_db_table_name( 'CHECKIN' );
+		$bkt_table  = $activator->get_db_table_name( 'BOOKING' );
+		$cust_table = $activator->get_db_table_name( 'CUSTOMERS' );
 
 		$page     = max( 1, (int) $request->get_param( 'page' ) );
 		$per_page = min( 100, max( 1, (int) $request->get_param( 'per_page' ) ) );
@@ -484,9 +564,10 @@ class Booking_Checkin_REST {
 		}
 
 		if ( $search ) {
-			$like = '%' . $db->esc_like( $search ) . '%';
-			$where_parts[] = '(b.booking_key LIKE %s OR b.first_name LIKE %s OR b.last_name LIKE %s OR b.email_address LIKE %s)';
-			$where_vals[]  = $like;
+			// Search by booking key, customer name, or customer email.
+			// BOOKING table does not store first/last name — use CUSTOMERS table.
+			$like          = '%' . $db->esc_like( $search ) . '%';
+			$where_parts[] = '(b.booking_key LIKE %s OR cust.customer_name LIKE %s OR cust.customer_email LIKE %s)';
 			$where_vals[]  = $like;
 			$where_vals[]  = $like;
 			$where_vals[]  = $like;
@@ -495,31 +576,62 @@ class Booking_Checkin_REST {
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$where_sql = implode( ' AND ', $where_parts );
 
-		$base_sql = "SELECT ch.*, b.booking_key, b.booking_date, b.first_name, b.last_name,
-		                    b.email_address, b.contact_no, b.service_id, b.service_name
+		$base_sql = "SELECT ch.*, b.booking_key, b.booking_date, b.service_id, b.service_name,
+		                    cust.customer_name, cust.customer_email, cust.billing_details
 		             FROM `{$cht_table}` ch
 		             INNER JOIN `{$bkt_table}` b ON b.id = ch.booking_id
+		             LEFT JOIN `{$cust_table}` cust ON cust.id = b.customer_id
 		             WHERE {$where_sql}";
 
 		// Total count for pagination.
 		$count_sql = $db->prepare_sql(
-			"SELECT COUNT(*) FROM `{$cht_table}` ch INNER JOIN `{$bkt_table}` b ON b.id = ch.booking_id WHERE {$where_sql}",
+			"SELECT COUNT(*) FROM `{$cht_table}` ch
+			 INNER JOIN `{$bkt_table}` b ON b.id = ch.booking_id
+			 LEFT JOIN `{$cust_table}` cust ON cust.id = b.customer_id
+			 WHERE {$where_sql}",
 			...$where_vals
 		);
 		$total = (int) $db->get_var_raw( $count_sql );
 		// phpcs:enable
 
 		// Main data query.
-		$data_vals   = array_merge( $where_vals, array( $per_page, $offset ) );
+		$data_vals = array_merge( $where_vals, array( $per_page, $offset ) );
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$data_sql    = $db->prepare_sql(
+		$data_sql  = $db->prepare_sql(
 			$base_sql . " ORDER BY ch.`{$orderby}` {$order} LIMIT %d OFFSET %d",
 			...$data_vals
 		);
 		// phpcs:enable
 		$rows = $db->get_results_raw( $data_sql ) ?? array();
 
-		$data = array_map( array( $this, 'format_checkin_row' ), $rows );
+		$data = array_map( function ( $row ) {
+			// Parse billing_details to extract first/last name and contact.
+			$billing    = ! empty( $row->billing_details )
+				? maybe_unserialize( $row->billing_details )
+				: array();
+			$first_name = isset( $billing['billing_first_name'] ) ? $billing['billing_first_name'] : '';
+			$last_name  = isset( $billing['billing_last_name'] )  ? $billing['billing_last_name']  : '';
+			$contact    = isset( $billing['billing_contact'] )    ? $billing['billing_contact']    : '';
+			$email      = isset( $billing['billing_email'] )
+				? $billing['billing_email']
+				: ( isset( $row->customer_email ) ? $row->customer_email : '' );
+
+			$status = sanitize_key( $row->status ?? '' );
+
+			return array_merge(
+				$this->format_checkin_row( $row ),
+				array(
+					'booking_key'   => sanitize_text_field( $row->booking_key ?? '' ),
+					'booking_date'  => sanitize_text_field( $row->booking_date ?? '' ),
+					'service_id'    => (int) ( $row->service_id ?? 0 ),
+					'service_name'  => sanitize_text_field( $row->service_name ?? '' ),
+					'first_name'    => sanitize_text_field( $first_name ),
+					'last_name'     => sanitize_text_field( $last_name ),
+					'email_address' => sanitize_email( $email ),
+					'contact_no'    => sanitize_text_field( $contact ),
+				)
+			);
+		}, $rows );
 
 		return rest_ensure_response(
 			array(
@@ -892,15 +1004,19 @@ class Booking_Checkin_REST {
 		$token = wp_generate_password( 32, false );
 		set_transient( 'bm_ci_confirm_' . $token, $booking_id, 10 * MINUTE_IN_SECONDS );
 
+		// Retrieve customer billing data from CUSTOMERS table.
+		// BOOKING table does not store first_name / last_name / email_address.
+		$customer = $this->extract_customer_data( $booking, $db );
+
 		return new WP_REST_Response(
 			array(
 				'success'       => true,
 				'booking_id'    => $booking_id,
 				'booking_key'   => sanitize_text_field( $booking->booking_key ?? '' ),
-				'attendee'      => trim( sanitize_text_field( ( $booking->first_name ?? '' ) . ' ' . ( $booking->last_name ?? '' ) ) ),
-				'first_name'    => sanitize_text_field( $booking->first_name ?? '' ),
-				'last_name'     => sanitize_text_field( $booking->last_name ?? '' ),
-				'email'         => sanitize_email( $booking->email_address ?? '' ),
+				'attendee'      => trim( sanitize_text_field( $customer['first_name'] . ' ' . $customer['last_name'] ) ),
+				'first_name'    => sanitize_text_field( $customer['first_name'] ),
+				'last_name'     => sanitize_text_field( $customer['last_name'] ),
+				'email'         => sanitize_email( $customer['email'] ),
 				'service'       => sanitize_text_field( $booking->service_name ?? '' ),
 				'booking_date'  => sanitize_text_field( $booking->booking_date ?? '' ),
 				'message'       => __( 'Checked in successfully.', 'service-booking' ),
@@ -996,12 +1112,15 @@ class Booking_Checkin_REST {
 			);
 		}
 
-		$db        = new BM_DBhandler();
-		$activator = new Booking_Management_Activator();
-		$bkt_table = $activator->get_db_table_name( 'BOOKING' );
-		$cht_table = $activator->get_db_table_name( 'CHECKIN' );
+		$db         = new BM_DBhandler();
+		$activator  = new Booking_Management_Activator();
+		$bkt_table  = $activator->get_db_table_name( 'BOOKING' );
+		$cht_table  = $activator->get_db_table_name( 'CHECKIN' );
+		$cust_table = $activator->get_db_table_name( 'CUSTOMERS' );
 
 		// Build WHERE clause per search type.
+		// BOOKING table does not store first_name / last_name / email_address.
+		// These live in CUSTOMERS table via customer_email and billing_details.
 		$where_parts = array( 'b.is_active = 1' );
 		$where_vals  = array();
 
@@ -1012,13 +1131,19 @@ class Booking_Checkin_REST {
 				break;
 
 			case 'email':
-				$where_parts[] = 'b.email_address = %s';
+				// Match against CUSTOMERS.customer_email (direct column).
+				$where_parts[] = 'cust.customer_email = %s';
 				$where_vals[]  = $search_value;
 				break;
 
 			case 'last_name':
+				// billing_details is serialized; search within the serialised string for the last name value.
+				// Note: LIKE on a serialized string may occasionally match unrelated fields within the
+				// serialized data. A fallback against customer_name covers most real-world cases.
+				// A fully normalized solution would require a dedicated last_name column.
 				$like          = '%' . $db->esc_like( $search_value ) . '%';
-				$where_parts[] = 'b.last_name LIKE %s';
+				$where_parts[] = '(cust.billing_details LIKE %s OR cust.customer_name LIKE %s)';
+				$where_vals[]  = $like;
 				$where_vals[]  = $like;
 				break;
 
@@ -1043,11 +1168,12 @@ class Booking_Checkin_REST {
 		$where_sql = implode( ' AND ', $where_parts );
 		$sql       = $db->prepare_sql(
 			"SELECT b.id, b.booking_key, b.service_id, b.service_name,
-			        b.first_name, b.last_name, b.email_address,
 			        b.total_svc_slots AS svc_participants,
 			        b.total_ext_svc_slots AS ex_svc_participants,
+			        cust.customer_name, cust.customer_email, cust.billing_details,
 			        ch.status AS checkin_status, ch.checkin_time, ch.id AS checkin_id
 			 FROM `{$bkt_table}` b
+			 LEFT JOIN `{$cust_table}` cust ON cust.id = b.customer_id
 			 LEFT JOIN `{$cht_table}` ch ON ch.booking_id = b.id
 			 WHERE {$where_sql}
 			 ORDER BY b.id DESC
@@ -1059,15 +1185,24 @@ class Booking_Checkin_REST {
 		$rows = $db->get_results_raw( $sql ) ?? array();
 
 		$results = array_map( function ( $row ) {
-			$status = sanitize_key( $row->checkin_status ?? '' );
+			$status  = sanitize_key( $row->checkin_status ?? '' );
+			$billing = ! empty( $row->billing_details )
+				? maybe_unserialize( $row->billing_details )
+				: array();
+			$first   = isset( $billing['billing_first_name'] ) ? $billing['billing_first_name'] : '';
+			$last    = isset( $billing['billing_last_name'] )  ? $billing['billing_last_name']  : '';
+			$email   = isset( $billing['billing_email'] )
+				? $billing['billing_email']
+				: ( isset( $row->customer_email ) ? $row->customer_email : '' );
+
 			return array(
 				'id'               => (int) $row->id,
 				'booking_key'      => sanitize_text_field( $row->booking_key ?? '' ),
 				'service_id'       => (int) $row->service_id,
 				'service_name'     => sanitize_text_field( $row->service_name ?? '' ),
-				'first_name'       => sanitize_text_field( $row->first_name ?? '' ),
-				'last_name'        => sanitize_text_field( $row->last_name ?? '' ),
-				'email_address'    => sanitize_email( $row->email_address ?? '' ),
+				'first_name'       => sanitize_text_field( $first ),
+				'last_name'        => sanitize_text_field( $last ),
+				'email_address'    => sanitize_email( $email ),
 				'svc_participants' => (int) ( $row->svc_participants ?? 0 ),
 				'ex_participants'  => (int) ( $row->ex_svc_participants ?? 0 ),
 				'checkin_status'   => $status,
@@ -1113,18 +1248,19 @@ class Booking_Checkin_REST {
 
 		$checkin = $db->get_row( 'CHECKIN', $booking_id, 'booking_id' );
 
-		// Retrieve billing address if available.
-		$customer_name = trim( sanitize_text_field( ( $booking->first_name ?? '' ) . ' ' . ( $booking->last_name ?? '' ) ) );
+		// Retrieve customer billing data from CUSTOMERS table.
+		// BOOKING table does not store first_name / last_name / email_address / contact_no.
+		$customer = $this->extract_customer_data( $booking, $db );
 
 		return rest_ensure_response(
 			array(
 				'booking_id'    => $booking_id,
 				'booking_key'   => sanitize_text_field( $booking->booking_key ?? '' ),
-				'attendee'      => $customer_name,
-				'first_name'    => sanitize_text_field( $booking->first_name ?? '' ),
-				'last_name'     => sanitize_text_field( $booking->last_name ?? '' ),
-				'email'         => sanitize_email( $booking->email_address ?? '' ),
-				'contact_no'    => sanitize_text_field( $booking->contact_no ?? '' ),
+				'attendee'      => trim( sanitize_text_field( $customer['first_name'] . ' ' . $customer['last_name'] ) ),
+				'first_name'    => sanitize_text_field( $customer['first_name'] ),
+				'last_name'     => sanitize_text_field( $customer['last_name'] ),
+				'email'         => sanitize_email( $customer['email'] ),
+				'contact_no'    => sanitize_text_field( $customer['contact'] ),
 				'service_name'  => sanitize_text_field( $booking->service_name ?? '' ),
 				'booking_date'  => sanitize_text_field( $booking->booking_date ?? '' ),
 				'order_status'  => sanitize_text_field( $booking->order_status ?? '' ),
@@ -1136,15 +1272,55 @@ class Booking_Checkin_REST {
 	}
 
 	// -------------------------------------------------------------------------
+	// Customer data helper
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Extract customer billing data from the CUSTOMERS table for a given booking row.
+	 *
+	 * BOOKING table does not store first_name / last_name / email_address / contact_no
+	 * directly. These live in CUSTOMERS.billing_details (serialized array) and
+	 * CUSTOMERS.customer_email.
+	 *
+	 * @param  object|null $booking BOOKING row (must have customer_id).
+	 * @param  BM_DBhandler $db     DB handler instance.
+	 * @return array { first_name, last_name, email, contact }
+	 */
+	private function extract_customer_data( $booking, BM_DBhandler $db ) {
+		$first_name = '';
+		$last_name  = '';
+		$email      = '';
+		$contact    = '';
+
+		if ( $booking && ! empty( $booking->customer_id ) ) {
+			$customer = $db->get_row( 'CUSTOMERS', (int) $booking->customer_id, 'id' );
+			if ( $customer ) {
+				$billing    = ! empty( $customer->billing_details )
+					? maybe_unserialize( $customer->billing_details )
+					: array();
+				$first_name = isset( $billing['billing_first_name'] ) ? $billing['billing_first_name'] : '';
+				$last_name  = isset( $billing['billing_last_name'] )  ? $billing['billing_last_name']  : '';
+				$email      = isset( $billing['billing_email'] )
+					? $billing['billing_email']
+					: ( isset( $customer->customer_email ) ? $customer->customer_email : '' );
+				$contact    = isset( $billing['billing_contact'] ) ? $billing['billing_contact'] : '';
+			}
+		}
+
+		return compact( 'first_name', 'last_name', 'email', 'contact' );
+	}
+
+	// -------------------------------------------------------------------------
 	// Response formatter
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Normalise a CHECKIN DB row for REST output.
+	 * Normalise a raw CHECKIN DB row for REST output.
 	 *
-	 * Strips raw DB objects down to a clean, consistently typed array.
+	 * Only references columns that actually exist in the CHECKIN table.
+	 * Customer / booking fields must be enriched separately (e.g. from a JOIN).
 	 *
-	 * @param object $row Raw row from DB.
+	 * @param object $row Raw row from DB (CHECKIN table only).
 	 * @return array
 	 */
 	private function format_checkin_row( $row ) {
@@ -1157,22 +1333,378 @@ class Booking_Checkin_REST {
 		return array(
 			'id'            => (int) ( $row->id ?? 0 ),
 			'booking_id'    => (int) ( $row->booking_id ?? 0 ),
-			'booking_key'   => sanitize_text_field( $row->booking_key ?? '' ),
-			'booking_date'  => sanitize_text_field( $row->booking_date ?? '' ),
-			'first_name'    => sanitize_text_field( $row->first_name ?? '' ),
-			'last_name'     => sanitize_text_field( $row->last_name ?? '' ),
-			'email_address' => sanitize_email( $row->email_address ?? '' ),
-			'contact_no'    => sanitize_text_field( $row->contact_no ?? '' ),
-			'service_id'    => (int) ( $row->service_id ?? 0 ),
-			'service_name'  => sanitize_text_field( $row->service_name ?? '' ),
+			'qr_token'      => sanitize_text_field( $row->qr_token ?? '' ),
 			'status'        => $status,
 			'status_label'  => BM_Checkin::get_status_label( $status ),
 			'qr_scanned'    => (bool) ( $row->qr_scanned ?? false ),
+			'service_expired' => (bool) ( $row->service_expired ?? false ),
 			'checkin_time'  => sanitize_text_field( $row->checkin_time ?? '' ),
 			'checked_in_by' => (int) ( $row->checked_in_by ?? 0 ),
 			'notes'         => sanitize_textarea_field( $row->notes ?? '' ),
 			'created_at'    => sanitize_text_field( $row->created_at ?? '' ),
 			'updated_at'    => sanitize_text_field( $row->updated_at ?? '' ),
 		);
+	}
+
+	// -------------------------------------------------------------------------
+	// GET /checkins/listing
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Admin listing endpoint — returns the same payload shape as the legacy
+	 * bm_fetch_checkin_as_per_search AJAX action so that admin.js requires
+	 * minimal changes.
+	 *
+	 * Response keys:
+	 *   status            bool
+	 *   checkins          array  — the page slice of checkin rows
+	 *   active_columns    array  — key => column header label (active columns)
+	 *   column_values     array  — [{column, name}] full column map
+	 *   num_of_pages      int
+	 *   saved_search      mixed  — last saved search data (null if none)
+	 *   current_pagenumber int   — serial-number start for this page
+	 *   pagination        string — server-rendered pagination HTML
+	 *   status_counts     array  — aggregated checkin status counts
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_checkins_listing( WP_REST_Request $request ) {
+		$bmrequests = new BM_Request();
+		$dbhandler  = new BM_DBhandler();
+
+		$page        = max( 1, (int) $request->get_param( 'page' ) );
+		$per_page    = max( 1, min( 200, (int) $request->get_param( 'per_page' ) ) );
+		$offset      = ( $page - 1 ) * $per_page;
+		$search      = sanitize_text_field( $request->get_param( 'search' ) ?? '' );
+		$svc_from    = sanitize_text_field( $request->get_param( 'service_from' ) ?? '' );
+		$svc_to      = sanitize_text_field( $request->get_param( 'service_to' ) ?? '' );
+		$ci_from     = sanitize_text_field( $request->get_param( 'checkin_from' ) ?? '' );
+		$ci_to       = sanitize_text_field( $request->get_param( 'checkin_to' ) ?? '' );
+		$service_ids = array_map( 'absint', (array) ( $request->get_param( 'service_ids' ) ?? array() ) );
+		$service_ids = array_values( array_filter( $service_ids ) );
+		$save_search = (bool) $request->get_param( 'save_search' );
+		$base        = esc_url_raw( $request->get_param( 'base' ) ?? '' );
+		$user_id     = get_current_user_id();
+		$is_admin    = current_user_can( 'manage_options' ) ? 1 : 0;
+
+		// Fetch all and apply PHP-side filters (preserves existing filter semantics).
+		$all_checkins = $bmrequests->bm_fetch_all_order_checkins();
+		$filtered     = $all_checkins;
+
+		// Global text search.
+		if ( '' !== $search ) {
+			$search_date = DateTime::createFromFormat( 'd/m/y', $search );
+			if ( $search_date !== false ) {
+				$search_date_str = $search_date->format( 'Y-m-d' );
+				$filtered        = array_filter(
+					$filtered,
+					function ( $c ) use ( $search_date_str ) {
+						$booking_dt  = $c['booking_date'];
+						$checkin_dt  = $c['checkin_time'] !== '-' ? gmdate( 'Y-m-d', strtotime( $c['checkin_time'] ) ) : null;
+						return $booking_dt === $search_date_str || $checkin_dt === $search_date_str;
+					}
+				);
+			} else {
+				$lower    = strtolower( $search );
+				$fields   = array( 'serial_no', 'service_name', 'booking_date', 'first_name', 'last_name', 'contact_no', 'email_address', 'total_cost', 'checkin_time', 'checkin_status' );
+				$filtered = array_filter(
+					$filtered,
+					function ( $c ) use ( $lower, $fields ) {
+						foreach ( $fields as $f ) {
+							if ( $f === 'checkin_time' && $c[ $f ] === '-' ) {
+								continue;
+							}
+							if ( stripos( (string) $c[ $f ], $lower ) !== false ) {
+								return true;
+							}
+						}
+						return $c['checkin_status'] === $lower;
+					}
+				);
+			}
+		}
+
+		// Check-in date range filter.
+		if ( '' !== $ci_from && '' !== $ci_to ) {
+			$ci_from_str = $bmrequests->bm_convert_date_format( $ci_from, 'd/m/y', 'Y-m-d' ) . ' 00:00:00';
+			$ci_to_str   = $bmrequests->bm_convert_date_format( $ci_to, 'd/m/y', 'Y-m-d' ) . ' 23:59:59';
+			$filtered    = array_filter(
+				$filtered,
+				function ( $c ) use ( $ci_from_str, $ci_to_str, $bmrequests ) {
+					if ( $c['checkin_time'] === '-' ) {
+						return false;
+					}
+					$dt = $bmrequests->bm_convert_date_format( $c['checkin_time'], 'd/m/y H:i', 'Y-m-d H:i' );
+					return $dt >= $ci_from_str && $dt <= $ci_to_str;
+				}
+			);
+		}
+
+		// Service (booking) date range filter.
+		if ( '' !== $svc_from && '' !== $svc_to ) {
+			$svc_from_str = $bmrequests->bm_convert_date_format( $svc_from, 'd/m/y', 'Y-m-d' ) . ' 00:00:00';
+			$svc_to_str   = $bmrequests->bm_convert_date_format( $svc_to, 'd/m/y', 'Y-m-d' ) . ' 23:59:59';
+			$filtered     = array_filter(
+				$filtered,
+				function ( $c ) use ( $svc_from_str, $svc_to_str, $bmrequests ) {
+					$dt = $bmrequests->bm_convert_date_format( $c['booking_date'], 'd/m/y H:i', 'Y-m-d H:i' );
+					return $dt >= $svc_from_str && $dt <= $svc_to_str;
+				}
+			);
+		}
+
+		// Service IDs filter.
+		if ( ! empty( $service_ids ) ) {
+			$filtered = array_filter(
+				$filtered,
+				function ( $c ) use ( $service_ids ) {
+					return in_array( (int) $c['service_id'], $service_ids, true );
+				}
+			);
+		}
+
+		$total_records = count( $filtered );
+		$page_slice    = array_slice( $filtered, $offset, $per_page );
+
+		// Optionally persist the search criteria for later recall.
+		if ( $save_search ) {
+			$search_data = array(
+				'service_from'  => $svc_from,
+				'service_to'    => $svc_to,
+				'checkin_from'  => $ci_from,
+				'checkin_to'    => $ci_to,
+				'global_search' => $search,
+				'service_ids'   => $service_ids,
+			);
+			$sanitised   = $bmrequests->sanitize_request(
+				array(
+					'search_data' => $search_data,
+					'user_id'     => $user_id,
+					'is_admin'    => $is_admin,
+					'module'      => 'checkin',
+				),
+				'SAVESEARCH'
+			);
+			if ( $sanitised ) {
+				$last_id = $dbhandler->get_all_result(
+					'SAVESEARCH',
+					'id',
+					array( 'user_id' => $user_id, 'module' => 'checkin', 'is_admin' => $is_admin ),
+					'var', 0, 1, 'id', 'DESC'
+				);
+				if ( $last_id ) {
+					$dbhandler->update_row( 'SAVESEARCH', 'id', $last_id, $sanitised, '', '%d' );
+				} else {
+					$sanitised['search_created_at'] = $bmrequests->bm_fetch_current_wordpress_datetime_stamp();
+					$dbhandler->insert_row( 'SAVESEARCH', $sanitised );
+				}
+			}
+		}
+
+		$saved_search   = $bmrequests->bm_fetch_last_saved_search_data( 'checkin', $is_admin );
+		$active_columns = $bmrequests->bm_fetch_active_columns( 'checkin' );
+		$column_values  = $bmrequests->bm_fetch_column_order_and_names( 'checkin' );
+		$num_of_pages   = (int) ceil( $total_records / $per_page );
+		$pagination     = wp_kses_post( (string) $dbhandler->bm_get_pagination( $num_of_pages, $page, $base, 'list' ) );
+
+		return rest_ensure_response(
+			array(
+				'status'             => true,
+				'checkins'           => array_values( $page_slice ),
+				'active_columns'     => $active_columns,
+				'column_values'      => $column_values,
+				'num_of_pages'       => $num_of_pages,
+				'saved_search'       => $saved_search,
+				'current_pagenumber' => 1 + $offset,
+				'pagination'         => $pagination,
+				'status_counts'      => BM_Checkin::get_status_counts(),
+			)
+		);
+	}
+
+	// -------------------------------------------------------------------------
+	// GET /checkins/saved-search
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Return the last saved checkin search criteria for the current admin user.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_saved_search() {
+		$bmrequests  = new BM_Request();
+		$is_admin    = current_user_can( 'manage_options' ) ? 1 : 0;
+		$saved       = $bmrequests->bm_fetch_last_saved_search_data( 'checkin', $is_admin );
+		return rest_ensure_response( $saved ?? (object) array() );
+	}
+
+	// -------------------------------------------------------------------------
+	// GET /checkins/export-options
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Return the export options HTML fragment used by the export modal.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_export_options() {
+		$bmrequests = new BM_Request();
+		$html       = $bmrequests->bm_fetch_export_html_with_options();
+		$ok         = ! empty( $html );
+		if ( ! $ok ) {
+			$html = '<div class="textcenter order_export_html_result">' . esc_html__( 'Something went wrong, try again', 'service-booking' ) . '</div>';
+		}
+		return rest_ensure_response( array( 'status' => $ok, 'html' => $html ) );
+	}
+
+	// -------------------------------------------------------------------------
+	// GET /checkins/export
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Return CSV-ready rows for the current filter set.
+	 *
+	 * Response keys:
+	 *   status  bool
+	 *   headers array  — column header labels
+	 *   keys    array  — column key names matching headers
+	 *   orders  array  — the filtered/sliced rows
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_export_data( WP_REST_Request $request ) {
+		$bmrequests  = new BM_Request();
+		$dbhandler   = new BM_DBhandler();
+
+		$type        = sanitize_text_field( $request->get_param( 'type' ) ?? 'all' );
+		$start_page  = (int) $request->get_param( 'start_page' );
+		$end_page    = (int) $request->get_param( 'end_page' );
+		$limit       = (int) $request->get_param( 'limit' );
+		$total_pages = (int) $request->get_param( 'total_pages' );
+		$search      = sanitize_text_field( $request->get_param( 'search' ) ?? '' );
+		$svc_from    = sanitize_text_field( $request->get_param( 'service_from' ) ?? '' );
+		$svc_to      = sanitize_text_field( $request->get_param( 'service_to' ) ?? '' );
+		$ci_from     = sanitize_text_field( $request->get_param( 'checkin_from' ) ?? '' );
+		$ci_to       = sanitize_text_field( $request->get_param( 'checkin_to' ) ?? '' );
+		$services    = array_map( 'absint', (array) ( $request->get_param( 'services' ) ?? array() ) );
+		$services    = array_values( array_filter( $services ) );
+		$order_col   = sanitize_key( $request->get_param( 'order_column' ) ?? 'id' );
+		$order_dir   = strtoupper( sanitize_text_field( $request->get_param( 'order_dir' ) ?? 'DESC' ) );
+		if ( ! in_array( $order_dir, array( 'ASC', 'DESC' ), true ) ) {
+			$order_dir = 'DESC';
+		}
+
+		$filtered = $bmrequests->bm_fetch_all_order_checkins();
+
+		// Text search.
+		if ( '' !== $search ) {
+			$lower    = strtolower( $search );
+			$fields   = array( 'id', 'booking_id', 'checkin_id', 'serial_no', 'service_id', 'service_name', 'booking_date', 'first_name', 'last_name', 'contact_no', 'email_address', 'total_cost', 'checkin_time', 'checkin_status', 'email_id' );
+			$filtered = array_filter(
+				$filtered,
+				function ( $c ) use ( $lower, $fields ) {
+					foreach ( $fields as $f ) {
+						if ( isset( $c[ $f ] ) && stripos( strtolower( (string) $c[ $f ] ), $lower ) !== false ) {
+							return true;
+						}
+					}
+					return false;
+				}
+			);
+		}
+
+		// Service date range.
+		if ( '' !== $svc_from && '' !== $svc_to ) {
+			$from_dt = DateTime::createFromFormat( 'd/m/y', $svc_from );
+			$to_dt   = DateTime::createFromFormat( 'd/m/y', $svc_to );
+			if ( $from_dt && $to_dt ) {
+				$filtered = array_filter(
+					$filtered,
+					function ( $c ) use ( $from_dt, $to_dt ) {
+						$dt = DateTime::createFromFormat( 'd/m/y H:i', $c['booking_date'] );
+						return $dt && $dt >= $from_dt && $dt <= $to_dt;
+					}
+				);
+			}
+		}
+
+		// Check-in date range.
+		if ( '' !== $ci_from && '' !== $ci_to ) {
+			$from_dt = DateTime::createFromFormat( 'd/m/y', $ci_from );
+			$to_dt   = DateTime::createFromFormat( 'd/m/y', $ci_to );
+			if ( $from_dt && $to_dt ) {
+				$filtered = array_filter(
+					$filtered,
+					function ( $c ) use ( $from_dt, $to_dt ) {
+						$dt = DateTime::createFromFormat( 'd/m/y H:i', $c['checkin_time'] );
+						return $dt && $dt >= $from_dt && $dt <= $to_dt;
+					}
+				);
+			}
+		}
+
+		// Services filter.
+		if ( ! empty( $services ) ) {
+			$filtered = array_filter(
+				$filtered,
+				function ( $c ) use ( $services ) {
+					return in_array( (int) $c['service_id'], $services, true );
+				}
+			);
+		}
+
+		$filtered = array_values( $filtered );
+
+		// Sort.
+		if ( '' !== $order_col ) {
+			$filtered = $bmrequests->bm_sort_array_by_key( $filtered, $order_col, strtolower( $order_dir ) === 'desc' );
+		}
+
+		// Slice.
+		$offset = 0;
+		switch ( $type ) {
+			case 'all':
+				$offset = 0;
+				$limit  = 0;
+				break;
+			case 'current':
+				// $offset and $limit already set from params.
+				break;
+			case 'range':
+				if ( $start_page > 0 && $end_page > 0 && $start_page <= $end_page && ( 0 === $total_pages || $end_page <= $total_pages ) && $limit > 0 ) {
+					$offset = ( $start_page - 1 ) * $limit;
+					$limit  = ( $end_page - $start_page + 1 ) * $limit;
+				} else {
+					$filtered = array();
+				}
+				break;
+			default:
+				$filtered = array();
+				break;
+		}
+
+		$exclude_cols   = array( 'ticket_pdf', 'actions' );
+		$column_headers = array_values( array_diff( array_values( $bmrequests->bm_fetch_active_columns( 'checkin' ) ), array( 'Ticket PDF', 'Actions', 'PDF del biglietto', 'Azioni' ) ) );
+		$active_keys    = array_keys( $bmrequests->bm_fetch_active_columns( 'checkin' ) );
+
+		$data = array( 'status' => false );
+
+		if ( ! empty( $filtered ) ) {
+			$filtered = $dbhandler->bm_apply_offset_limit_and_sort_existing_data( $filtered, $offset, $limit );
+		}
+
+		if ( ! empty( $filtered ) && ! empty( $active_keys ) ) {
+			$filtered        = $dbhandler->filter_existing_data_by_columns( $filtered, $active_keys, $exclude_cols, true );
+			$data['status']  = true;
+		}
+
+		$export_keys = array_values( array_diff( $active_keys, $exclude_cols ) );
+		$data['headers'] = $data['status'] ? $column_headers : array();
+		$data['keys']    = $data['status'] ? $export_keys : array();
+		$data['orders']  = $data['status'] && ! empty( $filtered ) ? $filtered : array();
+
+		return rest_ensure_response( $data );
 	}
 }

@@ -8556,30 +8556,33 @@ jQuery(document).ready(function ($) {
 	}
 
 	if (current_screen == 'flexibooking_page_bm_check_ins') {
-		var data = { 'action': 'bm_fetch_saved_checkin_search', 'module': 'checkin', 'nonce': bm_ajax_object.nonce };
-		jQuery.post(bm_ajax_object.ajax_url, data, function (response) {
-			var saved_search = jQuery.parseJSON(response);
-			if (saved_search != null && saved_search != "") {
-				if (typeof (saved_search.global_search) != "undefined") {
-					$('#checkin_global_search').val(saved_search.global_search ? saved_search.global_search : '');
+		jQuery.ajax({
+			url: checkinRest.url + 'checkins/saved-search',
+			method: 'GET',
+			beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+			success: function(saved_search) {
+				if (saved_search != null && saved_search != "") {
+					if (typeof (saved_search.global_search) != "undefined") {
+						$('#checkin_global_search').val(saved_search.global_search ? saved_search.global_search : '');
+					}
+					if (typeof (saved_search.service_from) != "undefined") {
+						$('#checkin_service_from').val(saved_search.service_from ? saved_search.service_from : '');
+					}
+					if (typeof (saved_search.service_to) != "undefined") {
+						$('#checkin_service_to').val(saved_search.service_to ? saved_search.service_to : '');
+					}
+					if (typeof (saved_search.checkin_from) != "undefined") {
+						$('#checkin_from').val(saved_search.checkin_from ? saved_search.checkin_from : '');
+					}
+					if (typeof (saved_search.checkin_to) != "undefined") {
+						$('#checkin_to').val(saved_search.checkin_to ? saved_search.checkin_to : '');
+					}
+					if ((typeof (saved_search.service_from) != "undefined" && saved_search.service_from != '') || (typeof (saved_search.service_to) != "undefined" && saved_search.service_to != '') || (typeof (saved_search.checkin_from) != "undefined" && saved_search.checkin_from != '') || (typeof (saved_search.checkin_to) != "undefined" && saved_search.checkin_to != '')) {
+						$("#checkin_advanced_search_box").slideDown("slow");
+					}
 				}
-				if (typeof (saved_search.service_from) != "undefined") {
-					$('#checkin_service_from').val(saved_search.service_from ? saved_search.service_from : '');
-				}
-				if (typeof (saved_search.service_to) != "undefined") {
-					$('#checkin_service_to').val(saved_search.service_to ? saved_search.service_to : '');
-				}
-				if (typeof (saved_search.checkin_from) != "undefined") {
-					$('#checkin_from').val(saved_search.checkin_from ? saved_search.checkin_from : '');
-				}
-				if (typeof (saved_search.checkin_to) != "undefined") {
-					$('#checkin_to').val(saved_search.checkin_to ? saved_search.checkin_to : '');
-				}
-				if ((typeof (saved_search.service_from) != "undefined" && saved_search.service_from != '') || (typeof (saved_search.service_to) != "undefined" && saved_search.service_to != '') || (typeof (saved_search.checkin_from) != "undefined" && saved_search.checkin_from != '') || (typeof (saved_search.checkin_to) != "undefined" && saved_search.checkin_to != '')) {
-					$("#checkin_advanced_search_box").slideDown("slow");
-				}
-			}
 				bm_search_checkin_data('save_search');
+			}
 		});
 	}
 
@@ -10268,22 +10271,30 @@ function bm_sort_orders(column, direction) {
 
 // Search checkin data
 function bm_search_checkin_data(type = '') {
-	var post = {
-		'pagenum': jQuery.trim(jQuery('#pagenum').val()),
-		'base': jQuery(location).attr("href"),
-		'limit': jQuery.trim(jQuery('#limit_count').val()),
-		'service_from': jQuery('#checkin_service_from').val(),
-		'service_to': jQuery('#checkin_service_to').val(),
-		'checkin_from': jQuery('#checkin_from').val(),
-		'checkin_to': jQuery('#checkin_to').val(),
-		'search_string': jQuery.trim(jQuery('#checkin_global_search').val()),
-		'type': type,
-		'service_ids': jQuery('#checkin_service_advanced_filter').val(),
+	var pagenum     = parseInt(jQuery.trim(jQuery('#pagenum').val())) || 1;
+	var limit       = parseInt(jQuery.trim(jQuery('#limit_count').val())) || 10;
+	var serviceIds  = jQuery('#checkin_service_advanced_filter').val();
+	var params = {
+		page:         pagenum,
+		per_page:     limit,
+		search:       jQuery.trim(jQuery('#checkin_global_search').val()),
+		service_from: jQuery('#checkin_service_from').val(),
+		service_to:   jQuery('#checkin_service_to').val(),
+		checkin_from: jQuery('#checkin_from').val(),
+		checkin_to:   jQuery('#checkin_to').val(),
+		save_search:  (type === 'save_search') ? 1 : 0,
+		base:         jQuery(location).attr("href"),
+	};
+	if (serviceIds && serviceIds.length) {
+		params.service_ids = (Array.isArray(serviceIds) ? serviceIds : serviceIds.split(',')).map(function(v) { return parseInt(v, 10); });
 	}
 
-	var data = { 'action': 'bm_fetch_checkin_as_per_search', 'post': post, 'nonce': bm_ajax_object.nonce };
-	jQuery.post(bm_ajax_object.ajax_url, data, function (response) {
-		var jsondata = jQuery.parseJSON(response);
+	jQuery.ajax({
+		url: checkinRest.url + 'checkins/listing',
+		method: 'GET',
+		data: params,
+		beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+		success: function(jsondata) {
 		if (jsondata.status == true) {
 			jQuery(".checkin_records").html('');
 			jQuery("#checkin_pagination").html('');
@@ -10383,19 +10394,24 @@ function bm_search_checkin_data(type = '') {
 							}
 							if (typeof (column_values[j].column) != "undefined" && column_values[j].column == 'checkin_status') {
 								const status = checkins[i].checkin_status;
-								// Inline badge alongside the dropdown for quick visual scan.
 								const badgeClass = 'bm-ci-badge bm-ci-badge--' + bmEscAttr(status);
+								// Show a coloured status badge. Clicking the edit icon next to it
+								// reveals the inline dropdown for changing the status on the same row.
 								checkinListing += `<td style='text-align: center;'>`;
-								// Badge: visible text is sufficient for screen readers; no redundant aria-label.
-								checkinListing += `<span class="${badgeClass}">${bmEscHtml(status.replace('_', ' '))}</span>`;
-								checkinListing += `<select class="checkin-status-dropdown"
-												aria-label="Change check-in status"
+								checkinListing += `<span class="${badgeClass}">${bmEscHtml(status.replace(/_/g, ' '))}</span>`;
+								checkinListing += `<select class="checkin-status-dropdown bm-ci-status-select"
+												title="${bmEscAttr(bm_normal_object.change_status || 'Change status')}"
+												aria-label="${bmEscAttr(bm_normal_object.change_status || 'Change status')}"
 												data-checkin-id="${checkins[i].checkin_id}"
 												data-booking-id="${checkins[i].booking_id}">
-									<option value="pending" ${status == 'pending' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_pending || 'Pending')}</option>
-									<option value="checked_in" ${status == 'checked_in' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_checked_in || 'Checked In')}</option>
-									<option value="expired" ${status == 'expired' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_expired || 'Expired')}</option>
-									<option value="no_show" ${status == 'no_show' ? 'selected' : ''}>${bmEscHtml(bm_normal_object.status_no_show || 'No Show')}</option>
+									<option value="" disabled selected>${bmEscHtml(bm_normal_object.change_status || '-- Change Status --')}</option>
+									<option value="pending">${bmEscHtml(bm_normal_object.status_pending || 'Pending')}</option>
+									<option value="checked_in">${bmEscHtml(bm_normal_object.status_checked_in || 'Checked In')}</option>
+									<option value="expired">${bmEscHtml(bm_normal_object.status_expired || 'Expired')}</option>
+									<option value="no_show">${bmEscHtml(bm_normal_object.status_no_show || 'No Show')}</option>
+									<option value="late">${bmEscHtml(bm_normal_object.status_late || 'Late')}</option>
+									<option value="early">${bmEscHtml(bm_normal_object.status_early || 'Early')}</option>
+									<option value="checked_out">${bmEscHtml(bm_normal_object.status_checked_out || 'Checked Out')}</option>
 								</select>`;
 								checkinListing += "</td>";
 							}
@@ -10434,12 +10450,19 @@ function bm_search_checkin_data(type = '') {
 						jQuery('#bm-ci-count-pending').text(sc.pending || 0);
 						jQuery('#bm-ci-count-expired').text(sc.expired || 0);
 						jQuery('#bm-ci-count-no_show').text(sc.no_show || 0);
+						jQuery('#bm-ci-count-late').text(sc.late || 0);
+						jQuery('#bm-ci-count-early').text(sc.early || 0);
+						jQuery('#bm-ci-count-checked_out').text(sc.checked_out || 0);
 					}
 				} else {
 					jQuery(".checkin_records").append('<div class="no_records_class">' + bm_normal_object.no_records + '</div>');
 				}
 			}
 		} else {
+			alert(bm_error_object.server_error);
+		}
+		},
+		error: function() {
 			alert(bm_error_object.server_error);
 		}
 	});
@@ -10836,9 +10859,53 @@ function fetchAndExportData(moduleType, type, startPage = 0, endPage = 0) {
         order_dir: order
     };
 
-    const ajaxAction = moduleType === 'orders' ? 'bm_fetch_export_order_records' : 'bm_fetch_export_checkin_records';
     const filename = moduleType === 'orders' ? 'orders.csv' : 'checkins.csv';
 
+    if (moduleType === 'checkin') {
+        // Checkin export via REST API.
+        var serviceIds = post.services;
+        var restParams = {
+            type:         post.type,
+            start_page:   post.start_page,
+            end_page:     post.end_page,
+            limit:        post.limit,
+            total_pages:  post.total_pages,
+            search:       post.search_string,
+            service_from: post.service_from,
+            service_to:   post.service_to,
+            checkin_from: post.order_from,
+            checkin_to:   post.order_to,
+            order_column: post.order_column,
+            order_dir:    post.order_dir,
+        };
+        if (serviceIds && serviceIds.length) {
+            restParams.services = (Array.isArray(serviceIds) ? serviceIds : serviceIds.split(',')).map(function(v) { return parseInt(v, 10); });
+        }
+        jQuery.ajax({
+            url: checkinRest.url + 'checkins/export',
+            method: 'GET',
+            data: restParams,
+            beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+            success: function(response) {
+                jQuery('#order_export_modal, #checkin_export_modal').removeClass('active-modal');
+                const status = response.status || false;
+                const orders = response.orders || [];
+                const headers = response.headers || [];
+                const keys = response.keys || [];
+                if (status && orders.length > 0 && headers.length > 0 && keys.length > 0 && headers.length === keys.length) {
+                    exportToCSV(orders, headers, keys, filename);
+                } else {
+                    showMessage(bm_error_object.server_error || bm_error_object.failed_export, 'error');
+                }
+            },
+            error: function() {
+                showMessage(bm_error_object.server_error);
+            }
+        });
+        return;
+    }
+
+    const ajaxAction = 'bm_fetch_export_order_records';
     const data = {
         action: ajaxAction,
         post: post,
@@ -10874,19 +10941,22 @@ jQuery(document).on('click', '.export_checkin_records', function (e) {
 	jQuery('#checkinresendProcess').hide();
 	jQuery('#checkinexportButton').prop('disabled', false);
 
-	var data = { 'action': 'bm_export_checkin_options_html', 'nonce': bm_ajax_object.nonce };
-	jQuery.post(bm_ajax_object.ajax_url, data, function (response) {
-		jQuery('#export_checkin').html('');
-		var jsondata = jQuery.parseJSON(response);
-		var status = jsondata.status ? jsondata.status : '';
-		var html = jsondata.html ? jsondata.html : '';
+	jQuery.ajax({
+		url: checkinRest.url + 'checkins/export-options',
+		method: 'GET',
+		beforeSend: function(xhr) { xhr.setRequestHeader('X-WP-Nonce', checkinRest.nonce); },
+		success: function(jsondata) {
+			jQuery('#export_checkin').html('');
+			var status = jsondata.status ? jsondata.status : '';
+			var html = jsondata.html ? jsondata.html : '';
 
-		if (status == false) {
-			jQuery('#checkinexportButton').prop('disabled', true);
+			if (status == false) {
+				jQuery('#checkinexportButton').prop('disabled', true);
+			}
+
+			jQuery('#export_checkin').html(html);
+			jQuery('#checkin_export_modal').addClass('active-modal');
 		}
-
-		jQuery('#export_checkin').html(html);
-		jQuery('#checkin_export_modal').addClass('active-modal');
 	});
 });
 

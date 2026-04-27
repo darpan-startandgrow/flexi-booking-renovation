@@ -657,7 +657,19 @@ class Booking_Management_Admin {
 
 			if ( $screen->base == 'flexibooking_page_bm_check_ins' ) {
 				wp_enqueue_script( 'admin-jsqr', plugin_dir_url( __FILE__ ) . 'js/booking-management-jsqr.js', array( 'jquery' ), $this->version, true );
-				wp_enqueue_script( 'check-in-script', plugin_dir_url( __FILE__ ) . 'js/booking-management-check-ins.js', array( 'jquery' ), $this->version, true );
+				// Cropper.js and pdf.js are loaded on the public QR scanner page; also
+				// needed here so the admin upload-PDF-and-scan workflow functions correctly.
+				wp_enqueue_style( 'bm-admin-cropper-css', plugin_dir_url( dirname( __FILE__ ) ) . 'public/css/booking-management-cropper.css', array(), $this->version, 'all' );
+				wp_enqueue_script( 'bm-admin-cropper', plugin_dir_url( dirname( __FILE__ ) ) . 'public/js/booking-management-cropper.js', array( 'jquery' ), $this->version, true );
+				wp_enqueue_script( 'bm-admin-pdf-cropper', plugin_dir_url( dirname( __FILE__ ) ) . 'public/js/booking-management-pdf-cropper.js', array( 'jquery', 'bm-admin-cropper' ), $this->version, true );
+				wp_localize_script(
+					'bm-admin-pdf-cropper',
+					'bm_pdf_settings',
+					array(
+						'workerSrc' => plugin_dir_url( dirname( __FILE__ ) ) . 'public/js/booking-management-pdf-cropper.worker.js',
+					)
+				);
+				wp_enqueue_script( 'check-in-script', plugin_dir_url( __FILE__ ) . 'js/booking-management-check-ins.js', array( 'jquery', 'bm-admin-cropper', 'bm-admin-pdf-cropper' ), $this->version, true );
 				// WPML compatibility for QR scanner page URL
 				$scanner_page_url = get_permalink( get_option( 'bm_qr_scanner_page_id' ) );
 
@@ -16306,6 +16318,18 @@ class Booking_Management_Admin {
 		if ( $post != false && $post != null ) {
 			$email_id   = isset( $post['id'] ) ? $post['id'] : 0;
 			$email_body = $dbhandler->get_value( 'EMAILS', 'mail_body', $email_id, 'id' );
+
+			if ( ! empty( $email_body ) ) {
+				// Strip <style>…</style> blocks so stored CSS doesn't leak into the modal display.
+				// Note: wp_kses() further sanitizes the output below — this step is purely for
+				// visual cleanup (removing unwanted CSS from the displayed email body).
+				$email_body = preg_replace( '/<style\b[^>]*>[\s\S]*?<\/style>/i', '', $email_body );
+				// If a full HTML document was stored, extract only the <body> content.
+				if ( preg_match( '/<body[^>]*>([\s\S]*?)<\/body>/i', $email_body, $matches ) ) {
+					$email_body = $matches[1];
+				}
+				$email_body = trim( $email_body );
+			}
 
 			if ( empty( $email_body ) ) {
 				$email_body = '<div class="textcenter">' . esc_html__( 'Nothing to show', 'service-booking' ) . '</div>';
