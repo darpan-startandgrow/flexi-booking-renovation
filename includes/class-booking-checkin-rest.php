@@ -1138,6 +1138,9 @@ class Booking_Checkin_REST {
 
 			case 'last_name':
 				// billing_details is serialized; search within the serialised string for the last name value.
+				// Note: LIKE on a serialized string may occasionally match unrelated fields within the
+				// serialized data. A fallback against customer_name covers most real-world cases.
+				// A fully normalized solution would require a dedicated last_name column.
 				$like          = '%' . $db->esc_like( $search_value ) . '%';
 				$where_parts[] = '(cust.billing_details LIKE %s OR cust.customer_name LIKE %s)';
 				$where_vals[]  = $like;

@@ -16320,7 +16320,9 @@ class Booking_Management_Admin {
 			$email_body = $dbhandler->get_value( 'EMAILS', 'mail_body', $email_id, 'id' );
 
 			if ( ! empty( $email_body ) ) {
-				// Strip <style>…</style> blocks so stored CSS doesn't leak into the modal.
+				// Strip <style>…</style> blocks so stored CSS doesn't leak into the modal display.
+				// Note: wp_kses() further sanitizes the output below — this step is purely for
+				// visual cleanup (removing unwanted CSS from the displayed email body).
 				$email_body = preg_replace( '/<style\b[^>]*>[\s\S]*?<\/style>/i', '', $email_body );
 				// If a full HTML document was stored, extract only the <body> content.
 				if ( preg_match( '/<body[^>]*>([\s\S]*?)<\/body>/i', $email_body, $matches ) ) {
