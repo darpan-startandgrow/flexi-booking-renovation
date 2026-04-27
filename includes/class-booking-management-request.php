@@ -3994,6 +3994,67 @@ class BM_Request {
 					$total_extra_rows = $this->bm_get_unified_extras_for_service( $service_id, true );
 
 					$resp .= '<div class="extra_service_results">';
+
+					// ── §1.7 Service Options: render option sets ────────────
+					if ( class_exists( 'BM_ServiceOptions' ) ) {
+						$options_handler = new BM_ServiceOptions();
+						$option_tree     = $options_handler->get_option_tree_for_service( (int) $service_id );
+						if ( ! empty( $option_tree ) ) {
+							$resp .= '<div class="bm-service-options-wrap">';
+							foreach ( $option_tree as $opt_set ) {
+								$set_id      = (int) $opt_set->id;
+								$required    = (int) $opt_set->is_required ? ' required' : '';
+								$req_label   = (int) $opt_set->is_required ? ' <span class="bm-required-star">*</span>' : '';
+								$resp       .= '<div class="bm-option-set" data-set-id="' . $set_id . '">';
+								$resp       .= '<label class="bm-option-set-label">' . esc_html( $opt_set->name ) . $req_label . '</label>';
+								if ( ! empty( $opt_set->description ) ) {
+									$resp .= '<p class="bm-option-set-desc">' . esc_html( $opt_set->description ) . '</p>';
+								}
+								$resp .= '<select class="bm-option-value-select" id="bm_option_set_' . $set_id . '" data-set-id="' . $set_id . '"' . $required . '>';
+								if ( ! (int) $opt_set->is_required ) {
+									$resp .= '<option value="">' . esc_html__( '-- None --', 'service-booking' ) . '</option>';
+								}
+								foreach ( $opt_set->values as $opt_val ) {
+									$price_display = '';
+									if ( null !== $opt_val->price_override ) {
+										$price_display = ' (' . $this->bm_fetch_price_in_global_settings_format( (float) $opt_val->price_override, true ) . ')';
+									} elseif ( (float) $opt_val->price_modifier !== 0.0 ) {
+										$sign          = (float) $opt_val->price_modifier > 0 ? '+' : '';
+										$price_display = ' (' . $sign . $this->bm_fetch_price_in_global_settings_format( (float) $opt_val->price_modifier, true ) . ')';
+									}
+									$selected = (int) $opt_val->is_default ? ' selected' : '';
+									$resp    .= '<option value="' . (int) $opt_val->id . '"' . $selected . '>' . esc_html( $opt_val->name ) . $price_display . '</option>';
+								}
+								$resp .= '</select></div>';
+							}
+							$resp .= '</div><!-- .bm-service-options-wrap -->';
+						}
+					}
+
+					// ── §1.9 Bundles: show available bundle promotions for this service ──
+					if ( class_exists( 'BM_Bundle' ) ) {
+						$bundle_handler = new BM_Bundle();
+						$bundles        = $bundle_handler->get_bundles_for_service( (int) $service_id );
+						if ( ! empty( $bundles ) ) {
+							$resp .= '<div class="bm-bundle-selector-wrap">';
+							$resp .= '<label class="bm-option-set-label">' . esc_html__( 'Bundle Promotion', 'service-booking' ) . '</label>';
+							$resp .= '<select id="bm_selected_bundle_id" name="bm_selected_bundle_id" class="bm-bundle-select">';
+							$resp .= '<option value="">' . esc_html__( '-- No bundle --', 'service-booking' ) . '</option>';
+							foreach ( $bundles as $bundle ) {
+								$disc = '';
+								if ( $bundle->discount_type === 'percent' && (float) $bundle->discount_value > 0 ) {
+									$disc = ' (' . (float) $bundle->discount_value . '% ' . esc_html__( 'off', 'service-booking' ) . ')';
+								} elseif ( $bundle->discount_type === 'fixed' && (float) $bundle->discount_value > 0 ) {
+									$disc = ' (' . $this->bm_fetch_price_in_global_settings_format( (float) $bundle->discount_value, true ) . ' ' . esc_html__( 'off', 'service-booking' ) . ')';
+								}
+								$resp .= '<option value="' . (int) $bundle->id . '">' . esc_html( $bundle->name ) . $disc . '</option>';
+							}
+							$resp .= '</select>';
+							$resp .= '<p class="bm-option-set-desc">' . esc_html__( 'Select a bundle to receive a discount on this booking.', 'service-booking' ) . '</p>';
+							$resp .= '</div><!-- .bm-bundle-selector-wrap -->';
+						}
+					}
+
 					$resp .= '<h4 class="heading_choose_extra">' . $extra_label . '</h4>';
 					if ( isset( $total_extra_rows ) && ! empty( $total_extra_rows ) ) {
 						foreach ( $total_extra_rows as $key => $extra_service ) {
@@ -4003,6 +4064,11 @@ class BM_Request {
 							$extra_type = isset( $extra_service->extra_type ) ? $extra_service->extra_type : 'local';
 							if ( $extra_type === 'global' && isset( $extra_service->global_extra_id ) ) {
 								$cap_left = $this->bm_get_global_extra_capacity_left( $extra_service->global_extra_id, $date, 0 );
+							} elseif ( $extra_type === 'service_extra' ) {
+								// §1.4 Service-as-Extra: capacity is the addon service's remaining slot capacity.
+								$cap_left = $this->bm_get_service_as_extra_capacity_left( (int) $extra_service->addon_service_id, $date, 0 );
+								// Clamp to a sane display maximum.
+								$cap_left = min( $cap_left, 99 );
 							} else {
 								$cap_left = $this->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date( $extra_service->id, $extra_service->extra_max_cap, 0, $date );
 							}
@@ -4743,6 +4809,11 @@ class BM_Request {
 							$ge_row = $dbhandler->get_row( 'GLOBALEXTRA', $eid, 'id' );
 							$extra_price[] = ! empty( $ge_row ) ? $ge_row->price : 0;
 							$extra_name[]  = ! empty( $ge_row ) ? $ge_row->name : '';
+						} elseif ( $etype === 'service_extra' ) {
+							// §1.4: service-as-extra — $eid is the addon service ID.
+							$se_row = $dbhandler->get_row( 'SERVICE', $eid, 'id' );
+							$extra_price[] = ! empty( $se_row ) ? (float) $se_row->default_price : 0;
+							$extra_name[]  = ! empty( $se_row ) ? $se_row->service_name : '';
 						} else {
 							$le_row = $dbhandler->get_row( 'EXTRA', $eid, 'id' );
 							$extra_price[] = ! empty( $le_row ) ? $le_row->extra_price : 0;
@@ -4918,6 +4989,10 @@ class BM_Request {
 						if ( $etype === 'global' ) {
 							$ge_row = $dbhandler->get_row( 'GLOBALEXTRA', $eid, 'id' );
 							$extra_price[] = ! empty( $ge_row ) ? $ge_row->price : 0;
+						} elseif ( $etype === 'service_extra' ) {
+							// §1.4: service-as-extra — $eid is the addon service ID.
+							$se_row = $dbhandler->get_row( 'SERVICE', $eid, 'id' );
+							$extra_price[] = ! empty( $se_row ) ? (float) $se_row->default_price : 0;
 						} else {
 							$le_row = $dbhandler->get_row( 'EXTRA', $eid, 'id' );
 							$extra_price[] = ! empty( $le_row ) ? $le_row->extra_price : 0;
@@ -4944,6 +5019,67 @@ class BM_Request {
 				$booking_fields['extra_svc_cost'] = $total_extra_price;
 				$booking_fields['total_cost']     = $total_cost;
 				$booking_fields['subtotal']       = $total_cost;
+
+				// ── §1.7 Service Options: apply selected option pricing ────────
+				$raw_option_value_ids = isset( $data['option_value_ids'] ) ? $data['option_value_ids'] : '';
+				if ( ! empty( $raw_option_value_ids ) && class_exists( 'BM_ServiceOptions' ) ) {
+					$option_value_ids = is_array( $raw_option_value_ids )
+						? array_filter( array_map( 'intval', $raw_option_value_ids ) )
+						: array_filter( array_map( 'intval', explode( ',', (string) $raw_option_value_ids ) ) );
+					$options_handler     = new BM_ServiceOptions();
+					$base_price_numeric  = (float) str_replace( $booking_currency, '', $base_svc_price );
+					$adjusted_price      = $base_price_numeric;
+					$selected_option_data = array();
+					foreach ( $option_value_ids as $val_id ) {
+						$adjusted_price = $options_handler->apply_option_to_price( $adjusted_price, (int) $val_id );
+						$opt_val        = $options_handler->get_option_value( (int) $val_id );
+						if ( $opt_val ) {
+							$selected_option_data[] = array(
+								'set_id'         => (int) $opt_val->option_set_id,
+								'value_id'       => (int) $val_id,
+								'value_name'     => $opt_val->name,
+								'price_modifier' => (float) $opt_val->price_modifier,
+								'price_override' => null !== $opt_val->price_override ? (float) $opt_val->price_override : null,
+							);
+						}
+					}
+					if ( $adjusted_price !== $base_price_numeric ) {
+						$new_booking_price = $this->bm_fetch_total_price( $adjusted_price, $total_service_booking );
+						$booking_fields['service_cost']        = $new_booking_price;
+						$booking_fields['total_cost']          = $new_booking_price + $total_extra_price;
+						$booking_fields['subtotal']            = $booking_fields['total_cost'];
+					}
+					if ( ! empty( $selected_option_data ) ) {
+						$booking_fields['booking_features_data'] = maybe_serialize( array( 'selected_options' => $selected_option_data ) );
+					}
+				}
+
+				// ── §1.9 Bundle: apply bundle discount if selected ─────────────
+				$selected_bundle_id = isset( $data['selected_bundle_id'] ) ? (int) $data['selected_bundle_id'] : 0;
+				if ( $selected_bundle_id > 0 && class_exists( 'BM_Bundle' ) ) {
+					$bundle_handler = new BM_Bundle();
+					$bundle         = $bundle_handler->get_bundle( $selected_bundle_id );
+					if ( $bundle ) {
+						$current_total   = (float) $booking_fields['total_cost'];
+						$bundled_total   = $bundle_handler->calculate_bundle_total(
+							$selected_bundle_id,
+							array( (int) $service_id => (float) $booking_fields['service_cost'] )
+						);
+						if ( $bundled_total < $current_total ) {
+							$booking_fields['total_cost'] = $bundled_total;
+							$booking_fields['subtotal']   = $bundled_total;
+						}
+						// Merge bundle info into features data.
+						$existing_features = isset( $booking_fields['booking_features_data'] )
+							? maybe_unserialize( $booking_fields['booking_features_data'] )
+							: array();
+						$existing_features['selected_bundle'] = array(
+							'bundle_id'   => (int) $bundle->id,
+							'bundle_name' => $bundle->name,
+						);
+						$booking_fields['booking_features_data'] = maybe_serialize( $existing_features );
+					}
+				}
 			} //end if
 		} //end if
 
@@ -9108,10 +9244,16 @@ class BM_Request {
 			}
 		}
 
-		// ── §1.8 Virtual Services: block real component if virtual is sold ─
+		// ── §1.8 Virtual Services ─────────────────────────────────────────
 		if ( class_exists( 'BM_VirtualService' ) ) {
 			$vs_checker = new BM_VirtualService();
+			// Rule A: block a real component service if its virtual parent is already sold.
 			if ( $vs_checker->is_real_service_blocked_by_virtual( (int) $service_id, $date ) ) {
+				return false;
+			}
+			// Rule B: block the virtual service itself if any of its components are sold.
+			$virtual_row = $vs_checker->get_virtual_service_by_service_id( (int) $service_id );
+			if ( $virtual_row && ! $vs_checker->is_virtual_service_available( (int) $virtual_row->id, $date ) ) {
 				return false;
 			}
 		}
@@ -12168,6 +12310,14 @@ class BM_Request {
                         $slot_info = $this->bm_fetch_slot_details( $service_id, $from, $date, $svc_total_time_slots, $total_service_booked, $is_variable_slot );
                     }
 
+                    // ── §1.6 Resource Pool: atomic capacity check (with lock) ──────────
+                    if ( ! $is_gift_booking && class_exists( 'BM_ResourcePool' ) ) {
+                        $pool_checker = new BM_ResourcePool();
+                        if ( ! $pool_checker->verify_pool_capacity_for_booking( (int) $service_id, $date, (int) $total_service_booked ) ) {
+                            return false;
+                        }
+                    }
+
                     if ( ( isset( $slot_info['slot_capacity_left_after_booking'] ) && isset( $slot_info['slot_min_cap'] ) && ( $slot_info['slot_capacity_left_after_booking'] >= 0 ) && ( $total_service_booked % $slot_info['slot_min_cap'] == 0 ) ) || ( isset( $checkout_data['checkout']['is_gift'] ) && $checkout_data['checkout']['is_gift'] == 1 ) ) {
                         if ( isset( $order_data['total_service_booking'] ) ) {
                             unset( $order_data['total_service_booking'] );
@@ -12274,6 +12424,14 @@ class BM_Request {
 												$extra_max_cap = (int) $locked_row->max_capacity;
 												$total_usage   = $dbhandler->get_global_extra_pooled_usage( $extra_id, $date );
 												$cap_left      = $extra_max_cap - ( $total_usage + (int) $slots_booked );
+												if ( $cap_left < 0 ) {
+													$capacity_exceeded = true;
+													break;
+												}
+											} elseif ( $extra_type === 'service_extra' ) {
+												// §1.4 Service-as-Extra: check addon service's own slot capacity.
+												$cap_left      = $this->bm_get_service_as_extra_capacity_left( $extra_id, $date, (int) $slots_booked );
+												$extra_max_cap = 9999;
 												if ( $cap_left < 0 ) {
 													$capacity_exceeded = true;
 													break;
@@ -14552,6 +14710,9 @@ class BM_Request {
 
 					if ( $extra_type === 'global' ) {
 						$extra_cap_left[ $key ] = $this->bm_get_global_extra_capacity_left( $extra_id, $booking_date, $slots );
+					} elseif ( $extra_type === 'service_extra' ) {
+						// §1.4: For service-as-extra, capacity is the addon service's remaining slot capacity.
+						$extra_cap_left[ $key ] = $this->bm_get_service_as_extra_capacity_left( $extra_id, $booking_date, $slots );
 					} else {
 						$extra_max_cap          = $dbhandler->get_value( 'EXTRA', 'extra_max_cap', $extra_id, 'id' );
 						$extra_cap_left[ $key ] = $this->bm_fetch_extra_service_cap_left_by_extra_service_id_and_date( $extra_id, $extra_max_cap, $slots, $booking_date );
@@ -17480,6 +17641,32 @@ class BM_Request {
 			$unified = array_merge( $unified, $new_global_extras );
 		}
 
+		// 4. §1.4 Service-as-Extra: append addon services offered for this parent service.
+		if ( class_exists( 'BM_ServiceAsExtra' ) ) {
+			$sae_handler = new BM_ServiceAsExtra();
+			$addons      = $sae_handler->get_addons_for_service( (int) $service_id, $frontend_only );
+			foreach ( $addons as $addon_link ) {
+				$addon_svc = $dbhandler->get_row( 'SERVICE', (int) $addon_link->addon_service_id );
+				if ( empty( $addon_svc ) ) {
+					continue;
+				}
+				// Compute effective price (price_override or addon service's default_price).
+				$effective_price = null !== $addon_link->price_override ? (float) $addon_link->price_override : (float) $addon_svc->default_price;
+				// Normalise to match EXTRA table shape expected by the booking flow.
+				$virtual_extra                      = new stdClass();
+				$virtual_extra->id                  = (int) $addon_link->addon_service_id;
+				$virtual_extra->sae_link_id         = (int) $addon_link->id;
+				$virtual_extra->extra_name          = $addon_svc->service_name;
+				$virtual_extra->extra_price         = $effective_price;
+				$virtual_extra->extra_max_cap       = 9999; // Capacity enforced via addon service SLOTCOUNT.
+				$virtual_extra->svcextra_wc_product = isset( $addon_svc->wc_product ) ? (int) $addon_svc->wc_product : 0;
+				$virtual_extra->extra_type          = 'service_extra';
+				$virtual_extra->addon_service_id    = (int) $addon_link->addon_service_id;
+				$virtual_extra->parent_service_id   = (int) $service_id;
+				$unified[]                          = $virtual_extra;
+			}
+		}
+
 		return $unified;
 	}
 
@@ -17582,6 +17769,66 @@ class BM_Request {
 		return $cap_left;
 	}
 
+
+	/**
+	 * Get remaining capacity for a Service-as-Extra addon on a given date.
+	 *
+	 * Queries the addon service's SLOTCOUNT table to determine how many slots have
+	 * already been consumed, then subtracts from the service's total capacity.
+	 * Returns remaining slots minus $requested_slots; negative means over-capacity.
+	 *
+	 * @param int    $addon_service_id  The addon (child) service ID.
+	 * @param string $date              Booking date (YYYY-MM-DD).
+	 * @param int    $requested_slots   Slots the customer wants to book now.
+	 * @return int  Remaining capacity after the request (negative = not available).
+	 */
+	public function bm_get_service_as_extra_capacity_left( int $addon_service_id, string $date, int $requested_slots = 0 ): int {
+		if ( empty( $addon_service_id ) || empty( $date ) ) {
+			return 0;
+		}
+		$dbhandler = new BM_DBhandler();
+		$sc_table  = $dbhandler->get_table_name( 'SLOTCOUNT' );
+
+		// Total slots already consumed for this addon service on this date.
+		$already_booked = (int) $dbhandler->get_var_raw(
+			$dbhandler->prepare_sql(
+				"SELECT COALESCE(SUM(current_slots_booked),0) FROM {$sc_table}
+				 WHERE service_id = %d AND booking_date = %s AND is_active = 1",
+				(int) $addon_service_id,
+				$date
+			)
+		);
+
+		// Total max capacity for the addon service on this date.
+		$svc_cap = (int) $dbhandler->get_var_raw(
+			$dbhandler->prepare_sql(
+				"SELECT COALESCE(MAX(svc_total_cap),0) FROM {$sc_table}
+				 WHERE service_id = %d AND booking_date = %s AND is_active = 1",
+				(int) $addon_service_id,
+				$date
+			)
+		);
+
+		// If there's no capacity record yet for this date, use the first TIME row as an
+		// upper-bound estimate. When multiple time slots exist they typically share the
+		// same max_cap value; if not, this is a conservative estimate only (the real
+		// per-slot SLOTCOUNT gate enforces exact capacity at booking time).
+		if ( $svc_cap === 0 ) {
+			$time_row = $dbhandler->get_row( 'TIME', $addon_service_id, 'service_id' );
+			if ( ! empty( $time_row ) ) {
+				$time_slots = maybe_unserialize( $time_row->time_slots );
+				if ( ! empty( $time_slots['max_cap'][0] ) ) {
+					$svc_cap = (int) $time_slots['max_cap'][0];
+				}
+			}
+			// If still 0 assume unlimited — return a large positive number so the service is never blocked.
+			if ( $svc_cap === 0 ) {
+				return PHP_INT_MAX;
+			}
+		}
+
+		return $svc_cap - $already_booked - (int) $requested_slots;
+	}
 
 	/**
 	 * Determine whether a specific extra is a new-style global extra.

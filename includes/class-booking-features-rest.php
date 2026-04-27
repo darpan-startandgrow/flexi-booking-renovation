@@ -102,6 +102,11 @@ class Booking_Features_REST {
 		] );
 		register_rest_route( $ns, '/resource-pools/(?P<id>\d+)/services', [
 			[
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'list_pool_services' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+			[
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => [ $this, 'link_service_to_pool' ],
 				'permission_callback' => [ $this, 'admin_permission' ],
@@ -109,6 +114,14 @@ class Booking_Features_REST {
 			[
 				'methods'             => WP_REST_Server::DELETABLE,
 				'callback'            => [ $this, 'unlink_service_from_pool' ],
+				'permission_callback' => [ $this, 'admin_permission' ],
+			],
+		] );
+		// Alias for JS compatibility: GET /resource-pools/{id}/linked-services
+		register_rest_route( $ns, '/resource-pools/(?P<id>\d+)/linked-services', [
+			[
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => [ $this, 'list_pool_services' ],
 				'permission_callback' => [ $this, 'admin_permission' ],
 			],
 		] );
@@ -413,6 +426,19 @@ class Booking_Features_REST {
 			(string) $request->get_param( 'date' )
 		);
 		return new WP_REST_Response( [ 'success' => true, 'data' => [ 'remaining' => $remaining ] ] );
+	}
+
+	public function list_pool_services( WP_REST_Request $request ): WP_REST_Response {
+		$services = $this->resource_pool->get_services_in_pool( (int) $request['id'] );
+		// Normalize field names for JS compatibility: map consumption_per_booking → capacity_used.
+		$result = array_map( function ( $row ) {
+			return array(
+				'id'           => isset( $row->id ) ? (int) $row->id : 0,
+				'service_id'   => (int) $row->service_id,
+				'capacity_used' => isset( $row->consumption_per_booking ) ? (int) $row->consumption_per_booking : 1,
+			);
+		}, $services );
+		return new WP_REST_Response( [ 'success' => true, 'data' => $result ] );
 	}
 
 	public function link_service_to_pool( WP_REST_Request $request ): WP_REST_Response {

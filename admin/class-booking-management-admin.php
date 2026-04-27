@@ -715,6 +715,22 @@ class Booking_Management_Admin {
 				wp_enqueue_script( 'single-order-js', plugin_dir_url( __FILE__ ) . 'js/booking-management-single-order.js', array( 'jquery' ), $this->version, false );
 			}
 
+			if ( in_array( $screen->id, array( 'flexi-booking_page_bm_features', 'admin_page_bm_features' ), true )
+				|| ( isset( $_GET['page'] ) && $_GET['page'] === 'bm_features' ) ) {
+				wp_enqueue_style( 'bm-features-css', plugin_dir_url( __FILE__ ) . 'css/booking-management-features.css', array(), $this->version );
+				wp_enqueue_script( 'bm-features-js', plugin_dir_url( __FILE__ ) . 'js/booking-management-features.js', array( 'jquery' ), $this->version, true );
+				wp_localize_script(
+					'bm-features-js',
+					'bmFeaturesData',
+					array(
+						'restUrl'   => esc_url_raw( rest_url( 'bm-features/v1' ) ),
+						'nonce'     => wp_create_nonce( 'wp_rest' ),
+						'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
+						'ajaxNonce' => wp_create_nonce( 'ajax-nonce' ),
+					)
+				);
+			}
+
 			wp_localize_script(
 				$this->plugin_name,
 				'bm_intl_script',
@@ -763,6 +779,7 @@ class Booking_Management_Admin {
         add_submenu_page( 'bm_home', __( 'Email Records', 'service-booking' ), __( 'Email Records', 'service-booking' ), 'manage_options', 'bm_email_records', array( $this, 'bm_email_records' ) );
         add_submenu_page( 'bm_home', __( 'Vouchers', 'service-booking' ), __( 'Vouchers', 'service-booking' ), 'manage_options', 'bm_voucher_records', array( $this, 'bm_voucher_records' ) );
         add_submenu_page( 'bm_home', __( 'Check ins', 'service-booking' ), __( 'Check ins', 'service-booking' ), 'manage_options', 'bm_check_ins', array( $this, 'bm_check_ins' ) );
+        add_submenu_page( 'bm_home', __( 'Booking Features', 'service-booking' ), __( 'Booking Features', 'service-booking' ), 'manage_options', 'bm_features', array( $this, 'bm_features' ) );
         add_submenu_page( 'bm_home', __( 'PDF Customization', 'service-booking' ), __( 'PDF Customization', 'service-booking' ), 'manage_options', 'bm_pdf_customization', array( $this, 'bm_pdf_customization' ) );
 		add_submenu_page( 'bm_home', __( 'Email Logs', 'service-booking' ), __( 'Email Logs', 'service-booking' ), 'manage_options', 'bm_email_logs', array( $this, 'bm_email_logs' ) );
 		add_submenu_page( 'bm_home', __( 'Payment Logs', 'service-booking' ), __( 'Payment Logs', 'service-booking' ), 'manage_options', 'bm_payment_logs', array( $this, 'bm_payment_logs' ) );
@@ -973,6 +990,10 @@ class Booking_Management_Admin {
 	public function bm_check_ins() {
 		include 'partials/booking-management-check_ins.php';
 	} //end bm_check_ins()
+
+	public function bm_features() {
+		include 'partials/booking-management-features.php';
+	} //end bm_features()
 
 
 	public function bm_email_logs() {
