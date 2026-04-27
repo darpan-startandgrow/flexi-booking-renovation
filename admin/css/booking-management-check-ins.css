@@ -527,4 +527,26 @@ table.manual_checkin_records_table thead td {
     vertical-align: middle;
     max-width: 130px;
     cursor: pointer;
+    border-radius: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    border: 1px solid transparent;
+}
+
+/* Color-coded appearance matching the badge palette */
+.bm-ci-status-select.bm-ci-badge--pending    { background: #fcf0d2; color: #a07800; border-color: #a07800; }
+.bm-ci-status-select.bm-ci-badge--checked_in { background: #d7eddf; color: #00520f; border-color: #00520f; }
+.bm-ci-status-select.bm-ci-badge--expired    { background: #fce8e8; color: #8b0000; border-color: #8b0000; }
+.bm-ci-status-select.bm-ci-badge--no_show    { background: #ebebeb; color: #50575e; border-color: #50575e; }
+.bm-ci-status-select.bm-ci-badge--late       { background: #fff0d0; color: #7a4e00; border-color: #7a4e00; }
+.bm-ci-status-select.bm-ci-badge--early      { background: #d4f0ff; color: #003a5c; border-color: #003a5c; }
+.bm-ci-status-select.bm-ci-badge--checked_out{ background: #e8f5e9; color: #1b5e20; border-color: #1b5e20; }
+
+/* Status filter select in the advanced search box */
+#checkin_status_filter {
+    min-width: 140px;
+    font-size: 12px;
+    padding: 4px 6px;
+    cursor: pointer;
 }
