@@ -435,11 +435,8 @@ class Booking_Planner_REST {
 
 		if ( $filter_cat && 0 === $cat_id ) {
 			// Uncategorised: service_category = 0 or NULL. Requires an OR clause.
-			global $wpdb;
-			$bm_activator  = new Booking_Management_Activator();
-			$service_table = $bm_activator->get_db_table_name( 'SERVICE' );
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$services = $wpdb->get_results( "SELECT * FROM {$service_table} WHERE service_status = 1 AND (service_category = 0 OR service_category IS NULL) ORDER BY service_position ASC" );
+			$service_table = $dbhandler->get_table_name( 'SERVICE' );
+			$services      = $dbhandler->get_results_raw( "SELECT * FROM {$service_table} WHERE service_status = 1 AND (service_category = 0 OR service_category IS NULL) ORDER BY service_position ASC" );
 		} else {
 			$where = array( 'service_status' => 1 );
 			if ( $filter_cat ) {
@@ -835,17 +832,12 @@ class Booking_Planner_REST {
 		$dbhandler->begin_transaction();
 
 		try {
-			global $wpdb;
-
 			$booking_slots = array( 'from' => $time_slot_from, 'to' => $time_slot_to );
 
 			// Lock and check slot capacity inside the transaction to prevent overbooking.
-			$bm_activator = new Booking_Management_Activator();
-			$slot_table   = $bm_activator->get_db_table_name( 'SLOTCOUNT' );
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$cap_row = $wpdb->get_row(
-				$wpdb->prepare(
-					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$slot_table = $dbhandler->get_table_name( 'SLOTCOUNT' );
+			$cap_row    = $dbhandler->get_row_raw(
+				$dbhandler->prepare_sql(
 					"SELECT slot_cap_left FROM {$slot_table} WHERE service_id = %d AND booking_date = %s AND slot_id = %s LIMIT 1 FOR UPDATE",
 					$service_id,
 					$booking_date,
@@ -859,26 +851,25 @@ class Booking_Planner_REST {
 			// Find or create customer.
 			$customer_id = 0;
 			if ( $customer_email ) {
-				$cust_table = $bm_activator->get_db_table_name( 'CUSTOMERS' );
-				$existing   = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM {$cust_table} WHERE customer_email = %s LIMIT 1", $customer_email ) );
+				$cust_table = $dbhandler->get_table_name( 'CUSTOMERS' );
+				$existing   = $dbhandler->get_row_raw(
+					$dbhandler->prepare_sql( "SELECT id FROM {$cust_table} WHERE customer_email = %s LIMIT 1", $customer_email )
+				);
 				if ( $existing ) {
 					$customer_id = (int) $existing->id;
 				} else {
-					$wpdb->insert(
-						$cust_table,
+					$customer_id = (int) $dbhandler->insert_row(
+						'CUSTOMERS',
 						array(
 							'customer_name'  => $customer_name,
 							'customer_email' => $customer_email,
 						),
 						array( '%s', '%s' )
 					);
-					$customer_id = (int) $wpdb->insert_id;
 				}
 			}
 
 			// Insert booking record.
-			$bkg_table = $bm_activator->get_db_table_name( 'BOOKING' );
-
 			$booking_data = array(
 				'service_id'          => $service_id,
 				'service_name'        => $service->service_name,
@@ -898,18 +889,15 @@ class Booking_Planner_REST {
 				'is_active'           => 1,
 			);
 
-			$inserted = $wpdb->insert( $bkg_table, $booking_data );
+			$booking_id = (int) $dbhandler->insert_row( 'BOOKING', $booking_data );
 
-			if ( ! $inserted ) {
+			if ( ! $booking_id ) {
 				throw new Exception( __( 'Failed to insert booking record.', 'service-booking' ) );
 			}
 
-			$booking_id = (int) $wpdb->insert_id;
-
 			// Update slot capacity (decrement).
-			$wpdb->query(
-				$wpdb->prepare(
-					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$dbhandler->execute_query(
+				$dbhandler->prepare_sql(
 					"UPDATE {$slot_table} SET slot_cap_left = GREATEST(0, slot_cap_left - 1) WHERE service_id = %d AND booking_date = %s AND slot_id = %s",
 					$service_id,
 					$booking_date,
@@ -918,10 +906,6 @@ class Booking_Planner_REST {
 			);
 
 			$dbhandler->commit_transaction();
-
-			// Fetch and return the created booking.
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$created_booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bkg_table} WHERE id = %d", $booking_id ) );
 
 			return rest_ensure_response(
 				array(
@@ -1044,12 +1028,8 @@ class Booking_Planner_REST {
 
 		$dbhandler->begin_transaction();
 		try {
-			global $wpdb;
-			$bm_activator = new Booking_Management_Activator();
-			$bkg_table    = $bm_activator->get_db_table_name( 'BOOKING' );
-
-			$result = $wpdb->update(
-				$bkg_table,
+			$result = $dbhandler->update_where(
+				'BOOKING',
 				$update_data,
 				array( 'id' => $booking_id ),
 				$update_format,
@@ -1062,7 +1042,7 @@ class Booking_Planner_REST {
 
 			$dbhandler->commit_transaction();
 
-			$updated = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bkg_table} WHERE id = %d", $booking_id ) );
+			$updated = $dbhandler->get_row( 'BOOKING', $booking_id );
 			$slots   = maybe_unserialize( $updated->booking_slots );
 
 			return rest_ensure_response(
@@ -1117,12 +1097,8 @@ class Booking_Planner_REST {
 
 		$dbhandler->begin_transaction();
 		try {
-			global $wpdb;
-			$bm_activator = new Booking_Management_Activator();
-			$bkg_table    = $bm_activator->get_db_table_name( 'BOOKING' );
-
-			$result = $wpdb->update(
-				$bkg_table,
+			$result = $dbhandler->update_where(
+				'BOOKING',
 				array(
 					'order_status' => 'cancelled',
 					'is_active'    => 0,
@@ -1141,9 +1117,9 @@ class Booking_Planner_REST {
 			$slot_from = is_array( $slots ) && isset( $slots['from'] ) ? $slots['from'] : '';
 
 			if ( $slot_from ) {
-				$slot_table = $bm_activator->get_db_table_name( 'SLOTCOUNT' );
-				$wpdb->query(
-					$wpdb->prepare(
+				$slot_table = $dbhandler->get_table_name( 'SLOTCOUNT' );
+				$dbhandler->execute_query(
+					$dbhandler->prepare_sql(
 						"UPDATE {$slot_table} SET slot_cap_left = slot_cap_left + 1 WHERE service_id = %d AND booking_date = %s AND slot_id = %s",
 						(int) $booking->service_id,
 						$booking->booking_date,
@@ -1287,14 +1263,11 @@ class Booking_Planner_REST {
 	 * @return array { max_capacity: int, available_capacity: int }
 	 */
 	private function get_slot_capacity_from_db( $service_id, $slot_index, $date, $is_variable, $default_max ) {
-		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
-		$slot_table   = $bm_activator->get_db_table_name( 'SLOTCOUNT' );
+		$dbhandler  = new BM_DBhandler();
+		$slot_table = $dbhandler->get_table_name( 'SLOTCOUNT' );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row = $dbhandler->get_row_raw(
+			$dbhandler->prepare_sql(
 				"SELECT slot_cap_left, slot_max_cap FROM {$slot_table}
 				 WHERE service_id = %d AND booking_date = %s AND slot_id = %d AND is_variable = %d AND is_active = 1
 				 ORDER BY id DESC LIMIT 1",
@@ -1395,9 +1368,7 @@ class Booking_Planner_REST {
 		$needs_custom_query = ! empty( $custom_in_clauses ) || $cat_where_sql !== '';
 		if ( $needs_custom_query ) {
 			// Use custom query for multi-value IN filters and/or Uncategorised OR clause.
-			global $wpdb;
-			$bm_activator  = new Booking_Management_Activator();
-			$service_table = $bm_activator->get_db_table_name( 'SERVICE' );
+			$service_table = $dbhandler->get_table_name( 'SERVICE' );
 			$where_parts   = array( 'service_status = 1' );
 			$values        = array();
 			$allowed_cols  = array( 'service_category', 'id' );
@@ -1426,14 +1397,11 @@ class Booking_Planner_REST {
 				$values[]      = $svc_where['id'];
 			}
 			$where_sql    = implode( ' AND ', $where_parts );
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$prepared_sql = "SELECT * FROM {$service_table} WHERE {$where_sql} ORDER BY service_position ASC";
 			if ( ! empty( $values ) ) {
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$raw_services = $wpdb->get_results( $wpdb->prepare( $prepared_sql, ...$values ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				$raw_services = $dbhandler->get_results_raw( $dbhandler->prepare_sql( $prepared_sql, ...$values ) );
 			} else {
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$raw_services = $wpdb->get_results( $prepared_sql );
+				$raw_services = $dbhandler->get_results_raw( $prepared_sql );
 			}
 		} else {
 			$raw_services = $dbhandler->get_all_result(
@@ -1492,21 +1460,17 @@ class Booking_Planner_REST {
 		}
 
 		// Pre-fetch all bookings in the range for all services in one query.
-		global $wpdb;
-		$bm_activator = new Booking_Management_Activator();
-		$bkg_table    = $bm_activator->get_db_table_name( 'BOOKING' );
-		$ids_ph       = implode( ',', array_fill( 0, count( $service_ids ), '%d' ) );
-		$query_args   = array_merge( $service_ids, array( $start_date, $end_date ) );
+		$bkg_table  = $dbhandler->get_table_name( 'BOOKING' );
+		$ids_ph     = implode( ',', array_fill( 0, count( $service_ids ), '%d' ) );
+		$query_args = array_merge( $service_ids, array( $start_date, $end_date ) );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$raw_bookings = $wpdb->get_results(
-			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$raw_bookings = $dbhandler->get_results_raw(
+			$dbhandler->prepare_sql(
 				"SELECT service_id, booking_date, booking_slots FROM {$bkg_table}
 				 WHERE is_active = 1
 				   AND service_id IN ({$ids_ph})
 				   AND booking_date BETWEEN %s AND %s",
-				$query_args
+				...$query_args
 			)
 		);
 
