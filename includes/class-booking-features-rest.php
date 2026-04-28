@@ -878,11 +878,32 @@ class Booking_Features_REST {
 	}
 
 	public function check_virtual_service_availability( WP_REST_Request $request ): WP_REST_Response {
-		$available = $this->virtual_service->is_virtual_service_available(
-			(int) $request['id'],
-			(string) $request->get_param( 'date' )
-		);
-		return new WP_REST_Response( [ 'success' => true, 'data' => [ 'available' => $available ] ] );
+		$vs_id = (int) $request['id'];
+		$date  = (string) $request->get_param( 'date' );
+
+		// Overall VS availability (all components must be free).
+		$available = $this->virtual_service->is_virtual_service_available( $vs_id, $date );
+
+		// Per-component availability so the admin UI can show which component is blocked.
+		$components        = $this->virtual_service->get_components( $vs_id );
+		$chain_checker     = new BM_ServiceChain();
+		$component_statuses = array();
+		foreach ( $components as $comp ) {
+			$svc_id   = (int) $comp->component_service_id;
+			$is_booked = $chain_checker->service_is_booked_on_date( $svc_id, $date );
+			$component_statuses[] = array(
+				'service_id'    => $svc_id,
+				'available'     => ! $is_booked,
+			);
+		}
+
+		return new WP_REST_Response( [
+			'success' => true,
+			'data'    => [
+				'available'          => $available,
+				'component_statuses' => $component_statuses,
+			],
+		] );
 	}
 
 	// ─────────────────── SERVICE-AS-EXTRA HANDLERS ───────────────────────────

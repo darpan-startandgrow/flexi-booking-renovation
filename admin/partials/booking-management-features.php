@@ -52,7 +52,7 @@ if ( empty( $services ) ) {
 		</p>
 		<p class="bm-features-notice" style="background:#e8f4fd;border-left:4px solid #2271b1;padding:8px 12px;">
 			<strong><?php esc_html_e( 'Note:', 'service-booking' ); ?></strong>
-			<?php esc_html_e( 'The option the customer selects at booking time is recorded on the order and is visible in the single-order detail view.', 'service-booking' ); ?>
+			<?php esc_html_e( 'Service Options share the base service\'s availability — they do not have independent time slots or capacity. An option can adjust the booking price but the service\'s own date, slot, and bookability rules always apply.', 'service-booking' ); ?>
 		</p>
 		<div class="bm-features-form">
 			<strong><?php esc_html_e( 'Filter by Service', 'service-booking' ); ?></strong>

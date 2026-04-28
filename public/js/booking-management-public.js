@@ -18,11 +18,25 @@ function bmCollectOptionValueIds() {
 }
 
 /**
+ * Holds the bundle ID pre-selected when a bundle card "Book Bundle" button is clicked.
+ * Cleared when a regular (non-bundle) service card is clicked.
+ *
+ * @type {number|null}
+ */
+window.bmSelectedBundleId = null;
+
+/**
  * Return the selected bundle ID (or empty string).
+ * Reads from:
+ *   1. window.bmSelectedBundleId — set when a bundle card is clicked (P1 path).
+ *   2. #bm_selected_bundle_id — legacy dropdown (kept for back-compat).
  *
  * @returns {string}
  */
 function bmCollectBundleId() {
+	if ( window.bmSelectedBundleId ) {
+		return String( window.bmSelectedBundleId );
+	}
 	var $sel = jQuery('#bm_selected_bundle_id');
 	return $sel.length ? ( $sel.val() || '' ) : '';
 }
@@ -399,7 +413,16 @@ jQuery(document).on('click', '.get_slot_details', function (e) {
 	var $dialog = jQuery('#timeslot-capacity-dialog');
 	var isDialogOpen = $dialog.length && $dialog.dialog('instance') && $dialog.dialog('isOpen');
 	if (isDialogOpen) $dialog.dialog('close');
-	
+
+	// §1.9 P1 — capture bundle pre-selection from bundle card "Book Bundle" button.
+	var bundleCardId = jQuery(this).data('bundle-id');
+	if ( bundleCardId ) {
+		window.bmSelectedBundleId = parseInt( bundleCardId, 10 );
+	} else {
+		// Regular service card — clear any stale bundle selection.
+		window.bmSelectedBundleId = null;
+	}
+
 	var date = jQuery('#booking_date').val();
 	var service_id = jQuery(this).attr('id');
 
