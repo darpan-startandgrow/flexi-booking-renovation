@@ -3400,7 +3400,13 @@ class BM_Request {
 
 		$bundle_handler = new BM_Bundle();
 		$items          = $bundle_handler->get_bundle_items( (int) $bundle->id );
-		$primary_svc_id = ! empty( $items ) ? (int) $items[0]->service_id : 0;
+
+		// A bundle with no component services cannot be booked; omit it from the listing.
+		if ( empty( $items ) ) {
+			return '';
+		}
+
+		$primary_svc_id = (int) $items[0]->service_id;
 
 		$dbhandler          = new BM_DBhandler();
 		$svc_name_colour    = $dbhandler->get_global_option_value( 'bm_frontend_service_title_color', '#000000' );

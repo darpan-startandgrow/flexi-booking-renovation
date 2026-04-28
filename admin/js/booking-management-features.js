@@ -937,7 +937,7 @@ return;
 $( '#bm-chain-self-error' ).hide();
 // P2: chain_type is always mutual_exclusion (only one option in select).
 var $btn = $( this ).prop( 'disabled', true ).text( 'Saving\u2026' );
-bmRestPost( 'chains', { service_a_id: parseInt( svcA, 10 ), service_b_id: parseInt( svcB, 10 ), chain_type: 'mutual_exclusion' } )
+bmRestPost( 'chains', { service_a_id: parseInt( svcA, 10 ), service_b_id: parseInt( svcB, 10 ) } )
 .done( function () {
 $( '#bm-chain-svc-a, #bm-chain-svc-b' ).val( '' );
 bmLoadServiceChains();

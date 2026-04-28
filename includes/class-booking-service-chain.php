@@ -30,11 +30,11 @@ $this->db = new BM_DBhandler();
 
 /**
  * Create a chain rule between two services.
+ * Chain type is always 'mutual_exclusion' per spec §1.5.
  *
- * @param int    $service_a_id
- * @param int    $service_b_id
- * @param string $chain_type  Always 'mutual_exclusion'. Any other value defaults to 'mutual_exclusion'.
- * @return int|false
+ * @param int $service_a_id
+ * @param int $service_b_id
+ * @return int|false  Inserted row ID, or false on error / duplicate / self-chain.
  */
 public function create_chain( int $service_a_id, int $service_b_id ) {
 // P4 — server-side self-chain validation.
