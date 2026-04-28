@@ -33,19 +33,16 @@ $this->db = new BM_DBhandler();
  *
  * @param int    $service_a_id
  * @param int    $service_b_id
- * @param string $chain_type  'mutual_exclusion'|'exclusive'
+ * @param string $chain_type  Always 'mutual_exclusion'. Any other value defaults to 'mutual_exclusion'.
  * @return int|false
  */
-public function create_chain( int $service_a_id, int $service_b_id, string $chain_type = 'exclusive' ) {
+public function create_chain( int $service_a_id, int $service_b_id, string $chain_type = 'mutual_exclusion' ) {
 // P4 — server-side self-chain validation.
 if ( $service_a_id === $service_b_id ) {
 return false;
 }
-// P2 — 'mutual_exclusion' is the UI label; normalise to 'exclusive' for storage.
-if ( 'mutual_exclusion' === $chain_type ) {
-$chain_type = 'exclusive';
-}
-$chain_type = in_array( $chain_type, [ 'exclusive', 'unidirectional' ], true ) ? $chain_type : 'exclusive';
+// P2 — only 'mutual_exclusion' is supported per spec §1.5; reject anything else.
+$chain_type = 'mutual_exclusion';
 $table      = $this->db->get_table_name( 'SERVICE_CHAIN' );
 
 // Check for existing chain to avoid resetting created_at.
@@ -84,18 +81,25 @@ return $this->db->insert_row(
  * Update chain status or type.
  *
  * @param int   $chain_id
- * @param array $data  Keys: chain_type, status
+ * @param array $data  Keys: service_a_id, service_b_id (correcting wrong service references only)
  * @return bool
  */
 public function update_chain( int $chain_id, array $data ): bool {
-$allowed = [ 'chain_type', 'status' ];
+// P19 — chain editing is limited to correcting the two service references.
+$allowed = [ 'service_a_id', 'service_b_id' ];
 $set     = [];
 $formats = [];
 foreach ( $allowed as $key ) {
 if ( array_key_exists( $key, $data ) ) {
-$set[ $key ] = $data[ $key ];
-$formats[]   = 'status' === $key ? '%d' : '%s';
+$set[ $key ] = (int) $data[ $key ];
+$formats[]   = '%d';
 }
+}
+// Prevent self-chain after update.
+$a = isset( $set['service_a_id'] ) ? $set['service_a_id'] : null;
+$b = isset( $set['service_b_id'] ) ? $set['service_b_id'] : null;
+if ( null !== $a && null !== $b && $a === $b ) {
+return false;
 }
 if ( empty( $set ) ) {
 return false;

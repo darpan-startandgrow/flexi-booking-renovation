@@ -162,13 +162,13 @@ return $this->db->insert_row(
  * @return bool
  */
 public function update_option_value( int $value_id, array $data ): bool {
-$allowed = [ 'name', 'description', 'price_modifier', 'price_override', 'is_default', 'status' ];
+$allowed = [ 'name', 'description', 'price_modifier', 'price_override', 'is_default', 'status', 'sort_order' ];
 $set     = [];
 $formats = [];
 foreach ( $allowed as $key ) {
 if ( array_key_exists( $key, $data ) ) {
 $set[ $key ] = $data[ $key ];
-if ( in_array( $key, [ 'is_default', 'status' ], true ) ) {
+if ( in_array( $key, [ 'is_default', 'status', 'sort_order' ], true ) ) {
 $formats[] = '%d';
 } elseif ( in_array( $key, [ 'price_modifier', 'price_override' ], true ) ) {
 // null values use '%s' so wpdb serialises them as NULL.

@@ -718,6 +718,7 @@ class Booking_Management_Activator {
 		$this->add_error_column_to_failed_transactions();
 		$this->add_price_column_to_bundle();
 		$this->drop_vs_service_id_unique_constraint();
+		$this->add_sort_order_column_to_option_value();
 		$this->create_default_form_fields();
 		$this->create_default_email_templates();
 		$this->create_default_pdf_contents();
@@ -2174,6 +2175,23 @@ class Booking_Management_Activator {
 		if ( ! empty( $idx ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
 			$wpdb->query( "ALTER TABLE `{$table_name}` DROP INDEX `unique_svc`" );
+		}
+	}
+
+	/**
+	 * P13 — Add sort_order column to OPTION_VALUE table.
+	 *
+	 * Used by the ↑/↓ reorder buttons in the admin option values UI.
+	 * Idempotent: skipped if column already exists.
+	 */
+	private function add_sort_order_column_to_option_value() {
+		global $wpdb;
+		$table_name = esc_sql( $this->get_db_table_name( 'OPTION_VALUE' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$row = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'sort_order' ) );
+		if ( empty( $row ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `sort_order` INT(11) NOT NULL DEFAULT 0 AFTER `status`" );
 		}
 	}
 

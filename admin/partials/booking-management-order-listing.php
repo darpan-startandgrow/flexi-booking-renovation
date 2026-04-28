@@ -269,7 +269,9 @@ unset( $order_statuses['failed'], $payment_statuses['failed'] );
 											<?php
 										}//end if
 										?>
-                </tr>
+                    <!-- P5/P16: fixed Features column -->
+                    <th style="text-align:center;font-weight:600;"><?php esc_html_e( 'Features', 'service-booking' ); ?></th>
+                 </tr>
              </thead>
             <tbody class="order_records"></tbody>
         </table>

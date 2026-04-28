@@ -324,11 +324,12 @@ bmRestDelete( 'service-extras/' + id ).done( function () { bmLoadServiceExtras()
 // ═══════════════════════ TAB 3: BUNDLES ══════════════════════════════
 
 // Helper: build service <select> HTML from bmFeaturesData.services.
-function bmServiceSelect( cls, placeholder ) {
+function bmServiceSelect( cls, placeholder, selectedId ) {
 var opts = '<option value="">' + ( placeholder || '— Select Service —' ) + '</option>';
 var svcs = ( bmFeaturesData.services || [] );
 $.each( svcs, function ( i, s ) {
-opts += '<option value="' + s.id + '">' + $( '<span>' ).text( s.name ).html() + ' (ID: ' + s.id + ')</option>';
+var sel = ( selectedId && parseInt( selectedId, 10 ) === s.id ) ? ' selected' : '';
+opts += '<option value="' + s.id + '"' + sel + '>' + $( '<span>' ).text( s.name ).html() + ' (ID: ' + s.id + ')</option>';
 });
 return '<select class="' + cls + '">' + opts + '</select>';
 }
@@ -375,9 +376,18 @@ html += '<div class="bm-form-row"><label>Discount Value</label><input type="numb
 html += '<div class="bm-form-row"><label>Status</label><select class="bm-edit-bundle-status"><option value="1"' + ( parseInt( b.status, 10 ) === 1 ? ' selected' : '' ) + '>Active</option><option value="0"' + ( parseInt( b.status, 10 ) === 0 ? ' selected' : '' ) + '>Inactive</option></select></div>';
 html += '<button class="button button-primary bm-save-bundle-edit" data-bundle-id="' + b.id + '">Save Changes</button>';
 html += '</div></td></tr>';
-html += '<tr class="bm-child-rows" id="bm-bundle-items-' + b.id + '" style="display:none"><td colspan="7">';
+html += '<tr class="bm-child-rows" id="bm-bundle-items-' + b.id + '" style="display:none"'
++ ' data-discount-type="' + ( b.discount_type || '' ) + '"'
++ ' data-discount-value="' + parseFloat( b.discount_value || 0 ) + '"'
++ ' data-bundle-price="' + parseFloat( b.price || 0 ) + '"'
++ '><td colspan="7">';
 html += '<h4>Items in &ldquo;' + $( '<span>' ).text( b.name ).html() + '&rdquo;</h4>';
-html += '<p class="description" style="margin-bottom:8px;">Estimated bundle total (based on component prices at booking time): <strong id="bm-bundle-total-' + b.id + '">—</strong></p>';
+html += '<div id="bm-bundle-total-wrap-' + b.id + '" style="background:#f0f4ff;border:1px solid #d0d9f0;border-radius:4px;padding:10px 14px;margin-bottom:8px;font-size:13px;">';
+html += '<strong>' + b.name + ' — Price preview</strong><br/>';
+html += '<span id="bm-bundle-subtotal-' + b.id + '" style="display:block;margin-top:4px;">Component subtotal: <strong>—</strong></span>';
+html += '<span id="bm-bundle-discount-line-' + b.id + '" style="display:block;">Discount: <strong>—</strong></span>';
+html += '<span id="bm-bundle-total-' + b.id + '" style="display:block;font-size:14px;">Bundle price: <strong>—</strong></span>';
+html += '</div>';
 html += '<div id="bm-bundle-items-list-' + b.id + '"></div>';
 html += '<div class="bm-features-form"><strong>Add Service to Bundle</strong>';
 html += '<div class="bm-form-row"><label>Service <span class="bm-required-star">*</span></label>' + bmServiceSelect( 'bm-bundle-item-svc-id', '— Select Service —' ) + '</div>';
@@ -473,17 +483,53 @@ var $wrap = $( '#bm-bundle-items-list-' + bundleId );
 $wrap.html( bmSpinner() + ' Loading&hellip;' );
 bmRestGet( 'bundles/' + bundleId + '/items' ).done( function ( data ) {
 var rows = Array.isArray( data ) ? data : ( data.data || [] );
-if ( ! rows.length ) { $wrap.html( '<p>No items.</p>' ); $( '#bm-bundle-total-' + bundleId ).text( '—' ); return; }
-var html = '<table class="bm-features-table"><thead><tr><th>Item ID</th><th>Service</th><th>Qty</th><th>Optional</th><th>Actions</th></tr></thead><tbody>';
+if ( ! rows.length ) {
+$wrap.html( '<p>No items.</p>' );
+$( '#bm-bundle-subtotal-' + bundleId ).html( 'Component subtotal: <strong>—</strong>' );
+$( '#bm-bundle-discount-line-' + bundleId ).html( 'Discount: <strong>—</strong>' );
+$( '#bm-bundle-total-' + bundleId ).html( 'Bundle price: <strong>—</strong>' );
+return;
+}
+var html = '<table class="bm-features-table"><thead><tr><th>Item ID</th><th>Service</th><th>Unit Price</th><th>Qty</th><th>Optional</th><th>Actions</th></tr></thead><tbody>';
+var subtotal = 0;
 $.each( rows, function ( i, item ) {
-html += '<tr><td>' + item.id + '</td><td>' + $( '<span>' ).text( bmServiceName( item.service_id ) ).html() + '</td><td>' + item.quantity + '</td><td>' + ( item.is_optional ? 'Yes' : 'No' ) + '</td>';
+var svcPrice = 0;
+var svcs = ( bmFeaturesData.services || [] );
+for ( var k = 0; k < svcs.length; k++ ) {
+if ( svcs[ k ].id === parseInt( item.service_id, 10 ) ) {
+svcPrice = svcs[ k ].price || 0;
+break;
+}
+}
+var lineTotal = svcPrice * ( parseInt( item.quantity, 10 ) || 1 );
+subtotal += lineTotal;
+html += '<tr><td>' + item.id + '</td>';
+html += '<td>' + $( '<span>' ).text( bmServiceName( item.service_id ) ).html() + '</td>';
+html += '<td>' + svcPrice.toFixed( 2 ) + '</td>';
+html += '<td>' + item.quantity + '</td>';
+html += '<td>' + ( item.is_optional ? 'Yes' : 'No' ) + '</td>';
 html += '<td><button class="button button-small button-link-delete bm-remove-bundle-item" data-item-id="' + item.id + '" data-bundle-id="' + bundleId + '">Remove</button></td></tr>';
 });
 html += '</tbody></table>';
 $wrap.html( html );
-// P10: compute estimated total (sum of individual service list prices is not available here;
-// show number of items as a reminder to the admin).
-$( '#bm-bundle-total-' + bundleId ).text( rows.length + ' component service(s) — final price computed at booking time' );
+// P10: real price arithmetic — compute discount and final price.
+var $row         = $( '#bm-bundle-items-' + bundleId );
+var discType     = $row.data( 'discount-type' ) || '';
+var discValue    = parseFloat( $row.data( 'discount-value' ) ) || 0;
+var bundlePrice  = parseFloat( $row.data( 'bundle-price' ) ) || 0;
+var discAmount   = 0;
+var discLabel    = 'None';
+if ( discType === 'percent' && discValue > 0 ) {
+discAmount = subtotal * ( discValue / 100 );
+discLabel  = discValue + '% off = −' + discAmount.toFixed( 2 );
+} else if ( discType === 'fixed' && discValue > 0 ) {
+discAmount = Math.min( discValue, subtotal );
+discLabel  = '−' + discAmount.toFixed( 2 ) + ' fixed';
+}
+var finalPrice = bundlePrice > 0 ? bundlePrice : Math.max( 0, subtotal - discAmount );
+$( '#bm-bundle-subtotal-' + bundleId ).html( 'Component subtotal: <strong>' + subtotal.toFixed( 2 ) + '</strong>' );
+$( '#bm-bundle-discount-line-' + bundleId ).html( 'Discount: <strong>' + discLabel + '</strong>' );
+$( '#bm-bundle-total-' + bundleId ).html( 'Bundle price: <strong>' + finalPrice.toFixed( 2 ) + '</strong>' + ( bundlePrice > 0 ? ' <span style="color:#888;font-size:11px;">(fixed bundle price)</span>' : ' <span style="color:#888;font-size:11px;">(subtotal minus discount)</span>' ) );
 }).fail( function () { $wrap.html( '<p class="bm-features-notice error">Failed to load items.</p>' ); });
 }
 
@@ -862,11 +908,13 @@ html += '<td>';
 html += '<button class="button button-small bm-chain-edit" data-id="' + c.id + '">Edit</button> ';
 html += '<button class="button button-small button-link-delete bm-chain-delete" data-id="' + c.id + '">Delete</button>';
 html += '</td></tr>';
-// P19: edit row.
+// P19: edit row allows correcting Service A and Service B references only. No status field (§1.5 has no status).
 html += '<tr class="bm-child-rows" id="bm-chain-edit-' + c.id + '" style="display:none"><td colspan="5">';
-html += '<div class="bm-features-form"><strong>Edit Chain Rule</strong>';
-html += '<p class="description" style="margin-bottom:8px;">Only status can be changed. To change services, delete and re-create the rule.</p>';
-html += '<div class="bm-form-row"><label>Status</label><select class="bm-edit-chain-status"><option value="1"' + ( parseInt( c.status, 10 ) === 1 ? ' selected' : '' ) + '>Active</option><option value="0"' + ( parseInt( c.status, 10 ) === 0 ? ' selected' : '' ) + '>Inactive</option></select></div>';
+html += '<div class="bm-features-form"><strong>Correct Service References</strong>';
+html += '<p class="description" style="margin-bottom:8px;">Use this to correct a wrongly-assigned service reference. Chain type cannot be changed.</p>';
+html += '<div class="bm-form-row"><label>Service A</label>' + bmServiceSelect( 'bm-edit-chain-svc-a', '— Select Service A —', c.service_a_id ) + '</div>';
+html += '<div class="bm-form-row"><label>Service B</label>' + bmServiceSelect( 'bm-edit-chain-svc-b', '— Select Service B —', c.service_b_id ) + '</div>';
+html += '<p class="bm-chain-edit-self-error" style="display:none;color:#c0392b;font-size:12px;">Service A and Service B must be different.</p>';
 html += '<button class="button button-primary bm-save-chain-edit" data-chain-id="' + c.id + '">Save Changes</button>';
 html += '</div></td></tr>';
 });
@@ -915,9 +963,17 @@ $edit.show();
 $( document ).on( 'click', '.bm-save-chain-edit', function () {
 var chainId = $( this ).data( 'chain-id' );
 var $form   = $( this ).closest( '.bm-features-form' );
-var status  = parseInt( $form.find( '.bm-edit-chain-status' ).val(), 10 );
+var svcA    = parseInt( $form.find( '.bm-edit-chain-svc-a' ).val(), 10 );
+var svcB    = parseInt( $form.find( '.bm-edit-chain-svc-b' ).val(), 10 );
+var $err    = $form.find( '.bm-chain-edit-self-error' );
+if ( svcA && svcB && svcA === svcB ) { $err.show(); return; }
+$err.hide();
+var payload = {};
+if ( svcA ) { payload.service_a_id = svcA; }
+if ( svcB ) { payload.service_b_id = svcB; }
+if ( ! Object.keys( payload ).length ) { alert( 'No changes to save.' ); return; }
 var $btn    = $( this ).prop( 'disabled', true ).text( 'Saving\u2026' );
-bmRestPost( 'chains/' + chainId, { status: status } )
+bmRestPost( 'chains/' + chainId, payload )
 .done( function () {
 $( '#bm-chain-edit-' + chainId ).hide();
 bmLoadServiceChains();

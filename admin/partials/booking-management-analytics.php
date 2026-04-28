@@ -673,19 +673,55 @@ $currency_position = $dbhandler->get_global_option_value( 'bm_currency_position'
 
                         <!-- §1.3 Shared Extras -->
                         <div class="analytics-section" style="margin-top:20px;border:1px solid #e2e8f0;border-radius:4px;padding:16px;">
-                            <h3><?php esc_html_e( '§1.3 Shared Extras — Consumption', 'service-booking' ); ?></h3>
-                            <p class="description"><?php esc_html_e( 'Total units consumed per shared extra; remaining capacity per date. Data sourced from EXTRASLOTCOUNT where extra_type = \'global\'.', 'service-booking' ); ?></p>
-                            <div style="height:80px;background:#f8fafc;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;color:#94a3b8;">
-                                <?php esc_html_e( 'Placeholder — live chart coming soon', 'service-booking' ); ?>
-                            </div>
+                            <h3><?php esc_html_e( '§1.3 Shared Extras — Consumption (last 30 days)', 'service-booking' ); ?></h3>
+                            <p class="description"><?php esc_html_e( 'Total units consumed per shared extra, broken down by linked service. Sourced from EXTRASLOTCOUNT where extra_type = \'global\'.', 'service-booking' ); ?></p>
+                            <?php
+                            $bm_shared_extra_analytics = new BM_SharedExtra();
+                            $all_shared_extras         = $bm_shared_extra_analytics->get_all_shared_extras();
+                            $analytics_from            = gmdate( 'Y-m-d', strtotime( '-30 days' ) );
+                            $analytics_to              = gmdate( 'Y-m-d' );
+                            if ( empty( $all_shared_extras ) ) : ?>
+                                <p style="color:#888;"><?php esc_html_e( 'No shared extras found.', 'service-booking' ); ?></p>
+                            <?php else : ?>
+                                <?php foreach ( $all_shared_extras as $bm_se ) : ?>
+                                    <?php $consumption = $bm_shared_extra_analytics->get_consumption_by_service( (int) $bm_se->id, $analytics_from, $analytics_to ); ?>
+                                    <div style="margin-bottom:16px;">
+                                        <strong><?php echo esc_html( $bm_se->service_name ?? ( 'Extra #' . $bm_se->id ) ); ?></strong>
+                                        <span style="color:#888;font-size:12px;margin-left:8px;"><?php echo esc_html( $analytics_from . ' → ' . $analytics_to ); ?></span>
+                                        <?php if ( empty( $consumption ) ) : ?>
+                                            <p style="color:#aaa;font-size:12px;margin:4px 0 0;"><?php esc_html_e( 'No consumption recorded in this period.', 'service-booking' ); ?></p>
+                                        <?php else : ?>
+                                            <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;">
+                                                <thead>
+                                                    <tr style="background:#f1f5f9;">
+                                                        <th style="text-align:left;padding:4px 8px;border:1px solid #e2e8f0;"><?php esc_html_e( 'Service', 'service-booking' ); ?></th>
+                                                        <th style="text-align:left;padding:4px 8px;border:1px solid #e2e8f0;"><?php esc_html_e( 'Date', 'service-booking' ); ?></th>
+                                                        <th style="text-align:right;padding:4px 8px;border:1px solid #e2e8f0;"><?php esc_html_e( 'Units Consumed', 'service-booking' ); ?></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php foreach ( $consumption as $row ) : ?>
+                                                        <tr>
+                                                            <td style="padding:4px 8px;border:1px solid #e2e8f0;"><?php echo esc_html( $row->service_name ?? ( 'Service #' . $row->service_id ) ); ?></td>
+                                                            <td style="padding:4px 8px;border:1px solid #e2e8f0;"><?php echo esc_html( $row->booking_date ); ?></td>
+                                                            <td style="padding:4px 8px;border:1px solid #e2e8f0;text-align:right;"><?php echo (int) $row->slots_consumed; ?></td>
+                                                        </tr>
+                                                    <?php endforeach; ?>
+                                                </tbody>
+                                            </table>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
 
                         <!-- §1.4 Service as Extra -->
                         <div class="analytics-section" style="margin-top:20px;border:1px solid #e2e8f0;border-radius:4px;padding:16px;">
                             <h3><?php esc_html_e( '§1.4 Service as Extra — Add-on uptake', 'service-booking' ); ?></h3>
                             <p class="description"><?php esc_html_e( 'Count and revenue of add-on services purchased alongside each parent service. Sourced from EXTRASLOTCOUNT where extra_type = \'service_as_extra\'.', 'service-booking' ); ?></p>
-                            <div style="height:80px;background:#f8fafc;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;color:#94a3b8;">
-                                <?php esc_html_e( 'Placeholder — live chart coming soon', 'service-booking' ); ?>
+                            <!-- TODO: query EXTRASLOTCOUNT WHERE extra_type='service_as_extra', group by extra_svc_id, aggregate slots_booked and revenue -->
+                            <div style="background:#fff8e1;border:1px dashed #f9a825;border-radius:4px;padding:10px 14px;color:#795548;font-size:13px;">
+                                <?php esc_html_e( 'Coming soon — data not yet available.', 'service-booking' ); ?>
                             </div>
                         </div>
 
@@ -693,8 +729,9 @@ $currency_position = $dbhandler->get_global_option_value( 'bm_currency_position'
                         <div class="analytics-section" style="margin-top:20px;border:1px solid #e2e8f0;border-radius:4px;padding:16px;">
                             <h3><?php esc_html_e( '§1.5 Service Chains — Blocked bookings', 'service-booking' ); ?></h3>
                             <p class="description"><?php esc_html_e( 'Count of booking attempts blocked by a mutual-exclusion chain rule per date range.', 'service-booking' ); ?></p>
-                            <div style="height:80px;background:#f8fafc;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;color:#94a3b8;">
-                                <?php esc_html_e( 'Placeholder — live chart coming soon', 'service-booking' ); ?>
+                            <!-- TODO: requires a dedicated chain_block_log table or a counter incremented in is_service_blocked_by_chain() -->
+                            <div style="background:#fff8e1;border:1px dashed #f9a825;border-radius:4px;padding:10px 14px;color:#795548;font-size:13px;">
+                                <?php esc_html_e( 'Coming soon — data not yet available.', 'service-booking' ); ?>
                             </div>
                         </div>
 
@@ -702,8 +739,9 @@ $currency_position = $dbhandler->get_global_option_value( 'bm_currency_position'
                         <div class="analytics-section" style="margin-top:20px;border:1px solid #e2e8f0;border-radius:4px;padding:16px;">
                             <h3><?php esc_html_e( '§1.6 Resource Pools — Utilisation', 'service-booking' ); ?></h3>
                             <p class="description"><?php esc_html_e( 'Pool capacity utilisation per date: total capacity vs. consumed seats across all linked services.', 'service-booking' ); ?></p>
-                            <div style="height:80px;background:#f8fafc;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;color:#94a3b8;">
-                                <?php esc_html_e( 'Placeholder — live chart coming soon', 'service-booking' ); ?>
+                            <!-- TODO: query SERVICE_RESOURCE_POOL + SLOTCOUNT grouped by pool_id and booking_date, compute used/total ratio -->
+                            <div style="background:#fff8e1;border:1px dashed #f9a825;border-radius:4px;padding:10px 14px;color:#795548;font-size:13px;">
+                                <?php esc_html_e( 'Coming soon — data not yet available.', 'service-booking' ); ?>
                             </div>
                         </div>
 
@@ -711,8 +749,9 @@ $currency_position = $dbhandler->get_global_option_value( 'bm_currency_position'
                         <div class="analytics-section" style="margin-top:20px;border:1px solid #e2e8f0;border-radius:4px;padding:16px;">
                             <h3><?php esc_html_e( '§1.7 Service Options — Choice distribution', 'service-booking' ); ?></h3>
                             <p class="description"><?php esc_html_e( 'Breakdown of which option values customers selected at booking, per option set. Sourced from BOOKING.booking_features_data (selected_options).', 'service-booking' ); ?></p>
-                            <div style="height:80px;background:#f8fafc;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;color:#94a3b8;">
-                                <?php esc_html_e( 'Placeholder — live chart coming soon', 'service-booking' ); ?>
+                            <!-- TODO: decode booking_features_data.selected_options across all BOOKING rows, aggregate by set_id + value_id -->
+                            <div style="background:#fff8e1;border:1px dashed #f9a825;border-radius:4px;padding:10px 14px;color:#795548;font-size:13px;">
+                                <?php esc_html_e( 'Coming soon — data not yet available.', 'service-booking' ); ?>
                             </div>
                         </div>
 
@@ -720,8 +759,9 @@ $currency_position = $dbhandler->get_global_option_value( 'bm_currency_position'
                         <div class="analytics-section" style="margin-top:20px;border:1px solid #e2e8f0;border-radius:4px;padding:16px;">
                             <h3><?php esc_html_e( '§1.8 Virtual Services — Booking volume', 'service-booking' ); ?></h3>
                             <p class="description"><?php esc_html_e( 'Booking volume for virtual services and the individual component-service capacity consumed per booking.', 'service-booking' ); ?></p>
-                            <div style="height:80px;background:#f8fafc;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;color:#94a3b8;">
-                                <?php esc_html_e( 'Placeholder — live chart coming soon', 'service-booking' ); ?>
+                            <!-- TODO: join VIRTUAL_SERVICE_COMPONENT with BOOKING on service_id, count bookings per VS and per component -->
+                            <div style="background:#fff8e1;border:1px dashed #f9a825;border-radius:4px;padding:10px 14px;color:#795548;font-size:13px;">
+                                <?php esc_html_e( 'Coming soon — data not yet available.', 'service-booking' ); ?>
                             </div>
                         </div>
 
@@ -729,8 +769,9 @@ $currency_position = $dbhandler->get_global_option_value( 'bm_currency_position'
                         <div class="analytics-section" style="margin-top:20px;border:1px solid #e2e8f0;border-radius:4px;padding:16px;">
                             <h3><?php esc_html_e( '§1.9 Bundles — Sales and discount applied', 'service-booking' ); ?></h3>
                             <p class="description"><?php esc_html_e( 'Bundle purchase count, total revenue, and total discount applied per bundle. Sourced from BUNDLE_BOOKING and BUNDLE_FULFILMENT_LINE.', 'service-booking' ); ?></p>
-                            <div style="height:80px;background:#f8fafc;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;color:#94a3b8;">
-                                <?php esc_html_e( 'Placeholder — live chart coming soon', 'service-booking' ); ?>
+                            <!-- TODO: query BUNDLE_BOOKING grouped by bundle_id, sum discount from BUNDLE_FULFILMENT_LINE -->
+                            <div style="background:#fff8e1;border:1px dashed #f9a825;border-radius:4px;padding:10px 14px;color:#795548;font-size:13px;">
+                                <?php esc_html_e( 'Coming soon — data not yet available.', 'service-booking' ); ?>
                             </div>
                         </div>
                     </div>

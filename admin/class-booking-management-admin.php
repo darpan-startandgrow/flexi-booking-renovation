@@ -720,11 +720,11 @@ class Booking_Management_Admin {
 				wp_enqueue_style( 'bm-features-css', plugin_dir_url( __FILE__ ) . 'css/booking-management-features.css', array(), $this->version );
 				wp_enqueue_script( 'bm-features-js', plugin_dir_url( __FILE__ ) . 'js/booking-management-features.js', array( 'jquery' ), $this->version, true );
 				$bm_db     = new BM_DBhandler();
-				$bm_svcs   = $bm_db->get_all_result( 'SERVICE', array( 'id', 'service_name' ), array( 'service_status' => 1 ), 'results' );
+				$bm_svcs   = $bm_db->get_all_result( 'SERVICE', array( 'id', 'service_name', 'service_price' ), array( 'service_status' => 1 ), 'results' );
 				$bm_svcs   = is_array( $bm_svcs ) ? $bm_svcs : array();
 				$svc_array = array();
 				foreach ( $bm_svcs as $s ) {
-					$svc_array[] = array( 'id' => (int) $s->id, 'name' => $s->service_name );
+					$svc_array[] = array( 'id' => (int) $s->id, 'name' => $s->service_name, 'price' => (float) ( $s->service_price ?? 0 ) );
 				}
 				wp_localize_script(
 					'bm-features-js',

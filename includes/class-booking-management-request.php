@@ -4047,7 +4047,11 @@ class BM_Request {
 								} elseif ( $bundle->discount_type === 'fixed' && (float) $bundle->discount_value > 0 ) {
 									$disc = ' (' . $this->bm_fetch_price_in_global_settings_format( (float) $bundle->discount_value, true ) . ' ' . esc_html__( 'off', 'service-booking' ) . ')';
 								}
-								$resp .= '<option value="' . (int) $bundle->id . '">' . esc_html( $bundle->name ) . $disc . '</option>';
+								// P1 — show bundle price so the admin/customer sees the bundled offer price.
+								$price_str = (float) $bundle->price > 0
+									? ' — ' . $this->bm_fetch_price_in_global_settings_format( (float) $bundle->price, true )
+									: '';
+								$resp .= '<option value="' . (int) $bundle->id . '">' . esc_html( $bundle->name ) . $price_str . $disc . '</option>';
 							}
 							$resp .= '</select>';
 							$resp .= '<p class="bm-option-set-desc">' . esc_html__( 'Select a bundle to receive a discount on this booking.', 'service-booking' ) . '</p>';
@@ -16566,6 +16570,7 @@ class BM_Request {
             b.service_cost,
             b.extra_svc_cost as extra_service_cost,
             b.disount_amount as discount,
+            b.booking_features_data,
             c.billing_details,
             t.payment_status as transaction_status,
             t.transaction_created_at as paid_at,
@@ -16638,12 +16643,35 @@ class BM_Request {
 					'service_cost'               => $result->service_cost ?? 0,
 					'extra_service_cost'         => $result->extra_service_cost ?? 0,
 					'discount'                   => $result->discount ?? 0,
+					// P5/P16 — feature flags for order listing.
+					'features_flags'             => self::bm_extract_order_feature_flags( $result->booking_features_data ?? null ),
 				);
 			}
 		}
 
 		return $processed_results;
 	}//end bm_fetch_all_orders_with_customer_data()
+
+	/**
+	 * P5/P16 — Extract simple feature flags from booking_features_data.
+	 *
+	 * @param string|null $raw  Serialized features data.
+	 * @return array  Keys: has_bundle (bool), bundle_name (string), has_options (bool).
+	 */
+	private static function bm_extract_order_feature_flags( $raw ) {
+		if ( empty( $raw ) ) {
+			return array( 'has_bundle' => false, 'bundle_name' => '', 'has_options' => false );
+		}
+		$data = maybe_unserialize( $raw );
+		if ( ! is_array( $data ) ) {
+			return array( 'has_bundle' => false, 'bundle_name' => '', 'has_options' => false );
+		}
+		return array(
+			'has_bundle'  => ! empty( $data['selected_bundle']['bundle_id'] ),
+			'bundle_name' => (string) ( $data['selected_bundle']['bundle_name'] ?? '' ),
+			'has_options' => ! empty( $data['selected_options'] ),
+		);
+	}
 
 
 	/**
