@@ -36,12 +36,12 @@ $this->db = new BM_DBhandler();
  * @param string $chain_type  Always 'mutual_exclusion'. Any other value defaults to 'mutual_exclusion'.
  * @return int|false
  */
-public function create_chain( int $service_a_id, int $service_b_id, string $chain_type = 'mutual_exclusion' ) {
+public function create_chain( int $service_a_id, int $service_b_id ) {
 // P4 — server-side self-chain validation.
 if ( $service_a_id === $service_b_id ) {
 return false;
 }
-// P2 — only 'mutual_exclusion' is supported per spec §1.5; reject anything else.
+// P2 — only 'mutual_exclusion' is supported per spec §1.5.
 $chain_type = 'mutual_exclusion';
 $table      = $this->db->get_table_name( 'SERVICE_CHAIN' );
 

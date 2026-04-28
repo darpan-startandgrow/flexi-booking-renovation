@@ -639,8 +639,7 @@ class Booking_Features_REST {
 		}
 		$id = $this->service_chain->create_chain(
 			$service_a,
-			$service_b,
-			(string) ( $params['chain_type'] ?? 'mutual_exclusion' )
+			$service_b
 		);
 		if ( ! $id ) {
 			return new WP_REST_Response( [ 'success' => false, 'message' => 'Failed to create chain' ], 500 );
