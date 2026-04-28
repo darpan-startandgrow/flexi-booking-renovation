@@ -3386,6 +3386,77 @@ class BM_Request {
 
 
 	/**
+	 * §1.9 Bundle card — rendered in the main service listing alongside regular services.
+	 * Uses the same CSS structure as bm_fetch_service_response() so the bundle card is
+	 * visually consistent with service cards on the frontend.
+	 *
+	 * @param object $bundle  A row from sgbm_bundles.
+	 * @return string  HTML for the bundle card, or '' if the bundle has no component services.
+	 */
+	public function bm_fetch_bundle_card_html( $bundle ): string {
+		if ( ! class_exists( 'BM_Bundle' ) || empty( $bundle ) || ! isset( $bundle->id ) ) {
+			return '';
+		}
+
+		$bundle_handler = new BM_Bundle();
+		$items          = $bundle_handler->get_bundle_items( (int) $bundle->id );
+
+		// A bundle with no component services cannot be booked; omit it from the listing.
+		if ( empty( $items ) ) {
+			return '';
+		}
+
+		$primary_svc_id = (int) $items[0]->service_id;
+
+		$dbhandler          = new BM_DBhandler();
+		$svc_name_colour    = $dbhandler->get_global_option_value( 'bm_frontend_service_title_color', '#000000' );
+		$svc_button_colour  = $dbhandler->get_global_option_value( 'bm_frontend_book_button_color', '#000000' );
+		$svc_btn_txt_colour = $dbhandler->get_global_option_value( 'bm_frontend_book_button_txt_color', '#ffffff' );
+		$price_text_colour  = $dbhandler->get_global_option_value( 'bm_frontend_service_price_text_color', '#000000' );
+
+		$disc = '';
+		if ( $bundle->discount_type === 'percent' && (float) $bundle->discount_value > 0 ) {
+			$disc = ' (' . (float) $bundle->discount_value . '% ' . esc_html__( 'off', 'service-booking' ) . ')';
+		} elseif ( $bundle->discount_type === 'fixed' && (float) $bundle->discount_value > 0 ) {
+			$disc = ' (' . $this->bm_fetch_price_in_global_settings_format( (float) $bundle->discount_value, true ) . ' ' . esc_html__( 'off', 'service-booking' ) . ')';
+		}
+
+		$price_str   = (float) $bundle->price > 0
+			? $this->bm_fetch_price_in_global_settings_format( (float) $bundle->price, true )
+			: '';
+		$bundle_name = esc_html( $bundle->name );
+		$bundle_desc = ! empty( $bundle->description )
+			? wp_strip_all_tags( $bundle->description )
+			: esc_html__( 'Bundle package', 'service-booking' );
+
+		$resp  = '<div class="searchproductbox main-parent bm-bundle-card" data-bundle-id="' . (int) $bundle->id . '">';
+		$resp .= '<div class="productdescbar">';
+		$resp .= '<span class="category-tag">' . esc_html__( 'Bundle', 'service-booking' ) . '</span>';
+		$resp .= '<h4 style="color:' . esc_attr( $svc_name_colour ) . '!important;">' . $bundle_name . '</h4>';
+		$resp .= '<p class="paratext"><span class="svc_desc_text">' . esc_html( $bundle_desc ) . '</span></p>';
+		$resp .= '</div>';
+
+		if ( $price_str ) {
+			$resp .= '<div class="pricetext textblue" style="color:' . esc_attr( $price_text_colour ) . '!important;">' . $price_str . $disc . '</div>';
+		}
+
+		$resp .= '<div class="productbottombar">';
+		if ( $primary_svc_id > 0 ) {
+			$resp .= '<div class="booknowbtn textblue bordercolor" style="background:' . esc_attr( $svc_button_colour ) . '!important">';
+			$resp .= '<a href="#" id="' . $primary_svc_id . '" class="get_slot_details bm-bundle-book-btn" data-bundle-id="' . (int) $bundle->id . '" style="color:' . esc_attr( $svc_btn_txt_colour ) . '!important">';
+			$resp .= esc_html__( 'Book Bundle', 'service-booking' );
+			$resp .= '</a></div>';
+		} else {
+			$resp .= '<div class="booknowbtn readonly_div"><span class="slots_full_text">' . esc_html__( 'No Services Assigned', 'service-booking' ) . '</span></div>';
+		}
+		$resp .= '</div>';
+		$resp .= '</div>';
+
+		return wp_kses_post( $resp );
+	}//end bm_fetch_bundle_card_html()
+
+
+	/**
 	 * Fetch service response for service search shortcode
 	 *
 	 * @author Darpan
@@ -4028,30 +4099,6 @@ class BM_Request {
 								$resp .= '</select></div>';
 							}
 							$resp .= '</div><!-- .bm-service-options-wrap -->';
-						}
-					}
-
-					// ── §1.9 Bundles: show available bundle promotions for this service ──
-					if ( class_exists( 'BM_Bundle' ) ) {
-						$bundle_handler = new BM_Bundle();
-						$bundles        = $bundle_handler->get_bundles_for_service( (int) $service_id );
-						if ( ! empty( $bundles ) ) {
-							$resp .= '<div class="bm-bundle-selector-wrap">';
-							$resp .= '<label class="bm-option-set-label">' . esc_html__( 'Bundle Promotion', 'service-booking' ) . '</label>';
-							$resp .= '<select id="bm_selected_bundle_id" name="bm_selected_bundle_id" class="bm-bundle-select">';
-							$resp .= '<option value="">' . esc_html__( '-- No bundle --', 'service-booking' ) . '</option>';
-							foreach ( $bundles as $bundle ) {
-								$disc = '';
-								if ( $bundle->discount_type === 'percent' && (float) $bundle->discount_value > 0 ) {
-									$disc = ' (' . (float) $bundle->discount_value . '% ' . esc_html__( 'off', 'service-booking' ) . ')';
-								} elseif ( $bundle->discount_type === 'fixed' && (float) $bundle->discount_value > 0 ) {
-									$disc = ' (' . $this->bm_fetch_price_in_global_settings_format( (float) $bundle->discount_value, true ) . ' ' . esc_html__( 'off', 'service-booking' ) . ')';
-								}
-								$resp .= '<option value="' . (int) $bundle->id . '">' . esc_html( $bundle->name ) . $disc . '</option>';
-							}
-							$resp .= '</select>';
-							$resp .= '<p class="bm-option-set-desc">' . esc_html__( 'Select a bundle to receive a discount on this booking.', 'service-booking' ) . '</p>';
-							$resp .= '</div><!-- .bm-bundle-selector-wrap -->';
 						}
 					}
 
@@ -16566,6 +16613,7 @@ class BM_Request {
             b.service_cost,
             b.extra_svc_cost as extra_service_cost,
             b.disount_amount as discount,
+            b.booking_features_data,
             c.billing_details,
             t.payment_status as transaction_status,
             t.transaction_created_at as paid_at,
@@ -16638,12 +16686,35 @@ class BM_Request {
 					'service_cost'               => $result->service_cost ?? 0,
 					'extra_service_cost'         => $result->extra_service_cost ?? 0,
 					'discount'                   => $result->discount ?? 0,
+					// P5/P16 — feature flags for order listing.
+					'features_flags'             => self::bm_extract_order_feature_flags( $result->booking_features_data ?? null ),
 				);
 			}
 		}
 
 		return $processed_results;
 	}//end bm_fetch_all_orders_with_customer_data()
+
+	/**
+	 * P5/P16 — Extract simple feature flags from booking_features_data.
+	 *
+	 * @param string|null $raw  Serialized features data.
+	 * @return array  Keys: has_bundle (bool), bundle_name (string), has_options (bool).
+	 */
+	private static function bm_extract_order_feature_flags( $raw ) {
+		if ( empty( $raw ) ) {
+			return array( 'has_bundle' => false, 'bundle_name' => '', 'has_options' => false );
+		}
+		$data = maybe_unserialize( $raw );
+		if ( ! is_array( $data ) ) {
+			return array( 'has_bundle' => false, 'bundle_name' => '', 'has_options' => false );
+		}
+		return array(
+			'has_bundle'  => ! empty( $data['selected_bundle']['bundle_id'] ),
+			'bundle_name' => (string) ( $data['selected_bundle']['bundle_name'] ?? '' ),
+			'has_options' => ! empty( $data['selected_options'] ),
+		);
+	}
 
 
 	/**
@@ -17191,6 +17262,12 @@ class BM_Request {
 		$invoice_details = maybe_unserialize( $order_data->field_values );
 		$invoice_details = is_array( $invoice_details ) ? $invoice_details : array();
 
+		// P5/P16 — decode booking features data (selected_options, selected_bundle).
+		$features_raw    = isset( $order_data->booking_features_data ) ? maybe_unserialize( $order_data->booking_features_data ) : array();
+		$features_raw    = is_array( $features_raw ) ? $features_raw : array();
+		$selected_bundle  = $features_raw['selected_bundle'] ?? null;
+		$selected_options = $features_raw['selected_options'] ?? array();
+
 		$formatted_data = array(
 			'customer_info'    => array(
 				'id'         => $order_data->customer_id ?? 0,
@@ -17224,7 +17301,14 @@ class BM_Request {
 				'invoice_company_name'    => $invoice_details['invoice_company_name'] ?? '',
 				'invoice_company_country'  => $invoice_details['invoice_company_country'] ?? '',
 				'invoice_vat_id'  => $invoice_details['invoice_vat_id'] ?? '',
-			]
+			],
+			// P5 — bundle purchase data.
+			'bundle_purchase'  => $selected_bundle ? array(
+				'bundle_id'   => (int) ( $selected_bundle['bundle_id'] ?? 0 ),
+				'bundle_name' => (string) ( $selected_bundle['bundle_name'] ?? '' ),
+			) : null,
+			// P16 — selected service option data.
+			'selected_options' => is_array( $selected_options ) ? $selected_options : array(),
 		);
 
 		return $formatted_data;

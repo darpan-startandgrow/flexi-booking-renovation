@@ -9948,6 +9948,18 @@ function bm_search_order_data(type = '') {
 								orderListing += "</td>";
 							}
 						}
+						// P5/P16: fixed Features column.
+						var ff = bookings[i].features_flags;
+						var fBadges = '';
+						if ( ff ) {
+							if ( ff.has_bundle ) {
+								fBadges += "<span title='Bundle: " + ( ff.bundle_name || 'yes' ) + "' style='background:#e0f2fe;color:#0369a1;border-radius:3px;padding:1px 6px;font-size:11px;margin-right:3px;'>Bundle</span>";
+							}
+							if ( ff.has_options ) {
+								fBadges += "<span style='background:#fef9c3;color:#92400e;border-radius:3px;padding:1px 6px;font-size:11px;'>Options</span>";
+							}
+						}
+						orderListing += "<td style='text-align:center;'>" + ( fBadges || '<span style=\"color:#aaa;font-size:11px;\">—</span>' ) + "</td>";
 						orderListing += "</form></tr>";
 						current_pagenumber++;
 					}

@@ -50,6 +50,17 @@ if ( ! empty( $all_services ) ) {
         <span style="display: inline-block;width:50%;">
             <h2 class="title" style="font-weight: bold;"><?php esc_html_e( 'Shared Extras', 'service-booking' ); ?></h2>
             <p class="description"><?php esc_html_e( 'Global extras share capacity across all linked services. Manage them centrally here.', 'service-booking' ); ?></p>
+            <p class="description" style="background:#e8f4fd;border-left:4px solid #2271b1;padding:8px 12px;margin-top:8px;">
+                <strong><?php esc_html_e( 'Consumption tracking (§1.3):', 'service-booking' ); ?></strong>
+                <?php esc_html_e( 'Each booking that includes a shared extra records consumption in EXTRASLOTCOUNT (extra_type=\'global\'). Remaining capacity per date is: max_capacity minus the sum of slots_booked on that date. A per-shared-extra consumption summary is available via the REST endpoint GET /bm-features/v1/shared-extras/{id}/consumption.', 'service-booking' ); ?>
+                <?php
+                printf(
+                    /* translators: %s: URL to Features Analytics page */
+                    wp_kses( __( 'Aggregate data is visible in <a href="%s">Analytics &rarr; Features</a>.', 'service-booking' ), array( 'a' => array( 'href' => array() ) ) ),
+                    esc_url( admin_url( 'admin.php?page=bm_analytics' ) )
+                );
+                ?>
+            </p>
         </span>
         <span style="display: inline-block;width:49%;text-align:right;">
             <button type="button" class="button" id="bm_import_extra_btn" style="margin-bottom:10px;margin-right:5px;">

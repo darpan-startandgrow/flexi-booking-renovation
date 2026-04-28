@@ -630,11 +630,16 @@ class Booking_Features_REST {
 	}
 
 	public function create_chain( WP_REST_Request $request ): WP_REST_Response {
-		$params = $request->get_json_params() ?: $request->get_body_params();
-		$id     = $this->service_chain->create_chain(
-			(int) ( $params['service_a_id'] ?? 0 ),
-			(int) ( $params['service_b_id'] ?? 0 ),
-			(string) ( $params['chain_type'] ?? 'exclusive' )
+		$params     = $request->get_json_params() ?: $request->get_body_params();
+		$service_a  = (int) ( $params['service_a_id'] ?? 0 );
+		$service_b  = (int) ( $params['service_b_id'] ?? 0 );
+		// P4 — server-side self-chain guard.
+		if ( $service_a > 0 && $service_a === $service_b ) {
+			return new WP_REST_Response( [ 'success' => false, 'message' => 'A service cannot be chained to itself.' ], 422 );
+		}
+		$id = $this->service_chain->create_chain(
+			$service_a,
+			$service_b
 		);
 		if ( ! $id ) {
 			return new WP_REST_Response( [ 'success' => false, 'message' => 'Failed to create chain' ], 500 );
@@ -757,7 +762,9 @@ class Booking_Features_REST {
 			(string) ( $params['name'] ?? '' ),
 			(string) ( $params['description'] ?? '' ),
 			isset( $params['discount_type'] ) ? (string) $params['discount_type'] : null,
-			(float) ( $params['discount_value'] ?? 0.0 )
+			(float) ( $params['discount_value'] ?? 0.0 ),
+			(float) ( $params['price'] ?? 0.0 ),
+			(int) ( $params['status'] ?? 1 )
 		);
 		if ( ! $id ) {
 			return new WP_REST_Response( [ 'success' => false, 'message' => 'Failed to create bundle' ], 500 );
@@ -824,6 +831,7 @@ class Booking_Features_REST {
 
 	public function create_virtual_service( WP_REST_Request $request ): WP_REST_Response {
 		$params = $request->get_json_params() ?: $request->get_body_params();
+		// P3 — service_id is now optional. Default to 0 when not provided.
 		$id     = $this->virtual_service->create_virtual_service(
 			(int) ( $params['service_id'] ?? 0 ),
 			(string) ( $params['name'] ?? '' ),
@@ -870,11 +878,32 @@ class Booking_Features_REST {
 	}
 
 	public function check_virtual_service_availability( WP_REST_Request $request ): WP_REST_Response {
-		$available = $this->virtual_service->is_virtual_service_available(
-			(int) $request['id'],
-			(string) $request->get_param( 'date' )
-		);
-		return new WP_REST_Response( [ 'success' => true, 'data' => [ 'available' => $available ] ] );
+		$vs_id = (int) $request['id'];
+		$date  = (string) $request->get_param( 'date' );
+
+		// Overall VS availability (all components must be free).
+		$available = $this->virtual_service->is_virtual_service_available( $vs_id, $date );
+
+		// Per-component availability so the admin UI can show which component is blocked.
+		$components        = $this->virtual_service->get_components( $vs_id );
+		$chain_checker     = new BM_ServiceChain();
+		$component_statuses = array();
+		foreach ( $components as $comp ) {
+			$svc_id   = (int) $comp->component_service_id;
+			$is_booked = $chain_checker->service_is_booked_on_date( $svc_id, $date );
+			$component_statuses[] = array(
+				'service_id'    => $svc_id,
+				'available'     => ! $is_booked,
+			);
+		}
+
+		return new WP_REST_Response( [
+			'success' => true,
+			'data'    => [
+				'available'          => $available,
+				'component_statuses' => $component_statuses,
+			],
+		] );
 	}
 
 	// ─────────────────── SERVICE-AS-EXTRA HANDLERS ───────────────────────────

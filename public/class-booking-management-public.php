@@ -1637,6 +1637,19 @@ return ob_get_clean();
 					. '</div>';
 			}
 
+			// §1.9 — Append active bundle cards to the main service listing.
+			// Bundles are standalone offers; status=1 means active/bookable.
+			if ( class_exists( 'BM_Bundle' ) ) {
+				$bundle_handler_svc = new BM_Bundle();
+				$active_bundles_svc = $bundle_handler_svc->get_all_bundles( 1 );
+				foreach ( $active_bundles_svc as $bm_bundle ) {
+					$bundle_html = $bmrequests->bm_fetch_bundle_card_html( $bm_bundle );
+					if ( $bundle_html ) {
+						$resp .= $bundle_html;
+					}
+				}
+			}
+
 			$num_of_pages = $limit !== false ? ceil( $total_records / $limit ) : 1;
 			$pagination   = $dbhandler->bm_get_pagination( $num_of_pages, $pagenum, $base );
 

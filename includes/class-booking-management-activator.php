@@ -716,6 +716,9 @@ class Booking_Management_Activator {
 		$this->migrate_legacy_global_extras();
 		$this->add_error_column_to_emails();
 		$this->add_error_column_to_failed_transactions();
+		$this->add_price_column_to_bundle();
+		$this->drop_vs_service_id_unique_constraint();
+		$this->add_sort_order_column_to_option_value();
 		$this->create_default_form_fields();
 		$this->create_default_email_templates();
 		$this->create_default_pdf_contents();
@@ -2140,6 +2143,57 @@ class Booking_Management_Activator {
 		}
 	}
 
+
+	/**
+	 * P1 — Add price column to BUNDLE table.
+	 *
+	 * Idempotent: skipped if column already exists.
+	 */
+	private function add_price_column_to_bundle() {
+		global $wpdb;
+		$table_name = esc_sql( $this->get_db_table_name( 'BUNDLE' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$row = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'price' ) );
+		if ( empty( $row ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `price` DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER `discount_value`" );
+		}
+	}
+
+	/**
+	 * P3 — Drop the unique_svc constraint on VIRTUAL_SERVICE.service_id.
+	 *
+	 * The create form no longer requires a linked service on creation.
+	 * service_id = 0 is used as sentinel for "no linked service yet".
+	 * Idempotent: silently fails if the index does not exist.
+	 */
+	private function drop_vs_service_id_unique_constraint() {
+		global $wpdb;
+		$table_name = esc_sql( $this->get_db_table_name( 'VIRTUAL_SERVICE' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$idx = $wpdb->get_results( $wpdb->prepare( "SHOW INDEX FROM `{$table_name}` WHERE Key_name = %s", 'unique_svc' ) );
+		if ( ! empty( $idx ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` DROP INDEX `unique_svc`" );
+		}
+	}
+
+	/**
+	 * P13 — Add sort_order column to OPTION_VALUE table.
+	 *
+	 * Used by the ↑/↓ reorder buttons in the admin option values UI.
+	 * Idempotent: skipped if column already exists.
+	 */
+	private function add_sort_order_column_to_option_value() {
+		global $wpdb;
+		$table_name = esc_sql( $this->get_db_table_name( 'OPTION_VALUE' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name already escaped with esc_sql().
+		$row = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'sort_order' ) );
+		if ( empty( $row ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `sort_order` INT(11) NOT NULL DEFAULT 0 AFTER `status`" );
+		}
+	}
 
 	/**
 	 * Add performance indexes to extras-related tables.
