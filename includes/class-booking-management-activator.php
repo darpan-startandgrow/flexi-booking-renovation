@@ -2155,7 +2155,7 @@ class Booking_Management_Activator {
 		$row = $wpdb->get_results( $wpdb->prepare( "SHOW COLUMNS FROM `{$table_name}` LIKE %s", 'price' ) );
 		if ( empty( $row ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- Required for plugin activation migration.
-			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `price` float(50) NOT NULL DEFAULT 0 AFTER `discount_value`" );
+			$wpdb->query( "ALTER TABLE `{$table_name}` ADD `price` DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER `discount_value`" );
 		}
 	}
 

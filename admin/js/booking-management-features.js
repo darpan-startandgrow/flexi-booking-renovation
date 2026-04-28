@@ -353,7 +353,7 @@ if ( ! rows.length ) { $wrap.html( '<p>No bundles yet.</p>' ); return; }
 var html = '<table class="bm-features-table"><thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Discount</th><th>Status</th><th>Items</th><th>Actions</th></tr></thead><tbody>';
 $.each( rows, function ( i, b ) {
 var discountStr = b.discount_type ? b.discount_type + ': ' + b.discount_value : 'None';
-var statusBadge = b.status == 1
+var statusBadge = parseInt( b.status, 10 ) === 1
 ? '<span style="color:green;font-weight:600;">Active</span>'
 : '<span style="color:#999;">Inactive</span>';
 html += '<tr data-bundle-id="' + b.id + '">';
@@ -372,7 +372,7 @@ html += '<div class="bm-form-row"><label>Description</label><textarea class="bm-
 html += '<div class="bm-form-row"><label>Bundle Price <span class="bm-required-star">*</span></label><input type="number" class="bm-edit-bundle-price" step="0.01" min="0" value="' + ( b.price || 0 ) + '" /></div>';
 html += '<div class="bm-form-row"><label>Discount Type</label><select class="bm-edit-bundle-discount-type"><option value="">None</option><option value="percent"' + ( b.discount_type === 'percent' ? ' selected' : '' ) + '>Percent (%)</option><option value="fixed"' + ( b.discount_type === 'fixed' ? ' selected' : '' ) + '>Fixed Amount</option></select></div>';
 html += '<div class="bm-form-row"><label>Discount Value</label><input type="number" class="bm-edit-bundle-discount-value" step="0.01" value="' + ( b.discount_value || 0 ) + '" /></div>';
-html += '<div class="bm-form-row"><label>Status</label><select class="bm-edit-bundle-status"><option value="1"' + ( b.status == 1 ? ' selected' : '' ) + '>Active</option><option value="0"' + ( b.status == 0 ? ' selected' : '' ) + '>Inactive</option></select></div>';
+html += '<div class="bm-form-row"><label>Status</label><select class="bm-edit-bundle-status"><option value="1"' + ( parseInt( b.status, 10 ) === 1 ? ' selected' : '' ) + '>Active</option><option value="0"' + ( parseInt( b.status, 10 ) === 0 ? ' selected' : '' ) + '>Inactive</option></select></div>';
 html += '<button class="button button-primary bm-save-bundle-edit" data-bundle-id="' + b.id + '">Save Changes</button>';
 html += '</div></td></tr>';
 html += '<tr class="bm-child-rows" id="bm-bundle-items-' + b.id + '" style="display:none"><td colspan="7">';
@@ -851,7 +851,7 @@ if ( ! rows.length ) { $wrap.html( '<p>No service chains yet.</p>' ); return; }
 // P2/P11: show type label and service names.
 var html = '<table class="bm-features-table"><thead><tr><th>ID</th><th>Service A</th><th>Service B</th><th>Type</th><th>Actions</th></tr></thead><tbody>';
 $.each( rows, function ( i, c ) {
-var typeLabel = ( c.chain_type === 'exclusive' || c.chain_type === 'mutual_exclusion' ) ? 'Mutual Exclusion' : c.chain_type;
+var typeLabel = ( c.chain_type === 'exclusive' || c.chain_type === 'mutual_exclusion' ) ? 'Mutual Exclusion' : 'Unknown Type';
 html += '<tr>';
 html += '<td>' + c.id + '</td>';
 // P11: resolve names.
@@ -866,7 +866,7 @@ html += '</td></tr>';
 html += '<tr class="bm-child-rows" id="bm-chain-edit-' + c.id + '" style="display:none"><td colspan="5">';
 html += '<div class="bm-features-form"><strong>Edit Chain Rule</strong>';
 html += '<p class="description" style="margin-bottom:8px;">Only status can be changed. To change services, delete and re-create the rule.</p>';
-html += '<div class="bm-form-row"><label>Status</label><select class="bm-edit-chain-status"><option value="1"' + ( c.status == 1 ? ' selected' : '' ) + '>Active</option><option value="0"' + ( c.status == 0 ? ' selected' : '' ) + '>Inactive</option></select></div>';
+html += '<div class="bm-form-row"><label>Status</label><select class="bm-edit-chain-status"><option value="1"' + ( parseInt( c.status, 10 ) === 1 ? ' selected' : '' ) + '>Active</option><option value="0"' + ( parseInt( c.status, 10 ) === 0 ? ' selected' : '' ) + '>Inactive</option></select></div>';
 html += '<button class="button button-primary bm-save-chain-edit" data-chain-id="' + c.id + '">Save Changes</button>';
 html += '</div></td></tr>';
 });

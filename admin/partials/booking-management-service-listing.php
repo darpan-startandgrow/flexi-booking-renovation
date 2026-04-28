@@ -48,7 +48,8 @@ $services_for_globals     = $shared_column_data['services_for_globals'];
 $bm_feature_participation = array();
 if ( ! empty( $service_ids_on_page ) ) {
     global $wpdb;
-    $plugin_prefix  = $wpdb->prefix . 'sgbm_';
+    $plugin_prefix   = $wpdb->prefix . 'sgbm_';
+    // All IDs are cast to int via array_map('intval',...) — no user-supplied string data in the placeholder.
     $ids_placeholder = implode( ',', array_map( 'intval', $service_ids_on_page ) );
 
     // Chains.

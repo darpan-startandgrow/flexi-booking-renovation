@@ -54,7 +54,7 @@ return $this->db->insert_row(
 'price'          => (float) $price,
 'status'         => max( 0, min( 1, $status ) ),
 ],
-[ '%s', '%s', null !== $discount_type ? '%s' : '%s', '%f', '%f', '%d' ]
+[ '%s', '%s', '%s', '%f', '%f', '%d' ]
 );
 }
 
