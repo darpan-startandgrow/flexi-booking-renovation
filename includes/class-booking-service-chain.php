@@ -33,10 +33,18 @@ $this->db = new BM_DBhandler();
  *
  * @param int    $service_a_id
  * @param int    $service_b_id
- * @param string $chain_type  'exclusive'|'unidirectional'
+ * @param string $chain_type  'mutual_exclusion'|'exclusive'
  * @return int|false
  */
 public function create_chain( int $service_a_id, int $service_b_id, string $chain_type = 'exclusive' ) {
+// P4 — server-side self-chain validation.
+if ( $service_a_id === $service_b_id ) {
+return false;
+}
+// P2 — 'mutual_exclusion' is the UI label; normalise to 'exclusive' for storage.
+if ( 'mutual_exclusion' === $chain_type ) {
+$chain_type = 'exclusive';
+}
 $chain_type = in_array( $chain_type, [ 'exclusive', 'unidirectional' ], true ) ? $chain_type : 'exclusive';
 $table      = $this->db->get_table_name( 'SERVICE_CHAIN' );
 

@@ -26,6 +26,15 @@ if ( empty( $services ) ) {
 <div class="wrap bm-features-wrap">
 	<h1 class="wp-heading-inline"><?php esc_html_e( 'Booking Features', 'service-booking' ); ?></h1>
 	<p><?php esc_html_e( 'Manage advanced booking features: options, add-on services, bundles, virtual services, resource pools, and service chains.', 'service-booking' ); ?></p>
+	<p class="description">
+		<?php
+		printf(
+			/* translators: %s: URL to Shared Extras page */
+			wp_kses( __( 'Shared Extras (§1.3) are managed on a separate page: <a href="%s">Shared Extras &rarr;</a>', 'service-booking' ), array( 'a' => array( 'href' => array() ) ) ),
+			esc_url( admin_url( 'admin.php?page=bm_shared_extras' ) )
+		);
+		?>
+	</p>
 
 	<ul class="bm-features-tabs">
 		<li class="bm-tab-active"><a href="#" data-tab="options"><?php esc_html_e( 'Service Options', 'service-booking' ); ?></a></li>
@@ -40,6 +49,10 @@ if ( empty( $services ) ) {
 	<div id="bm-tab-options" class="bm-tab-panel bm-tab-panel-active">
 		<p class="bm-features-notice">
 			<?php esc_html_e( 'Service Options let customers choose a variant (e.g. "light" or "full" package) during booking. Each option set belongs to one service; selecting a value adjusts the booking price.', 'service-booking' ); ?>
+		</p>
+		<p class="bm-features-notice" style="background:#e8f4fd;border-left:4px solid #2271b1;padding:8px 12px;">
+			<strong><?php esc_html_e( 'Note:', 'service-booking' ); ?></strong>
+			<?php esc_html_e( 'The option the customer selects at booking time is recorded on the order and is visible in the single-order detail view.', 'service-booking' ); ?>
 		</p>
 		<div class="bm-features-form">
 			<strong><?php esc_html_e( 'Filter by Service', 'service-booking' ); ?></strong>
@@ -148,6 +161,10 @@ if ( empty( $services ) ) {
 				<textarea id="bm-bundle-desc"></textarea>
 			</div>
 			<div class="bm-form-row">
+				<label><?php esc_html_e( 'Bundle Price', 'service-booking' ); ?> <span class="bm-required-star">*</span></label>
+				<input type="number" id="bm-bundle-price" step="0.01" min="0" placeholder="<?php esc_attr_e( 'e.g. 149.00', 'service-booking' ); ?>" />
+			</div>
+			<div class="bm-form-row">
 				<label><?php esc_html_e( 'Discount Type', 'service-booking' ); ?></label>
 				<select id="bm-bundle-discount-type">
 					<option value=""><?php esc_html_e( 'None', 'service-booking' ); ?></option>
@@ -159,6 +176,13 @@ if ( empty( $services ) ) {
 				<label><?php esc_html_e( 'Discount Value', 'service-booking' ); ?></label>
 				<input type="number" id="bm-bundle-discount-value" step="0.01" value="0" />
 			</div>
+			<div class="bm-form-row">
+				<label><?php esc_html_e( 'Status', 'service-booking' ); ?></label>
+				<select id="bm-bundle-status">
+					<option value="1"><?php esc_html_e( 'Active', 'service-booking' ); ?></option>
+					<option value="0"><?php esc_html_e( 'Inactive', 'service-booking' ); ?></option>
+				</select>
+			</div>
 			<button id="bm-add-bundle" class="button button-primary"><?php esc_html_e( 'Create Bundle', 'service-booking' ); ?></button>
 		</div>
 	</div>
@@ -168,20 +192,15 @@ if ( empty( $services ) ) {
 		<p class="bm-features-notice">
 			<?php esc_html_e( 'Virtual Services represent a service that is bookable only when ALL its component real services are available. Booking a virtual service blocks all its components.', 'service-booking' ); ?>
 		</p>
+		<p class="bm-features-notice" style="background:#fff8e1;border-left:4px solid #f59e0b;padding:8px 12px;">
+			<strong><?php esc_html_e( 'Two-layer model:', 'service-booking' ); ?></strong>
+			<?php esc_html_e( 'Step 1 — Create the Virtual Service entity (name + description). Step 2 — Use the Components sub-table to attach two or more real component services. The VS Record ID is the internal ID of the virtual service entity; component services are the real services whose availability it depends on.', 'service-booking' ); ?>
+		</p>
 		<button id="bm-vs-load" class="button"><?php esc_html_e( 'Load Virtual Services', 'service-booking' ); ?></button>
 		<div id="bm-vs-list" style="margin-top:16px;"></div>
 
 		<div class="bm-features-form" style="margin-top:20px;">
 			<strong><?php esc_html_e( 'Create Virtual Service', 'service-booking' ); ?></strong>
-			<div class="bm-form-row">
-				<label><?php esc_html_e( 'Linked Service', 'service-booking' ); ?></label>
-				<select id="bm-vs-service-id">
-					<option value=""><?php esc_html_e( '— Select Service —', 'service-booking' ); ?></option>
-					<?php foreach ( $services as $svc ) : ?>
-						<option value="<?php echo esc_attr( $svc->id ); ?>"><?php echo esc_html( $svc->service_name ); ?> (ID: <?php echo (int) $svc->id; ?>)</option>
-					<?php endforeach; ?>
-				</select>
-			</div>
 			<div class="bm-form-row">
 				<label><?php esc_html_e( 'Name', 'service-booking' ); ?> <span class="bm-required-star">*</span></label>
 				<input type="text" id="bm-vs-name" placeholder="<?php esc_attr_e( 'Virtual service display name', 'service-booking' ); ?>" />
@@ -190,6 +209,9 @@ if ( empty( $services ) ) {
 				<label><?php esc_html_e( 'Description', 'service-booking' ); ?></label>
 				<textarea id="bm-vs-desc"></textarea>
 			</div>
+			<p class="description" style="margin-top:8px;">
+				<?php esc_html_e( 'After creation, open the Components sub-table to attach 2 or more real component services.', 'service-booking' ); ?>
+			</p>
 			<button id="bm-vs-add" class="button button-primary"><?php esc_html_e( 'Create Virtual Service', 'service-booking' ); ?></button>
 		</div>
 	</div>
@@ -252,10 +274,12 @@ if ( empty( $services ) ) {
 				<label><?php esc_html_e( 'Chain Type', 'service-booking' ); ?></label>
 				<select id="bm-chain-type">
 					<option value="mutual_exclusion"><?php esc_html_e( 'Mutual Exclusion', 'service-booking' ); ?></option>
-					<option value="sequential"><?php esc_html_e( 'Sequential', 'service-booking' ); ?></option>
 				</select>
 			</div>
 			<button id="bm-add-chain" class="button button-primary"><?php esc_html_e( 'Add Chain Rule', 'service-booking' ); ?></button>
+			<p id="bm-chain-self-error" class="bm-features-notice error" style="display:none;color:#c0392b;margin-top:8px;">
+				<?php esc_html_e( 'A service cannot be chained to itself. Please select two different services.', 'service-booking' ); ?>
+			</p>
 		</div>
 	</div>
 

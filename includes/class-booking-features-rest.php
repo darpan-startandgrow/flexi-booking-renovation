@@ -630,11 +630,17 @@ class Booking_Features_REST {
 	}
 
 	public function create_chain( WP_REST_Request $request ): WP_REST_Response {
-		$params = $request->get_json_params() ?: $request->get_body_params();
-		$id     = $this->service_chain->create_chain(
-			(int) ( $params['service_a_id'] ?? 0 ),
-			(int) ( $params['service_b_id'] ?? 0 ),
-			(string) ( $params['chain_type'] ?? 'exclusive' )
+		$params     = $request->get_json_params() ?: $request->get_body_params();
+		$service_a  = (int) ( $params['service_a_id'] ?? 0 );
+		$service_b  = (int) ( $params['service_b_id'] ?? 0 );
+		// P4 — server-side self-chain guard.
+		if ( $service_a > 0 && $service_a === $service_b ) {
+			return new WP_REST_Response( [ 'success' => false, 'message' => 'A service cannot be chained to itself.' ], 422 );
+		}
+		$id = $this->service_chain->create_chain(
+			$service_a,
+			$service_b,
+			(string) ( $params['chain_type'] ?? 'mutual_exclusion' )
 		);
 		if ( ! $id ) {
 			return new WP_REST_Response( [ 'success' => false, 'message' => 'Failed to create chain' ], 500 );
@@ -757,7 +763,9 @@ class Booking_Features_REST {
 			(string) ( $params['name'] ?? '' ),
 			(string) ( $params['description'] ?? '' ),
 			isset( $params['discount_type'] ) ? (string) $params['discount_type'] : null,
-			(float) ( $params['discount_value'] ?? 0.0 )
+			(float) ( $params['discount_value'] ?? 0.0 ),
+			(float) ( $params['price'] ?? 0.0 ),
+			(int) ( $params['status'] ?? 1 )
 		);
 		if ( ! $id ) {
 			return new WP_REST_Response( [ 'success' => false, 'message' => 'Failed to create bundle' ], 500 );
@@ -824,6 +832,7 @@ class Booking_Features_REST {
 
 	public function create_virtual_service( WP_REST_Request $request ): WP_REST_Response {
 		$params = $request->get_json_params() ?: $request->get_body_params();
+		// P3 — service_id is now optional. Default to 0 when not provided.
 		$id     = $this->virtual_service->create_virtual_service(
 			(int) ( $params['service_id'] ?? 0 ),
 			(string) ( $params['name'] ?? '' ),

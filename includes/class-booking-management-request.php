@@ -17191,6 +17191,12 @@ class BM_Request {
 		$invoice_details = maybe_unserialize( $order_data->field_values );
 		$invoice_details = is_array( $invoice_details ) ? $invoice_details : array();
 
+		// P5/P16 — decode booking features data (selected_options, selected_bundle).
+		$features_raw    = isset( $order_data->booking_features_data ) ? maybe_unserialize( $order_data->booking_features_data ) : array();
+		$features_raw    = is_array( $features_raw ) ? $features_raw : array();
+		$selected_bundle  = $features_raw['selected_bundle'] ?? null;
+		$selected_options = $features_raw['selected_options'] ?? array();
+
 		$formatted_data = array(
 			'customer_info'    => array(
 				'id'         => $order_data->customer_id ?? 0,
@@ -17224,7 +17230,14 @@ class BM_Request {
 				'invoice_company_name'    => $invoice_details['invoice_company_name'] ?? '',
 				'invoice_company_country'  => $invoice_details['invoice_company_country'] ?? '',
 				'invoice_vat_id'  => $invoice_details['invoice_vat_id'] ?? '',
-			]
+			],
+			// P5 — bundle purchase data.
+			'bundle_purchase'  => $selected_bundle ? array(
+				'bundle_id'   => (int) ( $selected_bundle['bundle_id'] ?? 0 ),
+				'bundle_name' => (string) ( $selected_bundle['bundle_name'] ?? '' ),
+			) : null,
+			// P16 — selected service option data.
+			'selected_options' => is_array( $selected_options ) ? $selected_options : array(),
 		);
 
 		return $formatted_data;

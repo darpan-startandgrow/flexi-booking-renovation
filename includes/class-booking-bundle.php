@@ -39,9 +39,11 @@ $this->db = new BM_DBhandler();
  * @param string      $description
  * @param string|null $discount_type   'percent'|'fixed'|null
  * @param float       $discount_value
+ * @param float       $price           Base price for the bundle (required for commercial identity).
+ * @param int         $status          1=active, 0=inactive
  * @return int|false
  */
-public function create_bundle( string $name, string $description = '', $discount_type = null, float $discount_value = 0.0 ) {
+public function create_bundle( string $name, string $description = '', $discount_type = null, float $discount_value = 0.0, float $price = 0.0, int $status = 1 ) {
 return $this->db->insert_row(
 'BUNDLE',
 [
@@ -49,9 +51,10 @@ return $this->db->insert_row(
 'description'    => sanitize_textarea_field( $description ),
 'discount_type'  => $discount_type ? sanitize_key( $discount_type ) : null,
 'discount_value' => (float) $discount_value,
-'status'         => 1,
+'price'          => (float) $price,
+'status'         => max( 0, min( 1, $status ) ),
 ],
-[ '%s', '%s', null !== $discount_type ? '%s' : '%s', '%f', '%d' ]
+[ '%s', '%s', null !== $discount_type ? '%s' : '%s', '%f', '%f', '%d' ]
 );
 }
 
@@ -59,11 +62,11 @@ return $this->db->insert_row(
  * Update a bundle.
  *
  * @param int   $bundle_id
- * @param array $data  Keys: name, description, discount_type, discount_value, status
+ * @param array $data  Keys: name, description, discount_type, discount_value, price, status
  * @return bool
  */
 public function update_bundle( int $bundle_id, array $data ): bool {
-$allowed = [ 'name', 'description', 'discount_type', 'discount_value', 'status' ];
+$allowed = [ 'name', 'description', 'discount_type', 'discount_value', 'price', 'status' ];
 $set     = [];
 $formats = [];
 foreach ( $allowed as $key ) {
@@ -71,7 +74,7 @@ if ( array_key_exists( $key, $data ) ) {
 $set[ $key ] = $data[ $key ];
 if ( 'status' === $key ) {
 $formats[] = '%d';
-} elseif ( 'discount_value' === $key ) {
+} elseif ( in_array( $key, [ 'discount_value', 'price' ], true ) ) {
 $formats[] = '%f';
 } else {
 $formats[] = '%s';

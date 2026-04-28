@@ -44,6 +44,56 @@ $shared_column_data = apply_filters( 'bm_services_shared_column_data', array(
 $global_extras_by_service = $shared_column_data['global_extras_by_service'];
 $services_for_globals     = $shared_column_data['services_for_globals'];
 
+// P12 — Batch-fetch feature participation flags for all services on this page.
+$bm_feature_participation = array();
+if ( ! empty( $service_ids_on_page ) ) {
+    global $wpdb;
+    $plugin_prefix  = $wpdb->prefix . 'sgbm_';
+    $ids_placeholder = implode( ',', array_map( 'intval', $service_ids_on_page ) );
+
+    // Chains.
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery -- IDs are already cast to int.
+    $chain_rows = $wpdb->get_results( "SELECT service_a_id AS svc_id FROM {$plugin_prefix}service_chains WHERE service_a_id IN ($ids_placeholder) UNION SELECT service_b_id AS svc_id FROM {$plugin_prefix}service_chains WHERE service_b_id IN ($ids_placeholder)" );
+    foreach ( (array) $chain_rows as $r ) {
+        $bm_feature_participation[ (int) $r->svc_id ]['chain'] = true;
+    }
+
+    // Resource Pools.
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery
+    $pool_rows = $wpdb->get_results( "SELECT service_id AS svc_id FROM {$plugin_prefix}service_resource_pools WHERE service_id IN ($ids_placeholder)" );
+    foreach ( (array) $pool_rows as $r ) {
+        $bm_feature_participation[ (int) $r->svc_id ]['pool'] = true;
+    }
+
+    // Options.
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery
+    $opt_rows = $wpdb->get_results( "SELECT service_id AS svc_id FROM {$plugin_prefix}option_sets WHERE service_id IN ($ids_placeholder)" );
+    foreach ( (array) $opt_rows as $r ) {
+        $bm_feature_participation[ (int) $r->svc_id ]['options'] = true;
+    }
+
+    // Bundle items.
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery
+    $bundle_rows = $wpdb->get_results( "SELECT service_id AS svc_id FROM {$plugin_prefix}bundle_items WHERE service_id IN ($ids_placeholder)" );
+    foreach ( (array) $bundle_rows as $r ) {
+        $bm_feature_participation[ (int) $r->svc_id ]['bundle'] = true;
+    }
+
+    // Virtual Service components.
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery
+    $vs_rows = $wpdb->get_results( "SELECT component_service_id AS svc_id FROM {$plugin_prefix}virtual_service_components WHERE component_service_id IN ($ids_placeholder)" );
+    foreach ( (array) $vs_rows as $r ) {
+        $bm_feature_participation[ (int) $r->svc_id ]['virtual'] = true;
+    }
+
+    // Service as Extra (parent or addon).
+    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery
+    $sae_rows = $wpdb->get_results( "SELECT parent_service_id AS svc_id FROM {$plugin_prefix}service_as_extra WHERE parent_service_id IN ($ids_placeholder) UNION SELECT addon_service_id AS svc_id FROM {$plugin_prefix}service_as_extra WHERE addon_service_id IN ($ids_placeholder)" );
+    foreach ( (array) $sae_rows as $r ) {
+        $bm_feature_participation[ (int) $r->svc_id ]['extra'] = true;
+    }
+}
+
 ?>
 
 <!-- Services -->
@@ -90,6 +140,7 @@ $services_for_globals     = $shared_column_data['services_for_globals'];
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Name', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Category', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Show in frontend', 'service-booking' ); ?></th>
+                    <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Features', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Shared', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Service Shortcodes', 'service-booking' ); ?></th>
                     <th style="text-align: center;font-weight: 600;"><?php esc_html_e( 'Actions', 'service-booking' ); ?></th>
@@ -108,6 +159,35 @@ $services_for_globals     = $shared_column_data['services_for_globals'];
                             <td style="text-align: center;" class="bm-checkbox-td">
                                 <input name="bm_show_service_in_front" type="checkbox" id="bm_show_service_in_front_<?php echo esc_attr( $service->id ); ?>" class="regular-text auto-checkbox bm_toggle" <?php checked( esc_attr( $service->is_service_front ), '1' ); ?> onchange="bm_change_service_visibility(this)">
                                 <label for="bm_show_service_in_front_<?php echo esc_attr( $service->id ); ?>"></label>
+                            </td>
+                            <!-- P12: feature-participation badges -->
+                            <td style="text-align: center;">
+                                <?php
+                                $fp = isset( $bm_feature_participation[ (int) $service->id ] ) ? $bm_feature_participation[ (int) $service->id ] : array();
+                                $badge_style = 'display:inline-block;border-radius:10px;font-size:10px;padding:2px 7px;margin:1px;color:#fff;cursor:default;';
+                                if ( ! empty( $fp ) ) {
+                                    if ( ! empty( $fp['chain'] ) ) {
+                                        echo '<span style="' . esc_attr( $badge_style ) . 'background:#8b5cf6;" title="' . esc_attr__( 'Part of a Service Chain', 'service-booking' ) . '">Chain</span>';
+                                    }
+                                    if ( ! empty( $fp['pool'] ) ) {
+                                        echo '<span style="' . esc_attr( $badge_style ) . 'background:#0ea5e9;" title="' . esc_attr__( 'Part of a Resource Pool', 'service-booking' ) . '">Pool</span>';
+                                    }
+                                    if ( ! empty( $fp['options'] ) ) {
+                                        echo '<span style="' . esc_attr( $badge_style ) . 'background:#10b981;" title="' . esc_attr__( 'Has Service Options', 'service-booking' ) . '">Options</span>';
+                                    }
+                                    if ( ! empty( $fp['bundle'] ) ) {
+                                        echo '<span style="' . esc_attr( $badge_style ) . 'background:#f59e0b;" title="' . esc_attr__( 'Part of a Bundle', 'service-booking' ) . '">Bundle</span>';
+                                    }
+                                    if ( ! empty( $fp['virtual'] ) ) {
+                                        echo '<span style="' . esc_attr( $badge_style ) . 'background:#ec4899;" title="' . esc_attr__( 'Component of a Virtual Service', 'service-booking' ) . '">VS Comp</span>';
+                                    }
+                                    if ( ! empty( $fp['extra'] ) ) {
+                                        echo '<span style="' . esc_attr( $badge_style ) . 'background:#64748b;" title="' . esc_attr__( 'Used as Service Extra', 'service-booking' ) . '">Extra</span>';
+                                    }
+                                } else {
+                                    echo '<span style="color:#999;font-size:11px;">—</span>';
+                                }
+                                ?>
                             </td>
                             <td style="text-align: center;" class="bm-shared-extras-td">
                                 <?php

@@ -158,6 +158,49 @@ if ( !$order_details ) {
         </div>
     </div>
 
+    <?php
+    // P5 — Bundle purchase details.
+    $bundle_purchase  = $order_details['bundle_purchase'] ?? null;
+    // P16 — Selected service options.
+    $selected_options = $order_details['selected_options'] ?? array();
+    if ( $bundle_purchase || ! empty( $selected_options ) ) :
+    ?>
+    <div class="order-section" style="margin-top:16px;">
+        <h3><?php esc_html_e( 'Booking Features', 'service-booking' ); ?></h3>
+
+        <?php if ( $bundle_purchase ) : ?>
+        <div style="margin-bottom:12px;">
+            <strong><?php esc_html_e( 'Bundle Purchase:', 'service-booking' ); ?></strong>
+            <?php echo esc_html( $bundle_purchase['bundle_name'] ); ?>
+            <span style="color:#888;font-size:12px;">(ID: <?php echo (int) $bundle_purchase['bundle_id']; ?>)</span>
+        </div>
+        <?php endif; ?>
+
+        <?php if ( ! empty( $selected_options ) ) : ?>
+        <div>
+            <strong><?php esc_html_e( 'Selected Options:', 'service-booking' ); ?></strong>
+            <ul style="margin:6px 0 0 16px;">
+            <?php foreach ( $selected_options as $opt ) :
+                $set_name = isset( $opt['option_set_name'] ) ? $opt['option_set_name'] : ( isset( $opt['set_name'] ) ? $opt['set_name'] : '' );
+                $val_name = isset( $opt['option_value_name'] ) ? $opt['option_value_name'] : ( isset( $opt['value_name'] ) ? $opt['value_name'] : '' );
+                $modifier = isset( $opt['price_modifier'] ) ? $opt['price_modifier'] : 0;
+            ?>
+                <li>
+                    <?php if ( $set_name ) : ?>
+                        <strong><?php echo esc_html( $set_name ); ?>:</strong>
+                    <?php endif; ?>
+                    <?php echo esc_html( $val_name ); ?>
+                    <?php if ( $modifier ) : ?>
+                        <span style="color:#555;font-size:12px;">(<?php echo ( $modifier >= 0 ? '+' : '' ) . esc_html( $modifier ); ?>)</span>
+                    <?php endif; ?>
+                </li>
+            <?php endforeach; ?>
+            </ul>
+        </div>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
+
     <div id="email_body_modal" class="modaloverlay">
         <div class="modal animate__animated animate__swing">
             <span class="close" onclick="closeModal('email_body_modal')">&times;</span>
